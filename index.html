@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vokabelarena</title>
+<style>
+:root{color-scheme:dark;font:18px system-ui;background:#141524;color:#faf7ee}
+body{margin:0}main{max-width:880px;margin:auto;padding:clamp(18px,5vw,64px)}
+h1{font-size:clamp(2.5rem,7vw,5rem);letter-spacing:-.06em;margin:.15em 0}
+header p{color:#bdb5f4;margin:0;font-weight:700}
+section{background:#22233b;border:1px solid #424461;border-radius:24px;padding:clamp(18px,4vw,36px)}
+[hidden]{display:none!important} #pitch{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:20px 0} #pitch span{background:#26604d;border-radius:5px;padding:12px 0} #pitch span.active{background:#9de3b9;color:#14231c} input{font:inherit;max-width:100%} label{display:block;margin:0 0 15px}textarea,select,button{font:inherit;border-radius:10px;padding:10px}textarea{box-sizing:border-box;width:100%;min-height:165px;margin-top:8px}
+button{cursor:pointer;border:0;font-weight:700;background:#c3b5ff;color:#18162e;margin:4px}button:focus-visible{outline:3px solid white}button.secondary{background:#383a57;color:white}.correct{background:#9de3b9}.wrong{background:#ffb4a5}
+.options,.meters{display:flex;gap:20px;flex-wrap:wrap;align-items:center}.meters>div{flex:1;min-width:155px}progress{width:100%;height:20px;accent-color:#fdac93}
+#game{text-align:center}.boss{font-size:4rem;margin:0.25em auto;line-height:1}
+#word{font-size:clamp(1.7rem,6vw,3.5rem);overflow-wrap:anywhere;margin:.2em 0}
+#feedback{min-height:2em;color:#e0d8ff}#turn{color:#c3b5ff;font-weight:700}small{color:#d4d0e4}
+
+:root{font-family:"Barlow",system-ui,sans-serif;background:#101821;color:#f1f7fb}
+main{max-width:1040px;padding:clamp(14px,4vw,42px)}
+header h1{font-size:clamp(2rem,5vw,3.5rem);margin:0 0 .4em}
+section{border-radius:18px;background:#192531;border-color:#364b58}
+#game{--accent:#80e9bb;position:relative;border-top:4px solid var(--accent);overflow:hidden}
+#game[data-mode=zombie]{--accent:#d2ef76;background:radial-gradient(ellipse at top,#34452b,#18231f 65%)}
+#game[data-mode=boss]{--accent:#ffb581;background:radial-gradient(ellipse at 50% 0%,#533043,#222139 60%)}
+#turn{color:var(--accent);margin:.9em 0 .25em} #score{font-size:clamp(1rem,3vw,1.5rem);font-weight:800;margin:0}
+#pitch{position:relative;display:flex;justify-content:space-between;align-items:center;aspect-ratio:4.8;border:2px solid #e5ffed;border-radius:12px;max-width:740px;margin:12px auto;background:repeating-linear-gradient(90deg,#1e684a 0 14.285%,#277c55 14.285% 28.57%)}
+#pitch::before{content:"";position:absolute;inset:0 50% 0 auto;border-left:2px solid #e5ffed}
+#pitch::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:12%;aspect-ratio:1;border:2px solid #e5ffed;border-radius:50%}
+#pitch span{z-index:1;background:transparent;flex:1;color:#c9f7d7;font-size:1.3rem}
+#pitch span.active{background:transparent;color:white;font-size:clamp(1.15rem,4vw,2.4rem);text-shadow:0 3px 5px #082514}
+#pitch span.active{visibility:hidden}
+#pitchBall{position:absolute;z-index:2;top:50%;left:var(--ball,50%);transform:translate(-50%,-50%);transition:left .35s ease;font-size:clamp(1rem,4vw,2.5rem);filter:drop-shadow(0 4px 3px #10281e)}
+.roster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px auto;max-width:720px}
+.roster>div{background:#111e1bd9;border:1px solid #607051;border-radius:12px;padding:10px}
+.roster strong{display:block;margin-bottom:6px}.roster span{display:inline-grid;place-items:center;min-width:1.6em;height:1.6em;margin:3px;border-radius:5px;background:#274a5a;color:#c8eeff;font-weight:800}.roster .infected span{background:#47632b;color:#e9ff9a}
+.boss{width:min(31vw,146px);height:auto;aspect-ratio:1.22;margin:14px auto;background:#a865e0;clip-path:polygon(0 0,16% 0,16% 20%,84% 20%,84% 0,100% 0,100% 65%,87% 65%,87% 90%,70% 90%,70% 100%,30% 100%,30% 90%,13% 90%,13% 65%,0 65%);position:relative;box-shadow:inset 0 -20px #6338a0}
+.boss::before{content:"";position:absolute;background:#ffdf96;width:16%;height:16%;top:41%;left:22%;box-shadow: min(12.4vw,58px) 0 #ffdf96}
+.boss::after{content:"";position:absolute;background:#2b1940;width:30%;height:11%;top:68%;left:35%}
+#game[data-hit=right] .boss{animation:hit .38s ease}#game[data-hit=wrong] .boss{animation:lunge .38s ease}
+@keyframes hit{30%{transform:translateX(10px);filter:brightness(1.8)}70%{transform:translateX(-8px)}}
+@keyframes lunge{50%{transform:scale(1.16)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+#judge button,#next{min-width:112px}#feedback{margin:.4em 0}
+#review{margin:12px 0 18px;padding:14px;border:1px solid #57727d;border-radius:12px}
+#review table{width:100%;border-spacing:4px}#review td:first-child{width:2em}#review input[type=text]{box-sizing:border-box;width:100%;padding:5px}
+</style>
+<main>
+<header><h1>Vokabelarena</h1></header>
+<section id="setup">
+<form id="config">
+<label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon</small>
+<textarea id="pairs" required spellcheck="false">entscheiden;decide
+anbieten;offer
+erklären;explain
+der Grund;reason
+zuverlässig;reliable
+die Bestellung;order
+verbessern;improve
+sich erinnern;remember</textarea></label>
+<label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><button type="button" class="secondary" id="ocr">Text aus Bild lesen</button><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div><div class="options"><label>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option></select></label>
+<label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+<label>Abfrage <select id="direction"><option value="0">Links → rechts</option><option value="1">Rechts → links</option><option value="mix">Gemischt</option></select></label>
+</div>
+<div id="footballOptions"><label>Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><div id="zombieOptions" hidden><label>Spielende, nummeriert <input id="players" type="number" min="2" max="40" value="8"></label><label>Start-Zombies <input id="zombies" type="number" min="1" max="39" value="2"></label><label>Angriffe bis zur Rettung <input id="attacks" type="number" min="1" max="100" value="10"></label></div><button id="start">Spiel starten</button>
+<p id="error" role="alert" hidden></p>
+</form>
+</section>
+<section id="game" hidden>
+<div class="meters" id="bossMeters">
+<div><span id="hpLabel"></span><progress id="hp" max="8" aria-label="Boss-Lebenspunkte"></progress></div>
+<div><span id="heartsLabel"></span><progress id="hearts" max="4" aria-label="Verbleibende Herzen"></progress></div>
+</div>
+<div class="boss" id="bossIcon" aria-hidden="true"></div><p id="score"></p><div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
+<p id="turn"></p>
+<h2 id="word" tabindex="-1"></h2>
+<p id="feedback" aria-live="polite"></p>
+<div id="judge"><button type="button" class="correct" id="correct">Richtig</button><button type="button" class="wrong" id="wrong">Falsch</button></div>
+<button type="button" id="next" hidden>Weiter</button>
+<button type="button" class="secondary" id="back">Zur Einrichtung</button>
+</section>
+</main>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+let state;
+
+function shuffle(cards) {
+  const bag = [...cards];
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [bag[i], bag[j]] = [bag[j], bag[i]];
+  }
+  return bag;
+}
+
+function draw() {
+  const due = state.retries.findIndex(item => item.due <= state.answered);
+  if (due >= 0) return state.retries.splice(due, 1)[0].question;
+  if (!state.bag.length) state.bag = shuffle(state.cards);
+  const available = state.bag.findIndex(card =>
+    card !== state.current?.card && !state.retries.some(item => item.question.card === card));
+  if (available < 0) {
+    const fresh = state.cards.filter(card => card !== state.current?.card &&
+      !state.retries.some(item => item.question.card === card));
+    if (fresh.length) state.bag = shuffle(fresh);
+  }
+  const index = state.bag.findIndex(card =>
+    card !== state.current?.card && !state.retries.some(item => item.question.card === card));
+  const card = state.bag.splice(Math.max(0, index), 1)[0];
+  const side = state.direction === "mix" ? Number(Math.random() < 0.5) : Number(state.direction);
+  return {card, side};
+}
+
+function meters() {
+  if (state.mode !== "boss") return;
+  el("hp").value = state.hp;
+  el("hearts").value = state.hearts;
+  el("hpLabel").textContent = "Boss · " + state.hp + "/8 LP";
+  el("heartsLabel").textContent = "Ihr · " + state.hearts + "/4 Herzen";
+}
+
+function question() {
+  if (state.mode === "zombie" && state.target == null) {
+    chooseTarget();
+    return;
+  }
+  delete el("game").dataset.hit;
+  state.current = draw();
+  state.pending = true;
+  el("turn").textContent = state.mode === "football" ? "Team " + (state.team + 1) + " ist dran" : state.mode === "zombie" ? "Person " + state.target + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
+    " ist dran · Serie " + state.streak + "/3";
+  el("word").textContent = state.current.card[state.current.side];
+  el("feedback").textContent = "";
+  el("judge").hidden = false;
+  el("next").hidden = true;
+  el("word").focus();
+}
+
+function judge(correct) {
+  if (!state.pending) return;
+  state.pending = false;
+  el("game").dataset.hit = correct ? "right" : "wrong";
+  state.answered++;
+  const solution = state.current.card[1 - state.current.side];
+  if (state.mode !== "boss") {
+    judgeTeam(correct, solution);
+    return;
+  }
+  let message;
+  if (correct) {
+    state.streak++;
+    const bonus = state.streak === 3;
+    state.hp = Math.max(0, state.hp - (bonus ? 2 : 1));
+    if (bonus) state.streak = 0;
+    message = bonus ? "Bonusangriff! Der Boss verliert 2 LP." : "Treffer! Der Boss verliert 1 LP.";
+  } else {
+    state.hearts--;
+    state.streak = 0;
+    if (!state.retries.some(item => item.question.card === state.current.card &&
+      item.question.side === state.current.side)) {
+      state.retries.push({question: state.current, due: state.answered + Math.min(2, state.cards.length - 1)});
+    }
+    message = "Richtige Lösung: " + solution;
+  }
+  meters();
+  el("feedback").textContent = message;
+  el("judge").hidden = true;
+  if (state.hp === 0 || state.hearts === 0) {
+    el("turn").textContent = "Kampf beendet";
+    el("word").textContent = state.hp === 0 ? "Boss besiegt!" : "Der Boss hat gewonnen.";
+    el("back").focus();
+    return;
+  }
+  el("next").hidden = false;
+  el("next").focus();
+}
+
+el("config").addEventListener("submit", event => {
+  event.preventDefault();
+  const lines = el("pairs").value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const cards = lines.map(line => line.split(line.includes("\t") ? "\t" : ";").map(part => part.trim()));
+  const bad = cards.findIndex(card => card.length !== 2 || card.some(part => !part));
+  const error = el("error");
+  error.hidden = Boolean(cards.length && bad < 0);
+  if (!error.hidden) {
+    error.textContent = bad >= 0 ? "Bitte prüfe Wortpaar " + (bad + 1) + "." : "Bitte gib mindestens ein Wortpaar ein.";
+    return;
+  }
+  const mode = el("mode").value;
+  const players = Number(el("players").value);
+  const zombies = Number(el("zombies").value);
+  if (mode === "zombie" && zombies >= players) {
+    error.hidden = false;
+    error.textContent = "Mindestens eine Person muss als Überlebende starten.";
+    return;
+  }
+  state = {mode, ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
+    attackers:Array.from({length:zombies}, (_, i) => i + 1),
+    survivors:Array.from({length:Math.max(0, players - zombies)}, (_, i) => zombies + i + 1),
+    maxAttacks:Number(el("attacks").value), target:null, cards, bag:shuffle(cards), retries:[], count:Number(el("count").value),
+    direction:el("direction").value, hp:8, hearts:4, streak:0, answered:0};
+  el("setup").hidden = true;
+  el("game").hidden = false;
+  el("bossMeters").hidden = mode !== "boss";
+  el("bossIcon").hidden = mode !== "boss";
+  el("game").dataset.mode = mode;
+  el("roster").hidden = mode !== "zombie";
+  el("pitch").hidden = mode !== "football";
+  el("pitch").replaceChildren();
+  el("score").hidden = mode === "boss";
+  el("targets").replaceChildren();
+  meters();
+  renderTeam();
+  question();
+});
+el("correct").onclick = () => judge(true);
+el("wrong").onclick = () => judge(false);
+el("next").onclick = question;
+el("back").onclick = () => {
+  el("game").hidden = true;
+  el("setup").hidden = false;
+  el("pairs").focus();
+};
+
+function renderTeam() {
+  if (state.mode === "football") {
+    el("score").textContent = "Team 1  ·  " + state.goals.join(" : ") + "  ·  Team 2";
+    const pitch = el("pitch");
+    pitch.style.setProperty("--ball", ((state.ball + 0.5) * 100 / 7) + "%");
+    pitch.setAttribute("aria-label", "Ball auf Position " + (state.ball + 1) + " von 7");
+    if (!pitch.children.length) pitch.replaceChildren(...Array.from({length:7}, (_, index) => {
+      const tile = document.createElement("span");
+      tile.textContent = index === 0 || index === 6 ? "🥅" : "·";
+      tile.setAttribute("aria-hidden", "true");
+      return tile;
+    }));
+    if (!el("pitchBall")) {
+      const ball = document.createElement("div");
+      ball.id = "pitchBall";
+      ball.textContent = "⚽";
+      ball.setAttribute("aria-hidden", "true");
+      pitch.append(ball);
+    }
+  }
+  if (state.mode === "zombie") {
+    el("roster").replaceChildren(rosterGroup("Zombies", state.attackers, true), rosterGroup("Überlebende", state.survivors, false));
+    el("score").textContent = "Zombies: " + state.attackers.join(", ") +
+      " · Überlebende: " + state.survivors.length +
+      " · Angriffe: " + state.answered + "/" + state.maxAttacks;
+  }
+}
+
+function rosterGroup(label, people, infected) {
+  const group = document.createElement("div");
+  group.classList.toggle("infected", infected);
+  const title = document.createElement("strong");
+  title.textContent = label + " · " + people.length;
+  group.append(title);
+  for (const person of people) {
+    const badge = document.createElement("span");
+    badge.textContent = person;
+    group.append(badge);
+  }
+  return group;
+}
+
+function chooseTarget() {
+  const targets = el("targets");
+  el("turn").textContent = "Zombies wählen die nächste Person";
+  el("word").textContent = "Wer verteidigt sich?";
+  el("feedback").textContent = "";
+  el("judge").hidden = true;
+  el("next").hidden = true;
+  targets.replaceChildren(...state.survivors.map(person => {
+    const button = document.createElement("button");
+    button.textContent = "Person " + person;
+    button.onclick = () => {
+      state.target = person;
+      targets.replaceChildren();
+      question();
+    };
+    return button;
+  }));
+  targets.firstElementChild?.focus();
+}
+
+function judgeTeam(correct, solution) {
+  const message = correct ? "Richtig!" : "Richtige Lösung: " + solution;
+  let result = "";
+  let event = "";
+  if (state.mode === "football") {
+    if (correct) state.ball += state.team === 0 ? 1 : -1;
+    if (state.ball === 0 || state.ball === 6) {
+      state.goals[state.team]++;
+      event = " Tor für Team " + (state.team + 1) + "!";
+      if (state.goals[state.team] === state.goalLimit) result = "Team " + (state.team + 1) + " gewinnt!";
+      else state.ball = 3;
+    }
+    state.team = 1 - state.team;
+  } else {
+    if (!correct) {
+      state.survivors = state.survivors.filter(person => person !== state.target);
+      state.attackers.push(state.target);
+      event = " Person " + state.target + " wird zum Zombie!";
+    }
+    state.target = null;
+    if (!state.survivors.length) result = "Die Zombies gewinnen!";
+    else if (state.answered === state.maxAttacks) result = "Die Überlebenden gewinnen!";
+  }
+  renderTeam();
+  el("feedback").textContent = message + event;
+  el("judge").hidden = true;
+  if (result) {
+    el("turn").textContent = "Spiel beendet";
+    el("word").textContent = result;
+    el("back").focus();
+  } else {
+    el("next").hidden = false;
+    el("next").focus();
+  }
+}
+
+function setupMode() {
+  const mode = el("mode").value;
+  el("bossOptions").hidden = mode !== "boss";
+  el("footballOptions").hidden = mode !== "football";
+  el("zombieOptions").hidden = mode !== "zombie";
+  for (const id of ["players", "zombies", "attacks"]) el(id).disabled = mode !== "zombie";
+}
+el("mode").onchange = setupMode;
+setupMode();
+
+
+function plausibleEntry(text) {
+  const words = text.match(/\p{L}[\p{L}'’.-]*/gu) ?? [];
+  if (!words.length || words.length > 9 || text.length > 100) return false;
+  if (/^\s*(?:unit|lesson|chapter|seite|page|kapitel|lektion|übungen?|exercises?|examples?|beispiele?|vocabulary|wortschatz|vokabeln|english|deutsch)\s*[\d:.\-]*\s*$/iu.test(text)) return false;
+  if (/^[„“"»(]\s*|\b(?:e\.g\.|z\.\s*b\.|example:|beispiel:)|[!?]$|[.]\s+\p{Lu}/iu.test(text)) return false;
+  if (words.length >= 3 && /\.$/.test(text)) return false;
+  return !/^(?:S\.|p\.)?\s*\d+[\s\d./–-]*$/i.test(text);
+}
+
+function extractPairs(data) {
+  const pairs = new Map();
+  function add(left, right) {
+    const clean = text => text.trim().replace(/^(?:[\u2022\u25aa]|\d+[.)])\s+/, '')
+      .replace(/\s+\/[^/]+\/\s*$/, '').trim();
+    left = clean(left);
+    right = clean(right);
+    if (!plausibleEntry(left) || !plausibleEntry(right) || left === right) return;
+    pairs.set((left + '\t' + right).toLocaleLowerCase('de'), [left, right]);
+  }
+
+  const words = (data.words ?? []).filter(word => word.text.trim() && word.bbox);
+  if (words.length) {
+    const heights = words.map(word => word.bbox.y1 - word.bbox.y0).sort((a, b) => a - b);
+    const height = heights[Math.floor(heights.length / 2)] || 12;
+    const centerY = word => (word.bbox.y0 + word.bbox.y1) / 2;
+    const rows = [];
+    for (const word of [...words].sort((a, b) => centerY(a) - centerY(b))) {
+      const last = rows.at(-1);
+      if (last && centerY(word) - last.y < height * .46) last.words.push(word);
+      else rows.push({y:centerY(word), words:[word]});
+    }
+    const gapped = rows.map(row => {
+      const ordered = row.words.sort((a,b) => a.bbox.x0 - b.bbox.x0);
+      const gaps = ordered.slice(1).map((word, i) => ({i:i+1,
+        x:word.bbox.x0, size:word.bbox.x0 - ordered[i].bbox.x1}));
+      return {ordered, gaps:gaps.filter(gap => gap.size >= height * 1.35)};
+    });
+    const positions = gapped.flatMap(row => row.gaps.map(gap => gap.x));
+    const alignment = x => positions.filter(other => Math.abs(other - x) < height * 1.4).length;
+    for (const {ordered, gaps} of gapped) {
+      gaps.sort((a,b) => alignment(b.x) - alignment(a.x) || b.size - a.size);
+      const split = gaps[0];
+      if (!split || (alignment(split.x) < 2 && gaps.length > 1)) continue;
+      const join = items => items.map(word => word.text).join(' ');
+      const later = gaps.filter(gap => gap.i > split.i).sort((a,b) => a.i-b.i)[0];
+      add(join(ordered.slice(0, split.i)), join(ordered.slice(split.i, later?.i)));
+    }
+  }
+
+  for (const line of (data.text ?? '').split(/\r?\n/)) {
+    const parts = line.trim().split(/\t+| {2,}|\s+[–—=]\s+|\s*;\s*/);
+    if (parts.length === 2) add(...parts);
+  }
+  return [...pairs.values()];
+}
+
+function showCandidates(candidates) {
+  const rows = el("scanRows");
+  rows.replaceChildren(...candidates.map(([left, right], index) => {
+    const row = document.createElement("tr");
+    const values = [null, left, right];
+    values.forEach((value, column) => {
+      const cell = document.createElement("td");
+      const input = document.createElement("input");
+      input.type = column === 0 ? "checkbox" : "text";
+      input.setAttribute("aria-label", ["Übernehmen", "Vokabel", "Übersetzung"][column] + " " + (index + 1));
+      if (column === 0) input.checked = true;
+      else input.value = value;
+      cell.append(input);
+      row.append(cell);
+    });
+    return row;
+  }));
+  el("review").hidden = !candidates.length;
+  el("scanStatus").textContent = candidates.length
+    ? candidates.length + " mögliche Wortpaare. Prüfe die Zuordnung und wähle aus, was übernommen werden soll."
+    : "Keine eindeutigen Wortpaare erkannt. Fotografiere möglichst nur die beiden Vokabelspalten.";
+}
+
+el("acceptScan").onclick = () => {
+  const selected = [...el("scanRows").rows].map(row => [...row.querySelectorAll("input")])
+    .filter(([check]) => check.checked)
+    .map(([,left,right]) => [left.value.trim(), right.value.trim()]);
+  if (!selected.length || selected.some(pair => pair.some(word => !word || /[;\t]/.test(word)))) {
+    el("scanStatus").textContent = "Wähle mindestens ein vollständiges Paar. Entferne Semikolons in den Feldern.";
+    return;
+  }
+  const pairs = el("pairs");
+  const existing = pairs.value === pairs.defaultValue ? [] : pairs.value.trim().split(/\r?\n/);
+  pairs.value = [...new Set([...existing, ...selected.map(pair => pair.join(";"))])].filter(Boolean).join("\n");
+  el("review").hidden = true;
+  el("scanStatus").textContent = selected.length + " ausgewählte Wortpaare übernommen.";
+};
+el("cancelScan").onclick = () => {
+  el("review").hidden = true;
+  el("scanStatus").textContent = "Import verworfen.";
+};
+el("scan").onchange = () => {
+  el("review").hidden = true;
+  el("scanStatus").textContent = "";
+};
+
+
+el("ocr").onclick = async () => {
+  const status = el("scanStatus");
+  const file = el("scan").files[0];
+  if (!file) {
+    status.textContent = "Wähle zuerst ein Foto oder einen Scan als Bilddatei.";
+    return;
+  }
+  el("review").hidden = true;
+  el("ocr").disabled = true;
+  el("start").disabled = true;
+  status.textContent = "Texterkennung wird geladen …";
+  let worker;
+  try {
+    if (!window.Tesseract) await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
+    });
+    worker = await Tesseract.createWorker("deu+eng");
+    status.textContent = "Das Bild wird gelesen …";
+    const {data} = await worker.recognize(file);
+    showCandidates(extractPairs(data));
+  } catch {
+    status.textContent = "Texterkennung fehlgeschlagen. Prüfe Internetverbindung und Bildqualität.";
+  } finally {
+    if (worker) await worker.terminate().catch(() => {});
+    el("ocr").disabled = false;
+    el("start").disabled = false;
+  }
+};
+</script>
+</html>
