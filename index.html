@@ -137,8 +137,56 @@ button.gameTile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 2
 .stoneSteps{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin:.3rem 0 1.1rem}
 .stoneStep{position:relative;height:.65rem;background:#28364e;border-radius:3px}.stoneStep[data-on]{background:var(--stone)}
 .stoneMark{position:absolute;top:100%;right:0;font-size:.7rem;color:#d2deec}.stoneMark::before{display:block;content:"";width:1px;height:3px;background:currentColor;margin:auto}
+
+#playToolbar,#playPanel{display:contents}
+#arenaMain:fullscreen{width:100%;height:100%;max-width:none;box-sizing:border-box;background:#090f1e;overflow:auto}
+#arenaMain:has(#game[data-mode=catapult]:not([hidden])){max-width:1120px;padding:clamp(4px,1.2vmin,12px)}
+#arenaMain:has(#game[data-mode=catapult]:not([hidden])) .masthead{display:none}
+#game[data-mode=catapult]:not([hidden]){
+  display:flex;flex-direction:column;gap:clamp(4px,1vh,10px);
+  box-sizing:border-box;height:calc(100dvh - clamp(8px,2.4vmin,24px));
+  padding:clamp(6px,1.4vmin,14px);border-radius:14px;overflow:auto;
+}
+#game[data-mode=catapult] #playToolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:.45rem;flex:none;text-align:left
+}
+#game[data-mode=catapult] #score{font-size:clamp(.85rem,2.5vmin,1.15rem)}
+#game[data-mode=catapult] #playPanel{display:block;flex:none;min-width:0}
+#game[data-mode=catapult] #targets:empty,#game[data-mode=catapult] #feedback:empty{display:none}
+#game[data-mode=catapult] .catapultArena{display:flex;flex-direction:column;flex:1 0 auto;min-height:min-content;margin:0;overflow:visible}
+#game[data-mode=catapult] #siegeCanvas{
+  flex:1 1 0;height:0;min-height:clamp(64px,17dvh,130px);object-fit:contain;border-radius:inherit
+}
+#game[data-mode=catapult] #catapultStats{flex:none;border-radius:0 0 14px 14px;overflow:hidden}
+#game[data-mode=catapult] .castleStats{padding:clamp(4px,1vh,10px) clamp(5px,1.6vw,14px);line-height:1.15}
+#game[data-mode=catapult] .castleStats small{font-size:clamp(.66rem,1.9vmin,.82rem)}
+#game[data-mode=catapult] .castleStats progress{height:.5rem;margin:.25rem 0}
+#game[data-mode=catapult] .stoneMeter{margin-top:.3rem}
+#game[data-mode=catapult] .stoneSteps{margin:.2rem 0 .95rem}
+#game[data-mode=catapult] .stoneStep{height:.45rem}
+#game[data-mode=catapult] .stoneMark{font-size:.6rem}
+#game[data-mode=catapult] #turn,#game[data-mode=catapult] #answerKey,#game[data-mode=catapult] #feedback{margin:.23rem 0;min-height:0}
+#game[data-mode=catapult] #word{font-size:clamp(1.25rem,4.2vmin,2.45rem);margin:.12rem 0;line-height:1.15}
+#game[data-mode=catapult] #playPanel button,#arenaFullscreen{
+  min-width:0;margin:2px;padding:.35rem .55rem;font-size:clamp(.72rem,2.2vmin,.92rem)
+}
+#game[data-mode=catapult] #catapultActions{justify-content:center;gap:2px;margin:.25rem 0}
+#game[data-mode=catapult] #typedAnswer{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.25rem}
+#game[data-mode=catapult] #typedAnswer label{margin:0;font-size:.85rem}
+#game[data-mode=catapult] #typedAnswer input{box-sizing:border-box;max-width:min(42vw,11rem);padding:.3rem}
+@media(max-height:540px) and (min-width:600px){
+  #game[data-mode=catapult]:not([hidden]){
+    display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);
+    grid-template-rows:auto minmax(min-content,1fr)
+  }
+  #game[data-mode=catapult] #playToolbar{grid-column:1/-1}
+  #game[data-mode=catapult] #playPanel{align-self:center}
+}
+@media(max-width:520px) and (min-height:541px){
+  #game[data-mode=catapult] #word{font-size:clamp(1.35rem,6vw,2rem)}
+}
 </style>
-<main>
+<main id="arenaMain">
 <header class="masthead"><h1 aria-label="Vokabelarena"><span>VOKABEL</span><span>ARENA</span></h1></header>
 <section id="setup">
 
@@ -218,23 +266,25 @@ sich erinnern;remember</textarea></label>
 <div><span id="hpLabel"></span><progress id="hp" max="8" aria-label="Boss-Lebenspunkte"></progress></div>
 <div><span id="heartsLabel"></span><progress id="hearts" max="4" aria-label="Verbleibende Herzen"></progress></div>
 </div>
-<div id="bossIcon" hidden><canvas id="bossSprite" width="96" height="72" aria-hidden="true"></canvas><span id="bossName"></span><span id="bossEffect" hidden></span></div><p id="score"></p>
+<div id="bossIcon" hidden><canvas id="bossSprite" width="96" height="72" aria-hidden="true"></canvas><span id="bossName"></span><span id="bossEffect" hidden></span></div><div id="playToolbar"><p id="score"></p><button type="button" id="arenaFullscreen" class="secondary" hidden>Vollbild</button></div>
 <div id="catapultArena" class="catapultArena" hidden>
 <canvas id="siegeCanvas" width="1000" height="330" role="img" aria-label="Zwei Burgen mit Katapulten"></canvas>
 <div id="catapultStats"></div>
 </div>
-<div id="catapultActions" class="stepActions" hidden>
-<button type="button" id="catapultFire">Schießen</button>
-<button type="button" id="catapultSave" class="secondary">Steine aufsparen</button>
-<button type="button" id="catapultRepair" class="secondary">Reparieren</button>
-<button type="button" id="catapultDouble" class="secondary">Doppelschuss</button>
-</div><div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
+<div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
+<div id="playPanel">
 <p id="turn"></p>
 <p id="bossBonus" aria-live="polite" hidden></p>
 <p id="bossProtection" aria-live="polite" hidden></p>
 <h2 id="word" tabindex="-1" aria-live="polite"></h2>
 <p id="answerKey" hidden></p>
 <p id="feedback" aria-live="polite"></p>
+<div id="catapultActions" class="stepActions" hidden>
+<button type="button" id="catapultFire">Schießen</button>
+<button type="button" id="catapultSave" class="secondary">Steine aufsparen</button>
+<button type="button" id="catapultRepair" class="secondary">Reparieren</button>
+<button type="button" id="catapultDouble" class="secondary">Doppelschuss</button>
+</div>
 <form id="typedAnswer" hidden autocomplete="off"><label><span id="answerLabel">Antwort</span> <input id="answerInput" required spellcheck="false"></label><label id="partAnswer" hidden>Past Participle <input id="partInput" lang="en" spellcheck="false"></label><button>Prüfen</button></form>
 <div id="judge"><button type="button" class="secondary" id="revealAnswer">Lösung anzeigen</button><button type="button" class="correct" id="correct">Richtig</button><button type="button" class="wrong" id="wrong">Falsch</button></div>
 <button type="button" id="next" hidden>Weiter</button>
@@ -246,6 +296,7 @@ sich erinnern;remember</textarea></label>
 </div>
 <button type="button" class="secondary" id="editGameVocabulary">Vokabeln ändern</button>
 <button type="button" class="secondary" id="back">Zur Einrichtung</button>
+</div>
 </section>
 </main>
 <script>
@@ -511,6 +562,7 @@ el("config").addEventListener("submit", event => {
     state.rotationIndex = [0,0];
   }
   el("nextSet").hidden = true;
+  el("arenaFullscreen").hidden = mode !== "catapult" || !el("arenaMain").requestFullscreen || document.fullscreenEnabled === false;
   el("catapultArena").hidden = mode !== "catapult";
   delete el("catapultArena").dataset.hit;
   el("catapultActions").hidden = true;
@@ -544,6 +596,28 @@ el("config").addEventListener("submit", event => {
 el("correct").onclick = () => judge(true);
 el("wrong").onclick = () => judge(false);
 el("next").onclick = question;
+function syncArenaFullscreen() {
+  const button = el("arenaFullscreen");
+  const active = document.fullscreenElement === el("arenaMain");
+  button.textContent = active ? "Vollbild verlassen" : "Vollbild";
+  button.setAttribute("aria-pressed",String(active));
+}
+
+document.addEventListener("fullscreenchange",syncArenaFullscreen);
+el("arenaFullscreen").onclick = async () => {
+  const button = el("arenaFullscreen");
+  button.disabled = true;
+  try {
+    if (document.fullscreenElement === el("arenaMain")) await document.exitFullscreen();
+    else await el("arenaMain").requestFullscreen();
+  } catch {
+    el("feedback").textContent = "Vollbild ist in diesem Browserfenster nicht verfügbar.";
+  } finally {
+    button.disabled = false;
+    syncArenaFullscreen();
+  }
+};
+
 el("back").onclick = () => {
   el("game").hidden = true;
   el("setup").hidden = false;
