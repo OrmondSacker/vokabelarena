@@ -44,7 +44,7 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 #judge button,#next{min-width:112px}#feedback{margin:.4em 0}
 #review{margin:12px 0 18px;padding:14px;border:1px solid #57727d;border-radius:12px}
 #review table{width:100%;border-spacing:4px}#review td:first-child{width:2em}#review input[type=text]{box-sizing:border-box;width:100%;padding:5px}
-#names{min-height:80px} #cropStage{overflow:auto;max-height:65vh}#cropCanvas{display:block;width:100%;touch-action:none;cursor:crosshair} #cropHelp{color:#bbefe5}
+#names{min-height:80px} #cropStage{overflow:auto;max-height:60vh;max-height:60dvh;background:#121c25;border-radius:8px}#cropCanvas{display:block;touch-action:none;cursor:crosshair}.cropZoom{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}.cropZoom label{display:flex;align-items:center;gap:6px;margin:0}.cropZoom input{width:min(30vw,9rem)}.cropZoom output{min-width:3.6em} #cropHelp{color:#bbefe5}
 #game[data-mode=football]{background:radial-gradient(ellipse at top,#274a60,#142331 70%)}
 #pitch{margin:24px auto 18px;box-shadow:0 0 0 9px #475e64,0 0 0 13px #263843,0 8px 24px #0008;aspect-ratio:3.8;background:repeating-linear-gradient(90deg,#156a43 0 14.285%,#218555 14.285% 28.57%)}
 #pitch span:first-child,#pitch span:nth-child(7){border:2px solid #e5ffed;flex:0 0 12%;margin-inline:4px;background:repeating-linear-gradient(45deg,transparent 0 5px,#c8ffe237 5px 6px);color:transparent}
@@ -85,7 +85,7 @@ zuverlässig;reliable
 die Bestellung;order
 verbessern;improve
 sich erinnern;remember</textarea></label>
-<label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div></div><div class="options"><label>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option></select></label>
+<label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div class="cropZoom"><button type="button" class="secondary" id="cropFit">Ganze Seite</button><label for="cropZoom">Zoom <input type="range" id="cropZoom" min="40" max="300" step="10" value="100"></label><output id="cropZoomValue" for="cropZoom">100 %</output></div><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div></div><div class="options"><label>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option></select></label>
 <label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 <label>Abfrage <select id="direction"><option value="0">Links → rechts</option><option value="1">Rechts → links</option><option value="mix">Gemischt</option></select></label>
 </div>
@@ -428,6 +428,29 @@ function plausibleEntry(text) {
 
 let cropImage, cropBoxes = [], dragStart, scanning = false, requestId = 0;
 const canvas = el("cropCanvas");
+
+const cropStage = el("cropStage");
+const cropZoom = el("cropZoom");
+
+function sizeCropPreview() {
+  if (!cropImage || cropStage.getBoundingClientRect().width === 0) return;
+  const zoom = Number(cropZoom.value);
+  const maxHeight = parseFloat(getComputedStyle(cropStage).maxHeight) || innerHeight * .6;
+  const scale = Math.min(cropStage.getBoundingClientRect().width / canvas.width,
+    maxHeight / canvas.height, 1) * zoom / 100;
+  canvas.style.width = Math.floor(canvas.width * scale) + "px";
+  el("cropZoomValue").value = zoom + " %";
+}
+
+cropZoom.oninput = sizeCropPreview;
+el("cropFit").onclick = () => {
+  cropZoom.value = "100";
+  sizeCropPreview();
+  cropStage.scrollTop = 0;
+  cropStage.scrollLeft = 0;
+};
+new ResizeObserver(sizeCropPreview).observe(cropStage);
+
 function box(a,b) {
   return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)};
 }
@@ -489,6 +512,7 @@ el("scan").onchange=async()=>{
     canvas.width=image.naturalWidth;
     canvas.height=image.naturalHeight;
     el("cropPanel").hidden=false;
+    el("cropFit").onclick();
     redraw();
   }catch{
     if(id===requestId)el("scanStatus").textContent="Das Bild konnte nicht geöffnet werden.";
