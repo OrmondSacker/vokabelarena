@@ -62,21 +62,9 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 <header><h1>Vokabelarena</h1></header>
 <section id="setup">
 
-<dialog id="verbs" aria-labelledby="verbsTitle" style="width:min(88vw,32rem);border-radius:1rem;padding:1.5rem">
-<h2 id="verbsTitle">Unregelmäßige Verben</h2>
-<p id="verbStep"></p>
-<form id="verbRound" autocomplete="off">
-<h3 id="verbBase" lang="en"></h3>
-<label>Simple Past <input id="verbPast" name="past" required lang="en" spellcheck="false"></label>
-<label>Past Participle <input name="part" required lang="en" spellcheck="false"></label>
-<button>Prüfen</button>
-</form>
-<p id="verbResult" role="status"></p>
-<button type="button" id="verbsNext" hidden>Weiter</button>
-<button type="button" id="verbsAgain" hidden>Neue Runde</button>
-<form method="dialog"><button class="secondary">Schließen</button></form>
-</dialog>
 <form id="config">
+<div class="options"><label>Vokabelquelle <select id="vocabSource"><option value="custom">Eigene Vokabeln</option><option value="verbs">Unregelmäßige Verben</option></select></label><label>Antworten <select id="answerMode"><option value="manual">Mündlich · Lehrkraft wertet</option><option value="typed">Eintippen · automatisch prüfen</option></select></label></div>
+<div id="customVocabulary">
 <label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon</small>
 <textarea id="pairs" required spellcheck="false">entscheiden;decide
 anbieten;offer
@@ -86,7 +74,7 @@ zuverlässig;reliable
 die Bestellung;order
 verbessern;improve
 sich erinnern;remember</textarea></label>
-<label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div><div class="options"><label>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><optgroup label="Optionaler Lernmodus"><option value="verbs">Unregelmäßige Verben</option></optgroup></select></label>
+<label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div></div><div class="options"><label>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option></select></label>
 <label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 <label>Abfrage <select id="direction"><option value="0">Links → rechts</option><option value="1">Rechts → links</option><option value="mix">Gemischt</option></select></label>
 </div>
@@ -103,7 +91,9 @@ sich erinnern;remember</textarea></label>
 <p id="turn"></p>
 <h2 id="word" tabindex="-1"></h2>
 <p id="feedback" aria-live="polite"></p>
-<div id="judge"><button type="button" class="correct" id="correct">Richtig</button><button type="button" class="wrong" id="wrong">Falsch</button></div>
+<form id="typedAnswer" hidden autocomplete="off"><label><span id="answerLabel">Antwort</span> <input id="answerInput" required spellcheck="false"></label><label id="partAnswer" hidden>Past Participle <input id="partInput" lang="en" spellcheck="false"></label><button>Prüfen</button></form>
+<p id="answerKey" hidden></p>
+<div id="judge"><button type="button" class="secondary" id="revealAnswer">Lösung anzeigen</button><button type="button" class="correct" id="correct">Richtig</button><button type="button" class="wrong" id="wrong">Falsch</button></div>
 <button type="button" id="next" hidden>Weiter</button>
 <button type="button" class="secondary" id="back">Zur Einrichtung</button>
 </section>
@@ -112,6 +102,7 @@ sich erinnern;remember</textarea></label>
 "use strict";
 const el = id => document.getElementById(id);
 let state;
+const verbBank = "abide abode/abided abode/abided;arise arose arisen;awake awoke/awaked awoken/awaked;babysit babysat babysat;backbite backbit backbitten;backslide backslid backslid/backslidden;be was/were been;bear bore borne/born;beat beat beaten;become became become;befall befell befallen;beget begot begotten/begot;begin began begun;behold beheld beheld;bend bent bent;bereave bereaved/bereft bereaved/bereft;beseech besought/beseeched besought/beseeched;beset beset beset;bestride bestrode bestridden;bet bet/betted bet/betted;betake betook betaken;bid bid/bade bid/bidden;bide bided/bode bided;bind bound bound;bite bit bitten;bleed bled bled;bless blessed/blest blessed/blest;blow blew blown;break broke broken;breed bred bred;bring brought brought;broadcast broadcast/broadcasted broadcast/broadcasted;build built built;burn burned/burnt burned/burnt;burst burst burst;bust bust/busted bust/busted;buy bought bought;cast cast cast;catch caught caught;chide chided/chid chided/chidden/chid;choose chose chosen;cling clung clung;clothe clothed/clad clothed/clad;come came come;cost cost/costed cost/costed;creep crept crept;crossbreed crossbred crossbred;cut cut cut;deal dealt dealt;dig dug dug;dive dived/dove dived;do did done;draw drew drawn;dream dreamed/dreamt dreamed/dreamt;drink drank drunk;drive drove driven;dwell dwelled/dwelt dwelled/dwelt;eat ate eaten;fall fell fallen;feed fed fed;feel felt felt;fight fought fought;find found found;fit fitted/fit fitted/fit;flee fled fled;fling flung flung;fly flew flown;forbid forbade/forbad forbidden;forecast forecast/forecasted forecast/forecasted;forego forewent foregone;foresee foresaw foreseen;foretell foretold foretold;forget forgot forgotten/forgot;forgive forgave forgiven;forgo forwent forgone;forsake forsook forsaken;freeze froze frozen;get got got/gotten;gild gilded/gilt gilded/gilt;gird girded/girt girded/girt;give gave given;go went gone;grind ground ground;grow grew grown;hand-feed hand-fed hand-fed;hand-knit hand-knitted/hand-knit hand-knitted/hand-knit;handwrite handwrote handwritten;hang hung/hanged hung/hanged;have had had;hear heard heard;hew hewed hewn/hewed;hide hid hidden;hit hit hit;hold held held;hurt hurt hurt;inbreed inbred inbred;inlay inlaid inlaid;input input/inputted input/inputted;inset inset inset;interbreed interbred interbred;interweave interwove/interweaved interwoven/interweaved;keep kept kept;kneel knelt/kneeled knelt/kneeled;knit knitted/knit knitted/knit;know knew known;lay laid laid;lead led led;lean leaned/leant leaned/leant;leap leaped/leapt leaped/leapt;learn learned/learnt learned/learnt;leave left left;lend lent lent;let let let;lie lay/lied lain/lied;light lit/lighted lit/lighted;lip-read lip-read lip-read;lose lost lost;make made made;mean meant meant;meet met met;miscast miscast miscast;misdeal misdealt misdealt;mishear misheard misheard;mislead misled misled;misread misread misread;misspell misspelled/misspelt misspelled/misspelt;misspend misspent misspent;mistake mistook mistaken;misunderstand misunderstood misunderstood;miswrite miswrote miswritten;mow mowed mown/mowed;offset offset offset;outbid outbid outbid;outdo outdid outdone;outdraw outdrew outdrawn;outdrink outdrank outdrunk;outdrive outdrove outdriven;outfight outfought outfought;outfly outflew outflown;outgrow outgrew outgrown;output output/outputted output/outputted;outride outrode outridden;outrun outran outrun;outsell outsold outsold;outshine outshone/outshined outshone/outshined;outshoot outshot outshot;outsing outsang outsung;outsit outsat outsat;outsleep outslept outslept;outspeak outspoke outspoken;outspend outspent outspent;outswim outswam outswum;outthink outthought outthought;outthrow outthrew outthrown;outwear outwore outworn;outwrite outwrote outwritten;overbid overbid overbid;overbuild overbuilt overbuilt;overcome overcame overcome;overdo overdid overdone;overdraw overdrew overdrawn;overeat overate overeaten;overfeed overfed overfed;overfly overflew overflown;overgrow overgrew overgrown;overhang overhung overhung;overhear overheard overheard;overlay overlaid overlaid;overlie overlay overlain;overpay overpaid overpaid;override overrode overridden;overrun overran overrun;oversee oversaw overseen;oversell oversold oversold;overshoot overshot overshot;oversleep overslept overslept;overspend overspent overspent;overtake overtook overtaken;overthrow overthrew overthrown;overwrite overwrote overwritten;pay paid paid;plead pleaded/pled pleaded/pled;proofread proofread proofread;prove proved proven/proved;put put put;quit quit/quitted quit/quitted;read read read;rebind rebound rebound;rebroadcast rebroadcast/rebroadcasted rebroadcast/rebroadcasted;rebuild rebuilt rebuilt;recast recast recast;rechoose rechose rechosen;recut recut recut;redo redid redone;redraw redrew redrawn;regrow regrew regrown;relearn relearned/relearnt relearned/relearnt;relight relit/relighted relit/relighted;remake remade remade;rend rent/rended rent/rended;repay repaid repaid;reread reread reread;rerun reran rerun;resell resold resold;resend resent resent;reset reset reset;resew resewed resewn/resewed;retake retook retaken;reteach retaught retaught;retell retold retold;rethink rethought rethought;rewind rewound rewound;rewrite rewrote rewritten;rid rid/ridded rid/ridded;ride rode ridden;ring rang rung;rise rose risen;rive rived riven/rived;run ran run;saw sawed sawn/sawed;say said said;see saw seen;seek sought sought;sell sold sold;send sent sent;set set set;sew sewed sewn/sewed;shake shook shaken;shave shaved shaved/shaven;shear sheared shorn/sheared;shed shed shed;shine shone/shined shone/shined;shoe shod/shoed shod/shoed;shoot shot shot;show showed shown/showed;shrink shrank/shrunk shrunk/shrunken;shrive shrove/shrived shriven/shrived;shut shut shut;sight-read sight-read sight-read;sightsee sightsaw sightseen;sing sang sung;sink sank/sunk sunk;sit sat sat;slay slew/slayed slain/slayed;sleep slept slept;slide slid slid;sling slung slung;slink slunk slunk;slit slit slit;smell smelled/smelt smelled/smelt;smite smote smitten;sneak sneaked/snuck sneaked/snuck;sow sowed sown/sowed;speak spoke spoken;speed sped/speeded sped/speeded;spell spelled/spelt spelled/spelt;spend spent spent;spill spilled/spilt spilled/spilt;spin spun spun;spit spat/spit spat/spit;split split split;spoil spoiled/spoilt spoiled/spoilt;spoon-feed spoon-fed spoon-fed;spread spread spread;spring sprang/sprung sprung;stand stood stood;steal stole stolen;stick stuck stuck;sting stung stung;stink stank/stunk stunk;strew strewed strewn/strewed;stride strode stridden;strike struck struck/stricken;string strung strung;strive strove/strived striven/strived;sunburn sunburned/sunburnt sunburned/sunburnt;swear swore sworn;sweat sweated/sweat sweated/sweat;sweep swept swept;swell swelled swollen/swelled;swim swam swum;swing swung swung;take took taken;teach taught taught;tear tore torn;tell told told;test-drive test-drove test-driven;think thought thought;thrive thrived/throve thrived/thriven;throw threw thrown;thrust thrust thrust;tread trod trodden/trod;typeset typeset typeset;unbend unbent unbent;unbind unbound unbound;underbid underbid underbid;undercut undercut undercut;underfeed underfed underfed;undergo underwent undergone;underlie underlay underlain;underpay underpaid underpaid;undersell undersold undersold;undershoot undershot undershot;underspend underspent underspent;understand understood understood;undertake undertook undertaken;underwrite underwrote underwritten;undo undid undone;unfreeze unfroze unfrozen;unlearn unlearned/unlearnt unlearned/unlearnt;unmake unmade unmade;unsew unsewed unsewn/unsewed;unsling unslung unslung;unstick unstuck unstuck;unstring unstrung unstrung;unweave unwove/unweaved unwoven/unweaved;unwind unwound unwound;uphold upheld upheld;upset upset upset;wake woke/waked woken/waked;wax waxed waxed/waxen;waylay waylaid waylaid;wear wore worn;weave wove/weaved woven/weaved;wed wed/wedded wed/wedded;weep wept wept;wet wet/wetted wet/wetted;win won won;wind wound wound;withdraw withdrew withdrawn;withhold withheld withheld;withstand withstood withstood;wring wrung wrung;write wrote written".split(";").map(line => line.split(" "));
 
 function shuffle(cards) {
   const bag = [...cards];
@@ -160,17 +151,52 @@ function question() {
     " ist dran · Serie " + state.streak + "/3";
   el("word").textContent = state.current.card[state.current.side];
   el("feedback").textContent = "";
-  el("judge").hidden = false;
+  el("answerKey").hidden = true;
+  el("judge").hidden = state.typed;
+  el("typedAnswer").hidden = !state.typed;
+  el("typedAnswer").reset();
+  el("answerLabel").textContent = state.verbs ? "Simple Past" : "Antwort";
+  el("partAnswer").hidden = !state.verbs;
+  el("partInput").required = state.verbs;
   el("next").hidden = true;
-  el("word").focus();
+  el(state.typed ? "answerInput" : "word").focus();
 }
 
+function currentSolution() {
+  const {card,side} = state.current;
+  return state.verbs ? card[1] + " · " + card[2] : card[1-side];
+}
+
+el("revealAnswer").onclick = () => {
+  el("answerKey").textContent = "Lösung: " + currentSolution();
+  el("answerKey").hidden = false;
+};
+
+function normalizeAnswer(value) {
+  return value.normalize("NFC").trim().replace(/\s+/g," ").toLowerCase();
+}
+
+el("typedAnswer").onsubmit = event => {
+  event.preventDefault();
+  if (!state?.pending || !state.typed) return;
+  const matches = (input, solution, separator) =>
+    [solution, ...solution.split(separator)].some(form => normalizeAnswer(form) === normalizeAnswer(input));
+  const {card,side} = state.current;
+  const answer = el("answerInput").value;
+  if (state.verbs) {
+    judge(matches(answer,card[1],"/") && matches(el("partInput").value,card[2],"/"));
+  } else {
+    judge(matches(answer,card[1-side],/;|\s+\/\s+/));
+  }
+};
 function judge(correct) {
   if (!state.pending) return;
   state.pending = false;
   el("game").dataset.hit = correct ? "right" : "wrong";
   state.answered++;
-  const solution = state.current.card[1 - state.current.side];
+  const solution = currentSolution();
+  el("typedAnswer").hidden = true;
+  el("answerKey").hidden = true;
   if (state.mode !== "boss") {
     judgeTeam(correct, solution);
     return;
@@ -206,13 +232,12 @@ function judge(correct) {
 
 el("config").addEventListener("submit", event => {
   event.preventDefault();
-  if (el("mode").value === "verbs") {
-    startVerbTest();
-    return;
-  }
+  const verbs = el("vocabSource").value === "verbs";
   const lines = el("pairs").value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const cards = lines.map(line => line.split(line.includes("\t") ? "\t" : ";").map(part => part.trim()));
-  const bad = cards.findIndex(card => card.length !== 2 || card.some(part => !part));
+  const customCards = lines.map(line => line.split(line.includes("\t") ? "\t" : ";").map(part => part.trim()));
+  const size = el("verbLength").value;
+  const cards = verbs ? shuffle(verbBank).slice(0, size === "all" ? verbBank.length : Number(size)) : customCards;
+  const bad = verbs ? -1 : cards.findIndex(card => card.length !== 2 || card.some(part => !part));
   const error = el("error");
   error.hidden = Boolean(cards.length && bad < 0);
   if (!error.hidden) {
@@ -228,11 +253,11 @@ el("config").addEventListener("submit", event => {
     return;
   }
   const names = el("names").value.split(/\r?\n/).map(name => name.trim());
-  state = {mode, names, ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
+  state = {mode, names, verbs, typed:el("answerMode").value === "typed", ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
     attackers:Array.from({length:zombies}, (_, i) => i + 1),
     survivors:Array.from({length:Math.max(0, players - zombies)}, (_, i) => zombies + i + 1),
     maxAttacks:Number(el("attacks").value), target:null, cards, bag:shuffle(cards), retries:[], count:Number(el("count").value),
-    direction:el("direction").value, hp:8, hearts:4, streak:0, answered:0};
+    direction:verbs ? "0" : el("direction").value, hp:8, hearts:4, streak:0, answered:0};
   el("setup").hidden = true;
   el("game").hidden = false;
   el("bossMeters").hidden = mode !== "boss";
@@ -301,6 +326,8 @@ function rosterGroup(label, people, infected) {
 }
 
 function chooseTarget() {
+  el("typedAnswer").hidden = true;
+  el("answerKey").hidden = true;
   const targets = el("targets");
   el("turn").textContent = "Zombies wählen die nächste Person";
   el("word").textContent = "Wer verteidigt sich?";
@@ -358,16 +385,18 @@ function judgeTeam(correct, solution) {
 
 function setupMode() {
   const mode = el("mode").value;
-  el("verbLengthWrap").hidden = mode !== "verbs";
-  el("direction").closest("label").hidden = mode === "verbs";
-  el("pairs").required = mode !== "verbs";
-  el("start").textContent = mode === "verbs" ? "Verbentest starten" : "Spiel starten";
+  const verbs = el("vocabSource").value === "verbs";
+  el("verbLengthWrap").hidden = !verbs;
+  el("customVocabulary").hidden = verbs;
+  el("direction").closest("label").hidden = verbs;
+  el("pairs").required = !verbs;
   el("bossOptions").hidden = mode !== "boss";
   el("footballOptions").hidden = mode !== "football";
   el("zombieOptions").hidden = mode !== "zombie";
   for (const id of ["players", "zombies", "attacks"]) el(id).disabled = mode !== "zombie";
 }
 el("mode").onchange = setupMode;
+el("vocabSource").onchange = setupMode;
 setupMode();
 
 
@@ -617,64 +646,6 @@ el("ocr").onclick = async () => {
     el("start").disabled = false;
   }
 };
-
-let startVerbTest;
-(() => {
-  const bank = "abide abode/abided abode/abided;arise arose arisen;awake awoke/awaked awoken/awaked;babysit babysat babysat;backbite backbit backbitten;backslide backslid backslid/backslidden;be was/were been;bear bore borne/born;beat beat beaten;become became become;befall befell befallen;beget begot begotten/begot;begin began begun;behold beheld beheld;bend bent bent;bereave bereaved/bereft bereaved/bereft;beseech besought/beseeched besought/beseeched;beset beset beset;bestride bestrode bestridden;bet bet/betted bet/betted;betake betook betaken;bid bid/bade bid/bidden;bide bided/bode bided;bind bound bound;bite bit bitten;bleed bled bled;bless blessed/blest blessed/blest;blow blew blown;break broke broken;breed bred bred;bring brought brought;broadcast broadcast/broadcasted broadcast/broadcasted;build built built;burn burned/burnt burned/burnt;burst burst burst;bust bust/busted bust/busted;buy bought bought;cast cast cast;catch caught caught;chide chided/chid chided/chidden/chid;choose chose chosen;cling clung clung;clothe clothed/clad clothed/clad;come came come;cost cost/costed cost/costed;creep crept crept;crossbreed crossbred crossbred;cut cut cut;deal dealt dealt;dig dug dug;dive dived/dove dived;do did done;draw drew drawn;dream dreamed/dreamt dreamed/dreamt;drink drank drunk;drive drove driven;dwell dwelled/dwelt dwelled/dwelt;eat ate eaten;fall fell fallen;feed fed fed;feel felt felt;fight fought fought;find found found;fit fitted/fit fitted/fit;flee fled fled;fling flung flung;fly flew flown;forbid forbade/forbad forbidden;forecast forecast/forecasted forecast/forecasted;forego forewent foregone;foresee foresaw foreseen;foretell foretold foretold;forget forgot forgotten/forgot;forgive forgave forgiven;forgo forwent forgone;forsake forsook forsaken;freeze froze frozen;get got got/gotten;gild gilded/gilt gilded/gilt;gird girded/girt girded/girt;give gave given;go went gone;grind ground ground;grow grew grown;hand-feed hand-fed hand-fed;hand-knit hand-knitted/hand-knit hand-knitted/hand-knit;handwrite handwrote handwritten;hang hung/hanged hung/hanged;have had had;hear heard heard;hew hewed hewn/hewed;hide hid hidden;hit hit hit;hold held held;hurt hurt hurt;inbreed inbred inbred;inlay inlaid inlaid;input input/inputted input/inputted;inset inset inset;interbreed interbred interbred;interweave interwove/interweaved interwoven/interweaved;keep kept kept;kneel knelt/kneeled knelt/kneeled;knit knitted/knit knitted/knit;know knew known;lay laid laid;lead led led;lean leaned/leant leaned/leant;leap leaped/leapt leaped/leapt;learn learned/learnt learned/learnt;leave left left;lend lent lent;let let let;lie lay/lied lain/lied;light lit/lighted lit/lighted;lip-read lip-read lip-read;lose lost lost;make made made;mean meant meant;meet met met;miscast miscast miscast;misdeal misdealt misdealt;mishear misheard misheard;mislead misled misled;misread misread misread;misspell misspelled/misspelt misspelled/misspelt;misspend misspent misspent;mistake mistook mistaken;misunderstand misunderstood misunderstood;miswrite miswrote miswritten;mow mowed mown/mowed;offset offset offset;outbid outbid outbid;outdo outdid outdone;outdraw outdrew outdrawn;outdrink outdrank outdrunk;outdrive outdrove outdriven;outfight outfought outfought;outfly outflew outflown;outgrow outgrew outgrown;output output/outputted output/outputted;outride outrode outridden;outrun outran outrun;outsell outsold outsold;outshine outshone/outshined outshone/outshined;outshoot outshot outshot;outsing outsang outsung;outsit outsat outsat;outsleep outslept outslept;outspeak outspoke outspoken;outspend outspent outspent;outswim outswam outswum;outthink outthought outthought;outthrow outthrew outthrown;outwear outwore outworn;outwrite outwrote outwritten;overbid overbid overbid;overbuild overbuilt overbuilt;overcome overcame overcome;overdo overdid overdone;overdraw overdrew overdrawn;overeat overate overeaten;overfeed overfed overfed;overfly overflew overflown;overgrow overgrew overgrown;overhang overhung overhung;overhear overheard overheard;overlay overlaid overlaid;overlie overlay overlain;overpay overpaid overpaid;override overrode overridden;overrun overran overrun;oversee oversaw overseen;oversell oversold oversold;overshoot overshot overshot;oversleep overslept overslept;overspend overspent overspent;overtake overtook overtaken;overthrow overthrew overthrown;overwrite overwrote overwritten;pay paid paid;plead pleaded/pled pleaded/pled;proofread proofread proofread;prove proved proven/proved;put put put;quit quit/quitted quit/quitted;read read read;rebind rebound rebound;rebroadcast rebroadcast/rebroadcasted rebroadcast/rebroadcasted;rebuild rebuilt rebuilt;recast recast recast;rechoose rechose rechosen;recut recut recut;redo redid redone;redraw redrew redrawn;regrow regrew regrown;relearn relearned/relearnt relearned/relearnt;relight relit/relighted relit/relighted;remake remade remade;rend rent/rended rent/rended;repay repaid repaid;reread reread reread;rerun reran rerun;resell resold resold;resend resent resent;reset reset reset;resew resewed resewn/resewed;retake retook retaken;reteach retaught retaught;retell retold retold;rethink rethought rethought;rewind rewound rewound;rewrite rewrote rewritten;rid rid/ridded rid/ridded;ride rode ridden;ring rang rung;rise rose risen;rive rived riven/rived;run ran run;saw sawed sawn/sawed;say said said;see saw seen;seek sought sought;sell sold sold;send sent sent;set set set;sew sewed sewn/sewed;shake shook shaken;shave shaved shaved/shaven;shear sheared shorn/sheared;shed shed shed;shine shone/shined shone/shined;shoe shod/shoed shod/shoed;shoot shot shot;show showed shown/showed;shrink shrank/shrunk shrunk/shrunken;shrive shrove/shrived shriven/shrived;shut shut shut;sight-read sight-read sight-read;sightsee sightsaw sightseen;sing sang sung;sink sank/sunk sunk;sit sat sat;slay slew/slayed slain/slayed;sleep slept slept;slide slid slid;sling slung slung;slink slunk slunk;slit slit slit;smell smelled/smelt smelled/smelt;smite smote smitten;sneak sneaked/snuck sneaked/snuck;sow sowed sown/sowed;speak spoke spoken;speed sped/speeded sped/speeded;spell spelled/spelt spelled/spelt;spend spent spent;spill spilled/spilt spilled/spilt;spin spun spun;spit spat/spit spat/spit;split split split;spoil spoiled/spoilt spoiled/spoilt;spoon-feed spoon-fed spoon-fed;spread spread spread;spring sprang/sprung sprung;stand stood stood;steal stole stolen;stick stuck stuck;sting stung stung;stink stank/stunk stunk;strew strewed strewn/strewed;stride strode stridden;strike struck struck/stricken;string strung strung;strive strove/strived striven/strived;sunburn sunburned/sunburnt sunburned/sunburnt;swear swore sworn;sweat sweated/sweat sweated/sweat;sweep swept swept;swell swelled swollen/swelled;swim swam swum;swing swung swung;take took taken;teach taught taught;tear tore torn;tell told told;test-drive test-drove test-driven;think thought thought;thrive thrived/throve thrived/thriven;throw threw thrown;thrust thrust thrust;tread trod trodden/trod;typeset typeset typeset;unbend unbent unbent;unbind unbound unbound;underbid underbid underbid;undercut undercut undercut;underfeed underfed underfed;undergo underwent undergone;underlie underlay underlain;underpay underpaid underpaid;undersell undersold undersold;undershoot undershot undershot;underspend underspent underspent;understand understood understood;undertake undertook undertaken;underwrite underwrote underwritten;undo undid undone;unfreeze unfroze unfrozen;unlearn unlearned/unlearnt unlearned/unlearnt;unmake unmade unmade;unsew unsewed unsewn/unsewed;unsling unslung unslung;unstick unstuck unstuck;unstring unstrung unstrung;unweave unwove/unweaved unwoven/unweaved;unwind unwound unwound;uphold upheld upheld;upset upset upset;wake woke/waked woken/waked;wax waxed waxed/waxen;waylay waylaid waylaid;wear wore worn;weave wove/weaved woven/weaved;wed wed/wedded wed/wedded;weep wept wept;wet wet/wetted wet/wetted;win won won;wind wound wound;withdraw withdrew withdrawn;withhold withheld withheld;withstand withstood withstood;wring wrung wrung;write wrote written".split(";").map(line => line.split(" "));
-  const form = el("verbRound");
-  const result = el("verbResult");
-  const next = el("verbsNext");
-  const again = el("verbsAgain");
-  let round, index, points;
-  function ask() {
-    form.hidden = false;
-    form.reset();
-    next.hidden = true;
-    again.hidden = true;
-    result.textContent = "";
-    el("verbStep").textContent = (index + 1) + " / " + round.length;
-    el("verbBase").textContent = round[index][0];
-    el("verbPast").focus();
-  }
-  function start() {
-    const size = el("verbLength").value;
-    round = shuffle(bank).slice(0, size === "all" ? bank.length : Number(size));
-    index = points = 0;
-    ask();
-  }
-  startVerbTest = () => {
-    el("verbs").showModal();
-    start();
-  };
-  form.onsubmit = event => {
-    event.preventDefault();
-    if (form.hidden) return;
-    const [, past, part] = round[index];
-    const correct = (field, options) => options.split("/").includes(field.value.trim().toLowerCase());
-    const pastOK = correct(form.elements.past, past);
-    const partOK = correct(form.elements.part, part);
-    points += Number(pastOK) + Number(partOK);
-    result.textContent = "Simple Past: " + (pastOK ? "✓ " : "✗ ") + past +
-      " · Past Participle: " + (partOK ? "✓ " : "✗ ") + part;
-    form.hidden = true;
-    next.hidden = false;
-    next.textContent = index + 1 === round.length ? "Ergebnis" : "Weiter";
-    next.focus();
-  };
-  next.onclick = () => {
-    index++;
-    if (index < round.length) {
-      ask();
-    } else {
-      el("verbStep").textContent = "Ergebnis";
-      result.textContent = points + " von " + (round.length * 2) + " Formen richtig.";
-      next.hidden = true;
-      again.hidden = false;
-      again.focus();
-    }
-  };
-  again.onclick = start;
-})();
 
 </script>
 </html>
