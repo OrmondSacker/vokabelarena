@@ -133,6 +133,10 @@ button.gameTile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 2
 #catapultAssignments{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:.25rem .8rem;max-height:16rem;overflow:auto}
 #catapultAssignments label{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.1rem 0}
 #catapultRules input[type=checkbox]{width:auto}
+.stoneMeter{margin-top:.6rem;--stone:#75dafa}.castleStats:last-child .stoneMeter{--stone:#f9a571}
+.stoneSteps{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin:.3rem 0 1.1rem}
+.stoneStep{position:relative;height:.65rem;background:#28364e;border-radius:3px}.stoneStep[data-on]{background:var(--stone)}
+.stoneMark{position:absolute;top:100%;right:0;font-size:.7rem;color:#d2deec}.stoneMark::before{display:block;content:"";width:1px;height:3px;background:currentColor;margin:auto}
 </style>
 <main>
 <header class="masthead"><h1 aria-label="Vokabelarena"><span>VOKABEL</span><span>ARENA</span></h1></header>
@@ -863,6 +867,38 @@ function catapultTurnLabel() {
   return team + " · " + order[state.rotationIndex[state.team] % order.length] + " ist dran";
 }
 
+function makeStoneMeter(name,count) {
+  const meter = document.createElement("div");
+  meter.className = "stoneMeter";
+  const caption = document.createElement("small");
+  caption.textContent = count + (count === 1 ? " Stein im Vorrat" : " Steine im Vorrat");
+  const track = document.createElement("div");
+  track.className = "stoneSteps";
+  track.setAttribute("aria-hidden","true");
+  for (let level=1;level<=6;level++) {
+    const step = document.createElement("span");
+    step.className = "stoneStep";
+    if (count >= level) step.dataset.on = "";
+    if (level === 6 && count > 6) {
+      const overflow = document.createElement("span");
+      overflow.className = "stoneMark";
+      overflow.textContent = "+";
+      step.append(overflow);
+    }
+    if ([2,4,5].includes(level)) {
+      const mark = document.createElement("span");
+      mark.className = "stoneMark";
+      mark.textContent = level;
+      step.append(mark);
+    }
+    track.append(step);
+  }
+  const legend = document.createElement("small");
+  legend.textContent = "2 +1 Schaden · 4 Aufbau · 5 Doppelschuss";
+  meter.setAttribute("aria-label","Steinvorrat " + name);
+  meter.append(caption,track,legend);
+  return meter;
+}
 function renderCatapult(draw = true) {
   el("score").textContent = "Satz " + state.setNumber + " · " + state.sets.join(" : ") + " · " + state.setLimit + " zum Sieg";
   el("catapultStats").replaceChildren(...state.sides.map((side,index) => {
@@ -875,9 +911,9 @@ function renderCatapult(draw = true) {
     health.value = side.hp;
     health.setAttribute("aria-label","Burgpunkte " + state.teamNames[index]);
     const stock = document.createElement("small");
-    stock.textContent = side.hp + "/" + castleMaxHp + " Burgpunkte · " + side.stones + " Steine" +
+    stock.textContent = side.hp + "/" + castleMaxHp + " Burgpunkte" +
       (side.double ? " · " + side.double + "× Doppelschuss" : "");
-    stats.append(name,health,stock);
+    stats.append(name,health,stock,makeStoneMeter(state.teamNames[index],side.stones));
     return stats;
   }));
   el("siegeCanvas").setAttribute("aria-label",state.teamNames.map((name,index) =>
@@ -947,7 +983,8 @@ function fireCatapult(doubled) {
   const source = state.team;
   const side = state.sides[source];
   const enemy = state.sides[1 - source];
-  const power = shotPower(side.stones,doubled);
+  const stones = side.stones;
+  const power = shotPower(stones,doubled);
   const damage = Math.min(enemy.hp,power);
   if (doubled) side.double--;
   clearStonePile(side);
@@ -955,8 +992,8 @@ function fireCatapult(doubled) {
   el("editGameVocabulary").hidden = true;
   el("answerKey").hidden = true;
   el("feedback").textContent = doubled ? "Doppelschuss!" : "Schuss!";
-  animateSiege(source,doubled,damage,() => {
-    el("feedback").textContent = "Treffer! Die gegnerische Burg verliert " + damage + " Burgpunkte.";
+  animateSiege(source,stones,doubled,damage,() => {
+    el("feedback").textContent = "Treffer! Die gegnerische Burg verliert " + damage + (damage === 1 ? " Burgpunkt." : " Burgpunkte.");
     if (enemy.hp) {
       el("editGameVocabulary").hidden = false;
       finishCatapultTurn();
@@ -1015,9 +1052,10 @@ function paintFortress(ctx, index, hp, shake) {
   ctx.scale(index ? -1 : 1,1);
   const walls = [
     [-92,-88,38,88],[-54,-69,36,69],[-18,-76,36,76],[18,-69,36,69],[54,-88,38,88],
-    [-89,-146,31,58],[-40,-125,32,56],[8,-143,34,67],[61,-151,28,63],[-11,-179,36,36]
+    [-89,-146,31,60],[-50,-120,28,53],[-15,-142,30,68],[61,-151,28,65],[-12,-178,24,38]
   ];
-  const lossOrder = [9,8,5,7,6,4,0,3,1,2];
+  const lossOrder = [9,8,5,6,7,4,0,3,1,2];
+  const [stone,cap,shadow] = index ? ["#b07a59","#e4b086","#754c3b"] : ["#668ca9","#a0c9df","#435d80"];
   walls.forEach(([x,y,w,h],part) => {
     const lost = hp <= 9-lossOrder.indexOf(part);
     if (lost) {
@@ -1027,8 +1065,8 @@ function paintFortress(ctx, index, hp, shake) {
       return;
     }
     ctx.fillStyle = "#242e42";ctx.fillRect(x-2,y-2,w+4,h+2);
-    ctx.fillStyle = part > 4 ? "#b8c4cf" : "#9da9ba";ctx.fillRect(x,y,w,h);
-    ctx.fillStyle = "#727f95";ctx.fillRect(x+w-7,y,7,h);
+    ctx.fillStyle = part > 4 ? cap : stone;ctx.fillRect(x,y,w,h);
+    ctx.fillStyle = shadow;ctx.fillRect(x+w-7,y,7,h);
     for (let row=0;row<h;row+=10) {
       ctx.fillStyle = "#d1dbe048";ctx.fillRect(x+1,y+row,w-9,1);
       ctx.fillStyle = "#4a566a88";ctx.fillRect(x+1,y+row+8,w-8,1);
@@ -1036,7 +1074,7 @@ function paintFortress(ctx, index, hp, shake) {
     }
     if (part > 4) {
       ctx.fillStyle = "#26374d";ctx.fillRect(x+w/2-3,y+12,5,12);
-      ctx.fillStyle = "#b4bfcb";
+      ctx.fillStyle = cap;
       for (let step=0;step<3;step++) ctx.fillRect(x+step*(w-7)/2,y-6,7,7);
     }
     if (hp < 8 && part < 5 && (part+hp)%2 === 0) {
@@ -1047,14 +1085,19 @@ function paintFortress(ctx, index, hp, shake) {
     ctx.fillStyle = "#243142";ctx.beginPath();ctx.arc(0,-30,14,Math.PI,0);ctx.fill();ctx.fillRect(-14,-31,28,31);
     ctx.fillStyle = "#76523e";ctx.fillRect(-10,-28,20,28);
     ctx.fillStyle = "#3b342f";for(let x=-7;x<10;x+=5)ctx.fillRect(x,-28,1,28);
-    const tower = hp === 10 ? -179 : hp >= 9 ? -143 : hp >= 5 ? -125 : -69;
+    const tower = hp === 10 ? -178 : hp >= 6 ? -142 : -76;
     ctx.fillStyle = "#d1d6cf";ctx.fillRect(0,tower-29,2,29);
     siegeShape(ctx,siegeColors[index],[[2,tower-28],[29,tower-26],[20,tower-19],[29,tower-13],[2,tower-15]]);
   }
   ctx.restore();
 }
 
-function paintLauncher(ctx,index,t) {
+function paintStone(ctx,x,y,r) {
+  siegeShape(ctx,"#a7a094",[[x-r,y],[x-r*.6,y-r*.8],[x+r*.35,y-r],
+    [x+r,y-r*.25],[x+r*.65,y+r*.8],[x-r*.25,y+r]]);
+  siegeShape(ctx,"#e3d6b8",[[x-r*.65,y],[x-r*.45,y-r*.65],[x+r*.35,y-r*.8],[x+r*.1,y]]);
+}
+function paintLauncher(ctx,index,t,loaded) {
   ctx.save();
   ctx.translate(siegeLaunchers[index],268);
   ctx.scale(index ? -1:1,1);
@@ -1068,7 +1111,16 @@ function paintLauncher(ctx,index,t) {
   }
   ctx.translate(9,-40);ctx.rotate(-.54-Math.sin(Math.min(1,t)*Math.PI)*.82);
   ctx.fillStyle = "#e0a66c";ctx.fillRect(-39,-4,59,7);
-  ctx.fillStyle = "#796055";ctx.fillRect(-39,-7,13,7);
+  ctx.fillStyle = "#49382f";ctx.fillRect(14,-11,17,8);
+  for (let i=0;i<Math.min(loaded,12);i++) {
+    paintStone(ctx,13+(i%4)*5,-11-Math.floor(i/4)*6,3.6);
+  }
+  ctx.fillStyle = "#a3775a";ctx.fillRect(13,-5,19,4);
+  if (loaded>12) {
+    ctx.scale(index ? -1 : 1,1);
+    ctx.font = "bold 13px system-ui";ctx.textAlign = "center";ctx.fillStyle = "#fff1cb";
+    ctx.fillText("×"+loaded,index ? -22 : 22,-29);
+  }
   ctx.restore();
 }
 
@@ -1096,19 +1148,32 @@ function paintSiege(flight) {
   state.sides.forEach((side,index) => {
     const shake = impact != null && index===target ? Math.sin(impact*35)*8*(1-impact) : 0;
     paintFortress(ctx,index,side.hp,shake);
-    paintLauncher(ctx,index,flight?.source===index ? flight.t/.7 : 0);
+    const firing = flight?.source === index;
+    const launched = firing ? flight.shots.filter(shot => flight.t >= shot.delay).length : 0;
+    const loaded = firing ? Math.min(flight.stones,flight.shots.length-launched) : side.stones;
+    paintLauncher(ctx,index,firing ? flight.t/.7 : 0,loaded);
   });
   if(!flight) return;
-  const shots = flight.doubled ? [0,.11] : [0];
-  for (const delay of shots) {
-    const u = (flight.t-delay)/(.7-delay);
+  for (const {delay,arc,offset} of flight.shots) {
+    const u = (flight.t-delay)/.48;
     if(u<0 || u>=1) continue;
-    const x = siegeLaunchers[flight.source] + (siegeGates[target]-siegeLaunchers[flight.source])*u;
-    const y = 219-520*u*(1-u)-u*11;
+    const start = siegeLaunchers[flight.source] + (flight.source ? -29 : 29);
+    const x = start + (siegeGates[target] + offset - start)*u;
+    const y = 217-arc*u*(1-u)-u*9;
     ctx.strokeStyle = siegeColors[flight.source];ctx.lineWidth=3;
     ctx.beginPath();ctx.moveTo(x+(flight.source ? 36 : -36),y+6);ctx.lineTo(x,y);ctx.stroke();
-    ctx.fillStyle="#fff1cb";ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#b4a88d";ctx.fillRect(x-4,y-2,7,6);
+    paintStone(ctx,x,y,8);
+  }
+  for (const {delay,offset} of flight.shots) {
+    const since = (flight.t-delay-.48)/.12;
+    if (since<0 || since>=1) continue;
+    const x = siegeGates[target]+offset;
+    ctx.globalAlpha = 1-since;
+    for(let i=0;i<6;i++) {
+      ctx.fillStyle = i%2 ? "#ffc98e" : "#d5dbe6";
+      ctx.fillRect(x+Math.cos(i*2.4)*since*24,208+Math.sin(i*2.4)*since*18,4,4);
+    }
+    ctx.globalAlpha = 1;
   }
   if(impact != null){
     const x=siegeGates[target], y=208;
@@ -1124,7 +1189,12 @@ function paintSiege(flight) {
   }
 }
 
-function animateSiege(source,doubled,damage,done) {
+function animateSiege(source,stones,doubled,damage,done) {
+  const count = stones * (doubled ? 2 : 1);
+  const spacing = Math.min(.11,.22/Math.max(1,count-1));
+  const shots = Array.from({length:count},(_,i) => ({
+    delay:i*spacing, arc:420+(i%5)*70, offset:((i%7)-3)*9
+  }));
   const game = state;
   let landed = false;
   let started;
@@ -1144,7 +1214,7 @@ function animateSiege(source,doubled,damage,done) {
     started ??= now;
     const t = Math.min(1,(now-started)/960);
     if (t>=.7) land();
-    paintSiege({source,doubled,t,damage});
+    paintSiege({source,stones,shots,t,damage});
     if(t<1) requestAnimationFrame(frame);
     else done();
   };
