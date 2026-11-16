@@ -61,6 +61,21 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 <main>
 <header><h1>Vokabelarena</h1></header>
 <section id="setup">
+<button type="button" id="verbsOpen">Unregelmäßige Verben</button>
+<dialog id="verbs" aria-labelledby="verbsTitle" style="width:min(88vw,32rem);border-radius:1rem;padding:1.5rem">
+<h2 id="verbsTitle">Unregelmäßige Verben</h2>
+<p id="verbStep"></p>
+<form id="verbRound" autocomplete="off">
+<h3 id="verbBase" lang="en"></h3>
+<label>Simple Past <input id="verbPast" name="past" required lang="en" spellcheck="false"></label>
+<label>Past Participle <input name="part" required lang="en" spellcheck="false"></label>
+<button>Prüfen</button>
+</form>
+<p id="verbResult" role="status"></p>
+<button type="button" id="verbsNext" hidden>Weiter</button>
+<button type="button" id="verbsAgain" hidden>Neue Runde</button>
+<form method="dialog"><button class="secondary">Schließen</button></form>
+</dialog>
 <form id="config">
 <label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon</small>
 <textarea id="pairs" required spellcheck="false">entscheiden;decide
@@ -594,5 +609,62 @@ el("ocr").onclick = async () => {
     el("start").disabled = false;
   }
 };
+
+(() => {
+  const bank = "be was/were been;begin began begun;break broke broken;bring brought brought;buy bought bought;come came come;do did done;drink drank drunk;drive drove driven;eat ate eaten;fall fell fallen;feel felt felt;find found found;fly flew flown;get got got/gotten;give gave given;go went gone;have had had;hear heard heard;keep kept kept;know knew known;leave left left;lose lost lost;make made made;meet met met;pay paid paid;put put put;read read read;run ran run;say said said;see saw seen;send sent sent;sing sang sung;sit sat sat;sleep slept slept;speak spoke spoken;stand stood stood;swim swam swum;take took taken;teach taught taught;tell told told;think thought thought;understand understood understood;wear wore worn;win won won;write wrote written".split(";").map(line => line.split(" "));
+  const form = el("verbRound");
+  const result = el("verbResult");
+  const next = el("verbsNext");
+  const again = el("verbsAgain");
+  let round, index, points;
+  function ask() {
+    form.hidden = false;
+    form.reset();
+    next.hidden = true;
+    again.hidden = true;
+    result.textContent = "";
+    el("verbStep").textContent = (index + 1) + " / " + round.length;
+    el("verbBase").textContent = round[index][0];
+    el("verbPast").focus();
+  }
+  function start() {
+    round = shuffle(bank).slice(0, 10);
+    index = points = 0;
+    ask();
+  }
+  el("verbsOpen").onclick = () => {
+    el("verbs").showModal();
+    start();
+  };
+  form.onsubmit = event => {
+    event.preventDefault();
+    if (form.hidden) return;
+    const [, past, part] = round[index];
+    const correct = (field, options) => options.split("/").includes(field.value.trim().toLowerCase());
+    const pastOK = correct(form.elements.past, past);
+    const partOK = correct(form.elements.part, part);
+    points += Number(pastOK) + Number(partOK);
+    result.textContent = "Simple Past: " + (pastOK ? "✓ " : "✗ ") + past +
+      " · Past Participle: " + (partOK ? "✓ " : "✗ ") + part;
+    form.hidden = true;
+    next.hidden = false;
+    next.textContent = index + 1 === round.length ? "Ergebnis" : "Weiter";
+    next.focus();
+  };
+  next.onclick = () => {
+    index++;
+    if (index < round.length) {
+      ask();
+    } else {
+      el("verbStep").textContent = "Ergebnis";
+      result.textContent = points + " von " + (round.length * 2) + " Formen richtig.";
+      next.hidden = true;
+      again.hidden = false;
+      again.focus();
+    }
+  };
+  again.onclick = start;
+})();
+
 </script>
 </html>
