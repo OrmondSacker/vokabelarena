@@ -57,13 +57,24 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 .boss{width:min(41vw,207px);background:linear-gradient(135deg,#e79df3,#8847be 65%,#45286f);box-shadow:inset 0 -25px #50317a;clip-path:polygon(0 9%,12% 0,24% 26%,76% 26%,88% 0,100% 9%,92% 41%,100% 62%,85% 75%,83% 91%,67% 100%,33% 100%,17% 91%,15% 75%,0 62%,8% 41%)}
 .boss::before{left:19%;top:44%;width:62%;height:14%;box-shadow:none;background:linear-gradient(90deg,#ffdb84 31%,transparent 31% 69%,#ffdb84 69%);clip-path:polygon(0 0,40% 35%,60% 35%,100% 0,100% 75%,0 75%)}
 .boss::after{background:repeating-linear-gradient(90deg,#ffe5cf 0 12%,#281839 12% 24%);border:3px solid #281839;box-sizing:border-box;border-radius:0 0 40% 40%}
-</style>
+#decksPanel details,#deckPicker{margin:12px 0;border:1px solid #536671;border-radius:12px;padding:12px}#decksPanel summary{cursor:pointer;font-weight:700}#decksPanel label{margin:8px 0}#deckTitle{padding:7px;border-radius:7px}#deckStatus:empty{display:none}#deckOptions label{overflow-wrap:anywhere}</style>
 <main>
 <header><h1>Vokabelarena</h1></header>
 <section id="setup">
 
 <form id="config">
-<div class="options"><label>Vokabelquelle <select id="vocabSource"><option value="custom">Eigene Vokabeln</option><option value="verbs">Unregelmäßige Verben</option></select></label><label>Antworten <select id="answerMode"><option value="manual">Mündlich · Lehrkraft wertet</option><option value="typed">Eintippen · automatisch prüfen</option></select></label></div>
+<div class="options"><label>Vokabelquelle <select id="vocabSource"><option value="custom">Eigene Vokabeln</option><option value="saved">Gespeicherte Listen</option><option value="verbs">Unregelmäßige Verben</option></select></label><label>Antworten <select id="answerMode"><option value="manual">Mündlich · Lehrkraft wertet</option><option value="typed">Eintippen · automatisch prüfen</option></select></label></div>
+<div id="decksPanel">
+<details id="deckManager">
+<summary>Vokabellisten verwalten</summary>
+<label>Listenname <input id="deckTitle" maxlength="120" placeholder="Buch XYZ – Lektion 1"></label>
+<button type="button" id="deckSave">Aktuelles Vokabelfeld speichern</button>
+<label>Gespeicherte Listen <select id="deckEdit"><option value="">Liste auswählen</option></select></label>
+<button type="button" class="secondary" id="deckLoad" disabled>Ins Vokabelfeld laden</button>
+</details>
+<fieldset id="deckPicker" hidden><legend>Listen für diese Runde</legend><div id="deckOptions"></div></fieldset>
+<p id="deckStatus" role="status"></p>
+</div>
 <div id="customVocabulary">
 <label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon</small>
 <textarea id="pairs" required spellcheck="false">entscheiden;decide
@@ -233,15 +244,15 @@ function judge(correct) {
 el("config").addEventListener("submit", event => {
   event.preventDefault();
   const verbs = el("vocabSource").value === "verbs";
-  const lines = el("pairs").value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const customCards = lines.map(line => line.split(line.includes("\t") ? "\t" : ";").map(part => part.trim()));
+  const saved = el("vocabSource").value === "saved";
+  const customCards = saved ? selectedDeckCards() : parsePairs(el("pairs").value);
   const size = el("verbLength").value;
   const cards = verbs ? shuffle(verbBank).slice(0, size === "all" ? verbBank.length : Number(size)) : customCards;
   const bad = verbs ? -1 : cards.findIndex(card => card.length !== 2 || card.some(part => !part));
   const error = el("error");
   error.hidden = Boolean(cards.length && bad < 0);
   if (!error.hidden) {
-    error.textContent = bad >= 0 ? "Bitte prüfe Wortpaar " + (bad + 1) + "." : "Bitte gib mindestens ein Wortpaar ein.";
+    error.textContent = saved && !cards.length ? "Wähle mindestens eine gespeicherte Liste aus." : bad >= 0 ? "Bitte prüfe Wortpaar " + (bad + 1) + "." : "Bitte gib mindestens ein Wortpaar ein.";
     return;
   }
   const mode = el("mode").value;
@@ -387,9 +398,14 @@ function setupMode() {
   const mode = el("mode").value;
   const verbs = el("vocabSource").value === "verbs";
   el("verbLengthWrap").hidden = !verbs;
-  el("customVocabulary").hidden = verbs;
+  const custom = el("vocabSource").value === "custom";
+  el("customVocabulary").hidden = !custom;
+  el("decksPanel").hidden = verbs;
+  el("deckPicker").hidden = custom || verbs;
+  el("deckSave").hidden = !custom;
+  el("deckTitle").closest("label").hidden = !custom;
   el("direction").closest("label").hidden = verbs;
-  el("pairs").required = !verbs;
+  el("pairs").required = custom;
   el("bossOptions").hidden = mode !== "boss";
   el("footballOptions").hidden = mode !== "football";
   el("zombieOptions").hidden = mode !== "zombie";
@@ -647,5 +663,81 @@ el("ocr").onclick = async () => {
   }
 };
 
+
+const deckStorageKey = "vokabelarena.named-decks.1";
+let deckRecords = [];
+try {
+  const raw = JSON.parse(localStorage.getItem(deckStorageKey) ?? "[]");
+  if (Array.isArray(raw)) deckRecords = raw.filter(record =>
+    typeof record?.title === "string" && typeof record.text === "string");
+} catch {
+  el("deckStatus").textContent = "Die gespeicherten Listen konnten nicht gelesen werden.";
+}
+
+function parsePairs(input) {
+  return input.split(/\r?\n/).filter(line => line.trim()).map(line =>
+    line.split(line.includes("\t") ? "\t" : ";").map(part => part.trim()));
+}
+
+function selectedDeckCards() {
+  const inputs = el("deckOptions").querySelectorAll("input:checked");
+  const cards = [...inputs].flatMap(input => parsePairs(deckRecords[Number(input.value)].text));
+  return [...new Map(cards.map(card => [JSON.stringify(card),card])).values()];
+}
+
+function rebuildDeckControls() {
+  const checked = new Set([...el("deckOptions").querySelectorAll("input:checked")].map(input => input.value));
+  el("deckEdit").replaceChildren(new Option("Liste auswählen",""));
+  el("deckOptions").replaceChildren();
+  deckRecords.forEach((record,index) => {
+    el("deckEdit").add(new Option(record.title,String(index)));
+    const choice = document.createElement("input");
+    choice.type = "checkbox";
+    choice.value = String(index);
+    choice.checked = checked.has(choice.value);
+    const label = document.createElement("label");
+    label.append(choice," "+record.title+" ("+parsePairs(record.text).length+")");
+    el("deckOptions").append(label);
+  });
+  if (!deckRecords.length) el("deckOptions").textContent = "Speichere zuerst eine Liste unter „Eigene Vokabeln“.";
+  el("deckLoad").disabled = true;
+}
+
+el("deckEdit").onchange = () => {
+  el("deckLoad").disabled = el("deckEdit").value === "";
+};
+el("deckLoad").onclick = () => {
+  const record = deckRecords[el("deckEdit").value];
+  if (!record) return;
+  el("pairs").value = record.text;
+  el("deckTitle").value = record.title;
+  el("vocabSource").value = "custom";
+  setupMode();
+  el("pairs").focus();
+};
+el("deckSave").onclick = () => {
+  const title = el("deckTitle").value.trim();
+  const input = el("pairs").value.trim();
+  const cards = parsePairs(input);
+  const status = el("deckStatus");
+  if (!title || !cards.length || cards.some(card => card.length !== 2 || card.some(part => !part))) {
+    status.textContent = "Gib einen Listennamen und mindestens ein gültiges Vokabelpaar ein.";
+    return;
+  }
+  const existing = deckRecords.findIndex(record => record.title.toLowerCase() === title.toLowerCase());
+  if (existing >= 0 && !confirm("Die Liste „"+deckRecords[existing].title+"“ ersetzen?")) return;
+  const next = [...deckRecords];
+  next[existing < 0 ? next.length : existing] = {title,text:input};
+  try {
+    localStorage.setItem(deckStorageKey,JSON.stringify(next));
+  } catch {
+    status.textContent = "Der Browser konnte die Liste nicht speichern.";
+    return;
+  }
+  deckRecords = next;
+  rebuildDeckControls();
+  status.textContent = "„"+title+"“ gespeichert.";
+};
+rebuildDeckControls();
 </script>
 </html>
