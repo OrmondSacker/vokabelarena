@@ -58,7 +58,43 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 .boss{width:min(41vw,207px);background:linear-gradient(135deg,#e79df3,#8847be 65%,#45286f);box-shadow:inset 0 -25px #50317a;clip-path:polygon(0 9%,12% 0,24% 26%,76% 26%,88% 0,100% 9%,92% 41%,100% 62%,85% 75%,83% 91%,67% 100%,33% 100%,17% 91%,15% 75%,0 62%,8% 41%)}
 .boss::before{left:19%;top:44%;width:62%;height:14%;box-shadow:none;background:linear-gradient(90deg,#ffdb84 31%,transparent 31% 69%,#ffdb84 69%);clip-path:polygon(0 0,40% 35%,60% 35%,100% 0,100% 75%,0 75%)}
 .boss::after{background:repeating-linear-gradient(90deg,#ffe5cf 0 12%,#281839 12% 24%);border:3px solid #281839;box-sizing:border-box;border-radius:0 0 40% 40%}
-#decksPanel details,#deckPicker{margin:12px 0;border:1px solid #536671;border-radius:12px;padding:12px}#decksPanel summary{cursor:pointer;font-weight:700}#decksPanel label{margin:8px 0}#deckTitle{padding:7px;border-radius:7px}#deckStatus:empty{display:none}#deckOptions label{overflow-wrap:anywhere}</style>
+#decksPanel details,#deckPicker{margin:12px 0;border:1px solid #536671;border-radius:12px;padding:12px}#decksPanel summary{cursor:pointer;font-weight:700}#decksPanel label{margin:8px 0}#deckTitle{padding:7px;border-radius:7px}#deckStatus:empty{display:none}#deckOptions label{overflow-wrap:anywhere}
+#bossIcon{position:relative;isolation:isolate;display:grid;place-items:center;gap:2px;margin:.55rem auto 0;max-width:560px;min-height:170px;overflow:hidden;background:radial-gradient(ellipse at 50% 100%,var(--boss-glow,#ff8655),transparent 64%),linear-gradient(#171720,#292132);border:1px solid #646070;border-radius:14px}
+#bossIcon::before{content:"";position:absolute;z-index:-1;inset:52% 0 0;background:repeating-linear-gradient(90deg,transparent 0 12%,#100b2529 12% 13%),linear-gradient(transparent,#0e1126);transform:perspective(100px) rotateX(28deg);transform-origin:bottom}
+#bossSprite{display:block;width:clamp(155px,30vw,226px);image-rendering:pixelated;transform-origin:50% 81%;filter:drop-shadow(0 10px 7px #15101b);animation:bossIdle 2.1s ease-in-out infinite}
+#bossName{font-size:.95rem;font-weight:800;color:#fff8ee;text-shadow:0 1px 4px #111;position:relative;margin-bottom:7px}
+#bossIcon[data-boss=ghost] #bossSprite{animation:ghostIdle 2.55s ease-in-out infinite}
+#bossIcon[data-boss=golem] #bossSprite{animation:bossIdle 3.5s ease-in-out infinite}
+#bossIcon[data-action=hit] #bossSprite{animation:bossHit .6s ease-out both}
+#bossIcon[data-action=defeat] #bossSprite{animation:bossDefeat .65s ease-out both}
+#bossIcon[data-action=attack] #bossSprite{animation:bossAttack .65s ease-in-out both}
+#bossIcon[data-boss=golem][data-action=attack] #bossSprite{animation:golemAttack .65s ease-in-out both}
+#bossIcon[data-boss=ghost][data-action=attack] #bossSprite{animation:ghostAttack .65s ease-in-out both}
+#bossEffect{position:absolute;top:12%;right:8%;border:1px solid #ffddad;background:#201520;color:#fff4d1;border-radius:12px;padding:.35em .65em;font-size:clamp(.85rem,3vw,1.3rem);font-weight:900;pointer-events:none;animation:damagePop .65s ease-out both}
+#game[data-hit=wrong] #hearts{animation:bossHit .55s ease-out both}
+@keyframes bossIdle{50%{transform:translateY(-3%) scale(1.025)}}
+@keyframes ghostIdle{50%{transform:translateY(-10%) rotate(4deg);opacity:.83}}
+@keyframes bossHit{20%{transform:translateX(8%) rotate(8deg);filter:brightness(2.6)}40%{transform:translateX(-6%) rotate(-5deg)}65%{transform:translateX(3%)}}
+@keyframes bossDefeat{25%{filter:brightness(2.7);transform:rotate(8deg)}100%{opacity:.24;transform:translateY(15%) rotate(-15deg) scale(.78)}}
+@keyframes bossAttack{24%{transform:translateY(-10%) scale(.92)}52%{transform:translateY(5%) scale(1.22);filter:brightness(1.6) saturate(1.7)}}
+@keyframes golemAttack{26%{transform:translateY(-15%) scaleY(1.12)}55%{transform:translateY(10%) scaleX(1.16) scaleY(.83);filter:brightness(1.75)}}
+@keyframes ghostAttack{27%{transform:translateX(-14%) skewX(8deg);opacity:.45}55%{transform:translateX(12%) scale(1.23);filter:brightness(1.8)}}
+@keyframes damagePop{0%{opacity:0;transform:translateY(6px) scale(.75)}30%{opacity:1;transform:translateY(-5px) scale(1.08)}100%{transform:translateY(-12px)}}
+#pitch{isolation:isolate}
+.goalMessage{position:absolute;z-index:6;inset:0;display:grid;place-items:center;color:#fff6bc;font:900 clamp(2.5rem,11vw,7rem)/1 system-ui;text-shadow:0 4px 0 #4d3511,0 8px 26px #061315;pointer-events:none;animation:goalZoom 1.25s ease-in-out both}
+@keyframes goalZoom{0%{opacity:0;transform:scale(.18)}26%{opacity:1;transform:scale(1.12)}48%{transform:scale(1)}74%{opacity:1}100%{opacity:0;transform:scale(1.4)}}
+#classPlayers{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:4px 12px;max-height:14rem;overflow:auto}
+#classPlayers label{margin:3px 0;overflow-wrap:anywhere}
+#zombieOptions fieldset,#zombieOptions details{padding:10px 12px;margin:10px 0;border:1px solid #536671;border-radius:10px}
+#zombieOptions summary{cursor:pointer}
+.roster .infected span::before{background:linear-gradient(#bdd97b 0 46%,#9b69c3 46%);animation:zombieSway 1.8s steps(3,end) infinite}
+.roster .infected span:nth-of-type(even)::before{animation-delay:-.8s}
+.roster .infected .just-infected{animation:zombieInfect .65s ease-out both}
+.roster span.has-defended,#targets button.has-defended{background:#3c414c;color:#e0e4ed;opacity:.65}
+@keyframes zombieSway{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg) translateY(-2px)}}
+@keyframes zombieInfect{40%{transform:scale(1.18);filter:brightness(1.55)}}
+@media(prefers-reduced-motion:reduce){#bossSprite,#bossEffect,.roster span::before,.roster span,#hearts{animation:none!important}.goalMessage{animation:none!important}}
+</style>
 <main>
 <header><h1>Vokabelarena</h1></header>
 <section id="setup">
@@ -72,8 +108,10 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 <button type="button" id="deckSave">Aktuelles Vokabelfeld speichern</button>
 <label>Gespeicherte Listen <select id="deckEdit"><option value="">Liste auswählen</option></select></label>
 <button type="button" class="secondary" id="deckLoad" disabled>Ins Vokabelfeld laden</button>
+<button type="button" class="secondary" id="deckExport">Alle Listen exportieren</button>
+<label>Listen importieren <input type="file" id="deckImport" accept=".json,application/json"></label>
 </details>
-<fieldset id="deckPicker" hidden><legend>Listen für diese Runde</legend><div id="deckOptions"></div></fieldset>
+<fieldset id="deckPicker" hidden><legend>Listen für diese Runde</legend><div id="deckOptions"></div><button type="button" class="secondary" id="deckExportSelection">Auswahl exportieren</button></fieldset>
 <p id="deckStatus" role="status"></p>
 </div>
 <div id="customVocabulary">
@@ -87,10 +125,21 @@ die Bestellung;order
 verbessern;improve
 sich erinnern;remember</textarea></label>
 <label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div class="cropZoom"><button type="button" class="secondary" id="cropFit">Ganze Seite</button><label for="cropZoom">Zoom <input type="range" id="cropZoom" min="40" max="300" step="10" value="100"></label><output id="cropZoomValue" for="cropZoom">100 %</output></div><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div></div><div class="options"><label>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option></select></label>
-<label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
-<label>Abfrage <select id="direction"><option value="0">Links → rechts</option><option value="1">Rechts → links</option><option value="mix">Gemischt</option></select></label>
+<label id="bossChoice" hidden>Boss <select id="bossSelect"><option value="random">Zufällig</option><option value="dragon">Glutdrache</option><option value="golem">Runengolem</option><option value="ghost">Nebelgeist</option></select></label><label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+<label>Abfragerichtung <select id="direction"><option value="0">Links → rechts</option><option value="1">Rechts → links</option><option value="mix">Gemischt (beide Richtungen)</option></select></label>
 </div>
-<div id="footballOptions"><label>Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><div id="zombieOptions" hidden><label>Spielende, nummeriert <input id="players" type="number" min="2" max="40" value="8"></label><label>Spielernamen <small>· optional, ein Name pro Zeile in der Reihenfolge der Spielernummern</small><textarea id="names" rows="3" placeholder="Alex&#10;Sam&#10;Mika"></textarea></label><label>Start-Zombies <input id="zombies" type="number" min="1" max="39" value="2"></label><label>Angriffe bis zur Rettung <input id="attacks" type="number" min="1" max="100" value="10"></label></div><label id="verbLengthWrap" hidden>Umfang <select id="verbLength"><option value="10">10 Verben</option><option value="20">20 Verben</option><option value="all">Alle 334 Verben</option></select></label><button id="start">Spiel starten</button>
+<div id="footballOptions"><label>Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><div id="zombieOptions" hidden><details><summary>Spieler und Klassen speichern</summary>
+<label>Gruppenname <input id="classTitle" maxlength="120" placeholder="z. B. HH 11"></label>
+<label>Namen <small>Ein Name pro Zeile. Ein einzelner Name ist ebenfalls möglich.</small>
+<textarea id="classNames" rows="3"></textarea></label>
+<button type="button" id="classSave">Gruppe speichern</button>
+</details>
+<label>Spielerauswahl <select id="classLoad"></select></label>
+<fieldset id="classChoose" hidden><legend>Spieler für diese Runde</legend>
+<button type="button" class="secondary" id="classAll">Alle auswählen</button>
+<button type="button" class="secondary" id="classNone">Auswahl aufheben</button>
+<p id="classCount" aria-live="polite"></p><div id="classPlayers"></div>
+</fieldset><p id="classStatus" role="status"></p><div id="manualPlayers"><label>Spielende, nummeriert <input id="players" type="number" min="2" max="40" value="8"></label><label>Spielernamen <small>· optional, ein Name pro Zeile in der Reihenfolge der Spielernummern</small><textarea id="names" rows="3" placeholder="Alex&#10;Sam&#10;Mika"></textarea></label></div><label>Start-Zombies <input id="zombies" type="number" min="0" value="2"></label><label>Runden bis zur Rettung <input id="rounds" type="number" min="1" max="100" value="4"></label></div><label id="verbLengthWrap" hidden>Umfang <select id="verbLength"><option value="10">10 Verben</option><option value="20">20 Verben</option><option value="all">Alle 334 Verben</option></select></label><button id="start">Spiel starten</button>
 <p id="error" role="alert" hidden></p>
 </form>
 </section>
@@ -99,7 +148,7 @@ sich erinnern;remember</textarea></label>
 <div><span id="hpLabel"></span><progress id="hp" max="8" aria-label="Boss-Lebenspunkte"></progress></div>
 <div><span id="heartsLabel"></span><progress id="hearts" max="4" aria-label="Verbleibende Herzen"></progress></div>
 </div>
-<div class="boss" id="bossIcon" aria-hidden="true"></div><p id="score"></p><div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
+<div id="bossIcon" hidden><canvas id="bossSprite" width="96" height="72" aria-hidden="true"></canvas><span id="bossName"></span><span id="bossEffect" hidden></span></div><p id="score"></p><div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
 <p id="turn"></p>
 <h2 id="word" tabindex="-1" aria-live="polite"></h2>
 <p id="answerKey" hidden></p>
@@ -147,7 +196,7 @@ function meters() {
   if (state.mode !== "boss") return;
   el("hp").value = state.hp;
   el("hearts").value = state.hearts;
-  el("hpLabel").textContent = "Boss · " + state.hp + "/8 LP";
+  el("hpLabel").textContent = bossRoster[state.boss].name + " · " + state.hp + "/8 LP";
   el("heartsLabel").textContent = "Ihr · " + state.hearts + "/4 Herzen";
 }
 
@@ -157,6 +206,7 @@ function question() {
     return;
   }
   delete el("game").dataset.hit;
+  if (state.mode === "boss") resetBossEffect();
   state.current = draw();
   state.pending = true;
   el("turn").textContent = state.mode === "football" ? "Team " + (state.team + 1) + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
@@ -218,11 +268,14 @@ function judge(correct) {
   if (correct) {
     state.streak++;
     const bonus = state.streak === 3;
-    state.hp = Math.max(0, state.hp - (bonus ? 2 : 1));
+    const damage = Math.min(state.hp,bonus ? 2 : 1);
+    state.hp -= damage;
+    animateBoss(true,damage);
     if (bonus) state.streak = 0;
-    message = bonus ? "Bonusangriff! Der Boss verliert 2 LP." : "Treffer! Der Boss verliert 1 LP.";
+    message = (bonus ? "Bonusangriff! " : "Treffer! ") + "Der Boss verliert " + damage + " LP.";
   } else {
     state.hearts--;
+    animateBoss(false,1);
     state.streak = 0;
     if (!state.retries.some(item => item.question.card === state.current.card &&
       item.question.side === state.current.side)) {
@@ -259,19 +312,24 @@ el("config").addEventListener("submit", event => {
     return;
   }
   const mode = el("mode").value;
-  const players = Number(el("players").value);
+  const savedPlayers = mode === "zombie" && el("classLoad").value !== "";
+  const names = savedPlayers ? classSelection() : el("names").value.split(/\r?\n/).map(name => name.trim());
+  const players = savedPlayers ? names.length : Number(el("players").value);
   const zombies = Number(el("zombies").value);
-  if (mode === "zombie" && zombies >= players) {
+  if (mode === "zombie" && (players < 2 || zombies >= players)) {
     error.hidden = false;
-    error.textContent = "Mindestens eine Person muss als Überlebende starten.";
+    error.textContent = players < 2 ? "Wähle mindestens zwei Personen aus." : "Mindestens eine Person muss als überlebende Person starten.";
     return;
   }
-  const names = el("names").value.split(/\r?\n/).map(name => name.trim());
+  const people = mode === "zombie" ? shuffle(Array.from({length:players},(_,i) => i+1)) : [];
   state = {mode, names, verbs, typed:el("answerMode").value === "typed", ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
-    attackers:Array.from({length:zombies}, (_, i) => i + 1),
-    survivors:Array.from({length:Math.max(0, players - zombies)}, (_, i) => zombies + i + 1),
-    maxAttacks:Number(el("attacks").value), target:null, cards, bag:shuffle(cards), retries:[], count:Number(el("count").value),
+    attackers:people.slice(0,zombies),
+    survivors:people.slice(zombies),
+    round:zombies ? 1 : 0, maxRounds:Number(el("rounds").value), waiting:new Set(),
+    opening:zombies ? [] : [...people], attackOrder:[], attackIndex:0, lastInfected:null, target:null, cards, bag:shuffle(cards), retries:[], count:Number(el("count").value),
     direction:verbs ? "0" : el("direction").value, hp:8, hearts:4, streak:0, answered:0};
+  if (mode === "zombie" && zombies) beginZombieRound();
+  if (mode === "boss") prepareBoss();
   el("setup").hidden = true;
   el("game").hidden = false;
   el("bossMeters").hidden = mode !== "boss";
@@ -317,7 +375,8 @@ function renderTeam() {
   }
   if (state.mode === "zombie") {
     el("roster").replaceChildren(rosterGroup("Zombies", state.attackers, true), rosterGroup("Überlebende", state.survivors, false));
-    el("score").textContent = "Angriffe: " + state.answered + "/" + state.maxAttacks;
+    el("score").textContent = state.round === 0 ? "Vorrunde · "+state.answered+"/"+(state.answered+state.opening.length+(state.pending ? 1 : 0)) :
+      "Runde "+state.round+"/"+state.maxRounds+" · Angriffe "+state.attackIndex+"/"+state.attackOrder.length;
   }
 }
 
@@ -334,31 +393,78 @@ function rosterGroup(label, people, infected) {
   for (const person of people) {
     const badge = document.createElement("span");
     badge.textContent = playerName(person);
+    badge.classList.toggle("has-defended", !infected && state.waiting.has(person));
+    badge.classList.toggle("just-infected", infected && state.lastInfected === person);
     group.append(badge);
   }
   return group;
 }
 
+
+function beginZombieRound() {
+  state.attackOrder = shuffle(state.attackers);
+  state.attackIndex = 0;
+}
+function availableSurvivors() {
+  const eligible = state.survivors.filter(person => !state.waiting.has(person));
+  if (eligible.length) return eligible;
+  state.waiting.clear();
+  return state.survivors;
+}
+function pickZombieTarget(person) {
+  state.target = person;
+  el("targets").replaceChildren();
+  question();
+}
 function chooseTarget() {
+  if (state.opening.length) {
+    pickZombieTarget(state.opening.shift());
+    return;
+  }
   el("typedAnswer").hidden = true;
   el("answerKey").hidden = true;
-  const targets = el("targets");
-  el("turn").textContent = "Zombies wählen die nächste Person";
+  el("turn").textContent = playerName(state.attackOrder[state.attackIndex]) + " wählt als Zombie";
   el("word").textContent = "Wer verteidigt sich?";
   el("feedback").textContent = "";
   el("judge").hidden = true;
   el("next").hidden = true;
-  targets.replaceChildren(...state.survivors.map(person => {
+  const eligible = new Set(availableSurvivors());
+  renderTeam();
+  el("targets").replaceChildren(...state.survivors.map(person => {
     const button = document.createElement("button");
     button.textContent = playerName(person);
-    button.onclick = () => {
-      state.target = person;
-      targets.replaceChildren();
-      question();
-    };
+    button.disabled = !eligible.has(person);
+    button.classList.toggle("has-defended", button.disabled);
+    if (button.disabled) button.title = "Hat bereits verteidigt";
+    button.onclick = () => pickZombieTarget(person);
     return button;
   }));
-  targets.firstElementChild?.focus();
+  el("targets").querySelector("button:not(:disabled)")?.focus();
+}
+
+function advanceZombie(correct) {
+  const wasOpening = state.round === 0;
+  const target = state.target;
+  state.target = null;
+  if (correct) {
+    state.waiting.add(target);
+  } else {
+    state.survivors = state.survivors.filter(person => person !== target);
+    state.attackers.push(target);
+  }
+  state.lastInfected = correct ? null : target;
+  const event = correct ? "" : " " + playerName(target) + " wird zum Zombie!";
+  if (!state.survivors.length) return {event,result:"Die Zombies gewinnen!"};
+
+  if (!wasOpening) state.attackIndex++;
+  const roundOver = wasOpening ? !state.opening.length : state.attackIndex === state.attackOrder.length;
+  if (!roundOver) return {event,result:""};
+  if (!state.attackers.length || state.round === state.maxRounds) {
+    return {event,result:"Die Überlebenden gewinnen!"};
+  }
+  state.round++;
+  beginZombieRound();
+  return {event,result:""};
 }
 
 function judgeTeam(correct, solution) {
@@ -369,20 +475,14 @@ function judgeTeam(correct, solution) {
     if (correct) state.ball += state.team === 0 ? 1 : -1;
     if (state.ball === 0 || state.ball === 6) {
       state.goals[state.team]++;
+      flashGoal();
       event = " Tor für Team " + (state.team + 1) + "!";
       if (state.goals[state.team] === state.goalLimit) result = "Team " + (state.team + 1) + " gewinnt!";
       else state.ball = 3;
     }
     state.team = 1 - state.team;
   } else {
-    if (!correct) {
-      state.survivors = state.survivors.filter(person => person !== state.target);
-      state.attackers.push(state.target);
-      event = " " + playerName(state.target) + " wird zum Zombie!";
-    }
-    state.target = null;
-    if (!state.survivors.length) result = "Die Zombies gewinnen!";
-    else if (state.answered === state.maxAttacks) result = "Die Überlebenden gewinnen!";
+    ({event,result} = advanceZombie(correct));
   }
   renderTeam();
   el("feedback").textContent = message + event;
@@ -411,9 +511,11 @@ function setupMode() {
   el("direction").closest("label").hidden = verbs;
   el("pairs").required = custom;
   el("bossOptions").hidden = mode !== "boss";
+  el("bossChoice").hidden = mode !== "boss";
   el("footballOptions").hidden = mode !== "football";
   el("zombieOptions").hidden = mode !== "zombie";
-  for (const id of ["players", "zombies", "attacks"]) el(id).disabled = mode !== "zombie";
+  el("players").disabled = mode !== "zombie" || el("classLoad").value !== "";
+  for (const id of ["zombies", "rounds"]) el(id).disabled = mode !== "zombie";
 }
 el("mode").onchange = setupMode;
 el("vocabSource").onchange = setupMode;
@@ -802,5 +904,255 @@ el("deckSave").onclick = () => {
   status.textContent = "„"+title+"“ gespeichert.";
 };
 rebuildDeckControls();
+
+const bossRoster = {
+  dragon: {name:"Glutdrache",color:"#ff8655",attack:"Feuerstoß"},
+  golem: {name:"Runengolem",color:"#8be4fe",attack:"Bodenstoß"},
+  ghost: {name:"Nebelgeist",color:"#d393ff",attack:"Nebelwelle"}
+};
+
+function drawBoss() {
+  const ctx = el("bossSprite").getContext("2d");
+  ctx.clearRect(0,0,96,72);
+  function polygon(color, points) {
+    ctx.beginPath();
+    for (const [i,[x,y]] of points.entries()) {
+      if (i === 0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  function block(color,x,y,w,h) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x,y,w,h);
+  }
+
+  const sprite = state.boss;
+  const colors = {
+    dragon:["#361927","#ae4846","#fc8050","#ffe685"],
+    golem:["#152937","#516979","#9bb0af","#a9fff5"],
+    ghost:["#2b1a44","#814bb4","#c78cf5","#fff0ff"]
+  }[sprite];
+  const [outline,shade,light,eyes] = colors;
+  for (const side of [-1,1]) {
+    ctx.save();
+    ctx.translate(48,0);
+    ctx.scale(side,1);
+    if (sprite === "dragon") {
+      polygon(outline,[[0,42],[12,23],[37,9],[32,29],[44,52],[29,46],[19,56],[9,51]]);
+      polygon(shade,[[9,39],[33,13],[27,29],[38,45],[27,40],[19,50]]);
+      polygon(light,[[13,34],[28,20],[23,36],[17,42]]);
+      polygon(eyes,[[7,26],[21,8],[21,22],[14,32]]);
+    } else if (sprite === "golem") {
+      polygon(outline,[[12,24],[32,25],[42,38],[42,51],[32,60],[19,54],[10,42]]);
+      polygon(shade,[[16,28],[30,28],[38,39],[37,50],[31,55],[20,50],[13,41]]);
+      block(light,25,39,10,3);
+    } else {
+      polygon(outline,[[4,33],[23,34],[28,43],[42,48],[34,59],[25,54],[19,66],[8,58],[0,65]]);
+      polygon(shade,[[7,37],[22,38],[26,46],[36,49],[33,54],[23,50],[17,60],[8,53],[2,59]]);
+      block(light,35,29,4,4);block(light,31,63,3,3);
+    }
+    ctx.restore();
+  }
+
+  if (sprite === "golem") {
+    polygon(outline,[[26,40],[35,13],[59,13],[70,38],[66,66],[30,66]]);
+    polygon(shade,[[29,43],[39,28],[57,29],[66,43],[62,62],[34,62]]);
+    polygon(light,[[35,25],[39,17],[56,17],[62,24],[59,35],[36,35]]);
+    block(outline,38,26,20,7);block(eyes,40,27,4,3);block(eyes,52,27,4,3);
+    polygon(eyes,[[48,40],[55,47],[48,54],[41,47]]);
+    block(outline,46,45,4,4);
+  } else {
+    const top = sprite === "ghost" ? 9 : 24;
+    polygon(outline,[[24,48],[28,top+8],[38,top],[57,top],[68,top+8],[74,48],[65,62],[33,62]]);
+    polygon(shade,[[29,46],[33,top+9],[40,top+4],[55,top+4],[64,top+10],[69,46],[60,57],[36,57]]);
+    polygon(light,[[34,38],[39,top+10],[56,top+10],[62,38],[55,45],[41,45]]);
+    block(outline,35,37,10,6);block(outline,51,37,10,6);
+    block(eyes,40,38,4,3);block(eyes,52,38,4,3);
+    block(outline,42,49,12,5);
+    if (sprite === "dragon") {
+      block(eyes,39,52,4,5);block(eyes,54,52,4,5);
+    }
+  }
+}
+
+function prepareBoss() {
+  const requested = el("bossSelect").value;
+  state.boss = requested === "random" ? shuffle(Object.keys(bossRoster))[0] : requested;
+  const {name,color} = bossRoster[state.boss];
+  const arena = el("bossIcon");
+  arena.dataset.boss = state.boss;
+  arena.style.setProperty("--boss-glow",color);
+  el("bossName").textContent = name;
+  resetBossEffect();
+  drawBoss();
+}
+function resetBossEffect() {
+  delete el("bossIcon").dataset.action;
+  el("bossEffect").hidden = true;
+}
+function animateBoss(correct, damage) {
+  const action = correct ? (state.hp === 0 ? "defeat" : "hit") : "attack";
+  el("bossIcon").dataset.action = action;
+  const effect = el("bossEffect");
+  effect.textContent = correct ? "−"+damage+" LP" : bossRoster[state.boss].attack+" · −1 Herz";
+  effect.hidden = false;
+}
+function flashGoal() {
+  el("pitch").querySelector(".goalMessage")?.remove();
+  const message = document.createElement("div");
+  message.className = "goalMessage";
+  message.textContent = "TOR!";
+  message.setAttribute("aria-hidden","true");
+  el("pitch").append(message);
+  setTimeout(() => message.remove(),1250);
+}
+
+
+const classStorage = "vokabelarena.classes.1";
+const readNames = value => value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+let classRecords = [];
+try {
+  const raw = JSON.parse(localStorage.getItem(classStorage) ?? "[]");
+  if (Array.isArray(raw)) classRecords = raw.filter(item => typeof item?.title === "string" &&
+    Array.isArray(item.names) && item.names.every(name => typeof name === "string"));
+} catch {
+  el("classStatus").textContent = "Gruppen konnten nicht geladen werden.";
+}
+
+function classSelection() {
+  return [...el("classPlayers").querySelectorAll("input:checked")].map(box => box.value);
+}
+function syncClassCount() {
+  const selected = classSelection().length;
+  el("classCount").textContent = selected + " ausgewählt";
+}
+function renderClassPlayers() {
+  const selected = el("classLoad").value;
+  const record = selected === "all" ? {names:[...new Set(classRecords.flatMap(group => group.names))]} : classRecords[selected];
+  el("classChoose").hidden = !record;
+  el("manualPlayers").hidden = Boolean(record);
+  el("players").required = !record;
+  el("players").disabled = Boolean(record) || el("mode").value !== "zombie";
+  if (record?.title) {
+    el("classTitle").value = record.title;
+    el("classNames").value = record.names.join("\n");
+  }
+  el("classPlayers").replaceChildren(...(record?.names ?? []).map(name => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = true;
+    input.value = name;
+    input.onchange = syncClassCount;
+    label.append(input," "+name);
+    return label;
+  }));
+  syncClassCount();
+}
+function refreshClasses(index = "") {
+  el("classLoad").replaceChildren(new Option("Manuelle Eingabe",""),
+    ...classRecords.map((record,i) => new Option(record.title,String(i))));
+  if (classRecords.length) el("classLoad").add(new Option("Alle gespeicherten Spieler","all"));
+  el("classLoad").value = String(index);
+  renderClassPlayers();
+}
+el("classLoad").onchange = renderClassPlayers;
+el("classAll").onclick = () => {
+  for (const box of el("classPlayers").querySelectorAll("input")) box.checked = true;
+  syncClassCount();
+};
+el("classNone").onclick = () => {
+  for (const box of el("classPlayers").querySelectorAll("input")) box.checked = false;
+  syncClassCount();
+};
+el("classSave").onclick = () => {
+  const title = el("classTitle").value.trim();
+  const names = readNames(el("classNames").value);
+  const status = el("classStatus");
+  if (!title || !names.length) {
+    status.textContent = "Gib einen Gruppennamen und mindestens einen Spielernamen ein.";
+    return;
+  }
+  const index = classRecords.findIndex(record => record.title.toLowerCase() === title.toLowerCase());
+  if (index >= 0 && !confirm("Gruppe „"+classRecords[index].title+"“ ersetzen?")) return;
+  const next = [...classRecords];
+  const slot = index < 0 ? next.length : index;
+  next[slot] = {title,names};
+  try {
+    localStorage.setItem(classStorage,JSON.stringify(next));
+  } catch {
+    status.textContent = "Die Gruppe konnte nicht gespeichert werden.";
+    return;
+  }
+  classRecords = next;
+  refreshClasses(slot);
+  status.textContent = "Gruppe gespeichert.";
+};
+refreshClasses();
+
+
+function exportDecks(selectedOnly) {
+  const indices = new Set([...el("deckOptions").querySelectorAll("input:checked")].map(input => Number(input.value)));
+  const lists = selectedOnly ? deckRecords.filter((_,i) => indices.has(i)) : deckRecords;
+  if (!lists.length) {
+    el("deckStatus").textContent = selectedOnly ? "Hake zuerst mindestens eine Liste an." : "Es gibt noch keine gespeicherten Listen.";
+    return;
+  }
+  const blob = new Blob([JSON.stringify({format:"vokabelarena-listen",version:1,lists},null,2)],{type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "Vokabelarena-Listen.json";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+  el("deckStatus").textContent = lists.length + " Liste(n) exportiert.";
+}
+el("deckExport").onclick = () => exportDecks(false);
+el("deckExportSelection").onclick = () => exportDecks(true);
+el("deckImport").onchange = async event => {
+  const input = event.currentTarget;
+  const file = input.files[0];
+  if (!file) return;
+  input.disabled = true;
+  const status = el("deckStatus");
+  try {
+    if (file.size > 10_000_000) throw Error("file too large");
+    const data = JSON.parse(await file.text());
+    if (data?.format !== "vokabelarena-listen" || data.version !== 1 || !Array.isArray(data.lists) || !data.lists.length) throw Error("unrecognized format");
+    const incoming = data.lists.map(entry => {
+      if (typeof entry?.title !== "string" || typeof entry.text !== "string") throw Error("invalid list");
+      const title = entry.title.trim(), text = entry.text.trim(), cards = parsePairs(text);
+      if (!title || title.length > 120 || !cards.length || cards.some(pair => pair.length !== 2 || pair.some(part => !part))) throw Error("invalid pairs");
+      return {title,text};
+    });
+    const updated = [...deckRecords];
+    for (const {title,text} of incoming) {
+      let name = title;
+      let counter = 2;
+      let match = updated.find(record => record.title.toLowerCase() === name.toLowerCase());
+      while (match && match.text !== text) {
+        const suffix = " (" + counter + ")";
+        counter++;
+        name = title.slice(0,120-suffix.length)+suffix;
+        match = updated.find(record => record.title.toLowerCase() === name.toLowerCase());
+      }
+      if (!match) updated.push({title:name,text});
+    }
+    localStorage.setItem(deckStorageKey,JSON.stringify(updated));
+    const count = updated.length-deckRecords.length;
+    deckRecords = updated;
+    rebuildDeckControls();
+    status.textContent = count ? count+" Liste(n) importiert. Bestehende Listen wurden nicht überschrieben." : "Diese Listen sind bereits gespeichert.";
+  } catch {
+    status.textContent = "Import fehlgeschlagen. Prüfe die Vokabelarena-JSON-Datei und den verfügbaren Speicher.";
+  } finally {
+    input.value = "";
+    input.disabled = false;
+  }
+};
+
 </script>
 </html>
