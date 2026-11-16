@@ -94,6 +94,10 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 @keyframes zombieSway{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg) translateY(-2px)}}
 @keyframes zombieInfect{40%{transform:scale(1.18);filter:brightness(1.55)}}
 @media(prefers-reduced-motion:reduce){#bossSprite,#bossEffect,.roster span::before,.roster span,#hearts{animation:none!important}.goalMessage{animation:none!important}}
+#verbOptions{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.35rem;max-height:15rem;overflow:auto;margin-top:.5rem}
+#verbOptions label{display:flex;align-items:center;gap:.4rem;margin:0}
+#verbOptions input{width:auto}
+#verbOptions [hidden]{display:none}
 </style>
 <main>
 <header><h1>Vokabelarena</h1></header>
@@ -139,7 +143,13 @@ sich erinnern;remember</textarea></label>
 <button type="button" class="secondary" id="classAll">Alle auswählen</button>
 <button type="button" class="secondary" id="classNone">Auswahl aufheben</button>
 <p id="classCount" aria-live="polite"></p><div id="classPlayers"></div>
-</fieldset><p id="classStatus" role="status"></p><div id="manualPlayers"><label>Spielende, nummeriert <input id="players" type="number" min="2" max="40" value="8"></label><label>Spielernamen <small>· optional, ein Name pro Zeile in der Reihenfolge der Spielernummern</small><textarea id="names" rows="3" placeholder="Alex&#10;Sam&#10;Mika"></textarea></label></div><label>Start-Zombies <input id="zombies" type="number" min="0" value="2"></label><label>Runden bis zur Rettung <input id="rounds" type="number" min="1" max="100" value="4"></label></div><label id="verbLengthWrap" hidden>Umfang <select id="verbLength"><option value="10">10 Verben</option><option value="20">20 Verben</option><option value="all">Alle 334 Verben</option></select></label><button id="start">Spiel starten</button>
+</fieldset><p id="classStatus" role="status"></p><div id="manualPlayers"><label>Spielende, nummeriert <input id="players" type="number" min="2" max="40" value="8"></label><label>Spielernamen <small>· optional, ein Name pro Zeile in der Reihenfolge der Spielernummern</small><textarea id="names" rows="3" placeholder="Alex&#10;Sam&#10;Mika"></textarea></label></div><label>Start-Zombies <input id="zombies" type="number" min="0" value="2"></label><label>Runden bis zur Rettung <input id="rounds" type="number" min="1" max="100" value="4"></label></div><label id="verbLengthWrap" hidden>Umfang <select id="verbLength"><option value="10">10 Verben</option><option value="20">20 Verben</option><option value="all">Alle 334 Verben</option><option value="selected">Verben selbst auswählen</option></select></label>
+<fieldset id="verbPicker" hidden><legend>Verben für diese Partie</legend>
+<label>Grundform suchen <input id="verbSearch" type="search" spellcheck="false" placeholder="z. B. go"></label>
+<button type="button" class="secondary" id="verbSelectVisible">Angezeigte auswählen</button>
+<button type="button" class="secondary" id="verbClear">Auswahl aufheben</button>
+<p id="verbStatus" role="status"></p><div id="verbOptions"></div>
+</fieldset><button id="start">Spiel starten</button>
 <p id="error" role="alert" hidden></p>
 </form>
 </section>
@@ -156,6 +166,10 @@ sich erinnern;remember</textarea></label>
 <form id="typedAnswer" hidden autocomplete="off"><label><span id="answerLabel">Antwort</span> <input id="answerInput" required spellcheck="false"></label><label id="partAnswer" hidden>Past Participle <input id="partInput" lang="en" spellcheck="false"></label><button>Prüfen</button></form>
 <div id="judge"><button type="button" class="secondary" id="revealAnswer">Lösung anzeigen</button><button type="button" class="correct" id="correct">Richtig</button><button type="button" class="wrong" id="wrong">Falsch</button></div>
 <button type="button" id="next" hidden>Weiter</button>
+<div id="practiceChoice" hidden>
+<button type="button" id="practiceRestart">Liste zurücksetzen und weiterspielen</button>
+<button type="button" class="secondary" id="practiceStop">Aufhören</button>
+</div>
 <button type="button" class="secondary" id="back">Zur Einrichtung</button>
 </section>
 </main>
@@ -174,23 +188,35 @@ function shuffle(cards) {
   return bag;
 }
 
-function draw() {
-  const due = state.retries.findIndex(item => item.due <= state.answered);
-  if (due >= 0) return state.retries.splice(due, 1)[0].question;
-  if (!state.bag.length) state.bag = shuffle(state.cards);
-  const available = state.bag.findIndex(card =>
-    card !== state.current?.card && !state.retries.some(item => item.question.card === card));
-  if (available < 0) {
-    const fresh = state.cards.filter(card => card !== state.current?.card &&
-      !state.retries.some(item => item.question.card === card));
-    if (fresh.length) state.bag = shuffle(fresh);
-  }
-  const index = state.bag.findIndex(card =>
-    card !== state.current?.card && !state.retries.some(item => item.question.card === card));
-  const card = state.bag.splice(Math.max(0, index), 1)[0];
-  const side = state.direction === "mix" ? Number(Math.random() < 0.5) : Number(state.direction);
-  return {card, side};
+function makeQuestionQueue(cards, direction) {
+  return shuffle(cards).map(card => ({
+    card,
+    side: direction === "mix" ? Number(Math.random() < 0.5) : Number(direction)
+  }));
 }
+
+function showPracticeChoice() {
+  el("next").hidden = true;
+  el("answerKey").hidden = true;
+  el("turn").textContent = "Vokabelliste abgeschlossen";
+  el("word").textContent = "Alle Vokabeln wurden einmal richtig beantwortet.";
+  el("feedback").textContent = "Möchtest du aufhören oder die Liste zurücksetzen und weiterspielen?";
+  el("practiceChoice").hidden = false;
+  el("practiceRestart").focus();
+}
+
+el("practiceRestart").onclick = () => {
+  state.queue = makeQuestionQueue(state.cards, state.direction);
+  el("practiceChoice").hidden = true;
+  question();
+};
+el("practiceStop").onclick = () => {
+  el("practiceChoice").hidden = true;
+  el("turn").textContent = "Spiel beendet";
+  el("word").textContent = "Alle Vokabeln geschafft!";
+  el("feedback").textContent = "";
+  el("back").focus();
+};
 
 function meters() {
   if (state.mode !== "boss") return;
@@ -201,13 +227,21 @@ function meters() {
 }
 
 function question() {
+  if (!state.queue.length) {
+    state.queue = shuffle(state.missed);
+    state.missed = [];
+    if (!state.queue.length) {
+      showPracticeChoice();
+      return;
+    }
+  }
   if (state.mode === "zombie" && state.target == null) {
     chooseTarget();
     return;
   }
   delete el("game").dataset.hit;
   if (state.mode === "boss") resetBossEffect();
-  state.current = draw();
+  state.current = state.queue.shift();
   state.pending = true;
   el("turn").textContent = state.mode === "football" ? "Team " + (state.team + 1) + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
     " ist dran · Serie " + state.streak + "/3";
@@ -258,6 +292,7 @@ function judge(correct) {
   state.pending = false;
   el("game").dataset.hit = correct ? "right" : "wrong";
   state.answered++;
+  if (!correct) state.missed.push(state.current);
   const solution = currentSolution();
   el("typedAnswer").hidden = true;
   if (state.mode !== "boss") {
@@ -277,10 +312,6 @@ function judge(correct) {
     state.hearts--;
     animateBoss(false,1);
     state.streak = 0;
-    if (!state.retries.some(item => item.question.card === state.current.card &&
-      item.question.side === state.current.side)) {
-      state.retries.push({question: state.current, due: state.answered + Math.min(2, state.cards.length - 1)});
-    }
     message = "Richtige Lösung: " + solution;
   }
   meters();
@@ -303,12 +334,16 @@ el("config").addEventListener("submit", event => {
   const saved = el("vocabSource").value === "saved";
   const customCards = saved ? selectedDeckCards() : parsePairs(el("pairs").value);
   const size = el("verbLength").value;
-  const cards = verbs ? shuffle(verbBank).slice(0, size === "all" ? verbBank.length : Number(size)) : customCards;
+  const cards = verbs
+    ? size === "selected"
+      ? verbBank.filter((_,index) => verbChoices[index].checked)
+      : shuffle(verbBank).slice(0, size === "all" ? verbBank.length : Number(size))
+    : [...new Map(customCards.map(card => [JSON.stringify(card),card])).values()];
   const bad = verbs ? -1 : cards.findIndex(card => card.length !== 2 || card.some(part => !part));
   const error = el("error");
   error.hidden = Boolean(cards.length && bad < 0);
   if (!error.hidden) {
-    error.textContent = saved && !cards.length ? "Wähle mindestens eine gespeicherte Liste aus." : bad >= 0 ? "Bitte prüfe Wortpaar " + (bad + 1) + "." : "Bitte gib mindestens ein Wortpaar ein.";
+    error.textContent = verbs ? "Wähle mindestens ein Verb aus." : saved && !cards.length ? "Wähle mindestens eine gespeicherte Liste aus." : bad >= 0 ? "Bitte prüfe Wortpaar " + (bad + 1) + "." : "Bitte gib mindestens ein Wortpaar ein.";
     return;
   }
   const mode = el("mode").value;
@@ -322,14 +357,16 @@ el("config").addEventListener("submit", event => {
     return;
   }
   const people = mode === "zombie" ? shuffle(Array.from({length:players},(_,i) => i+1)) : [];
+  const direction = verbs ? "0" : el("direction").value;
   state = {mode, names, verbs, typed:el("answerMode").value === "typed", ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
     attackers:people.slice(0,zombies),
     survivors:people.slice(zombies),
     round:zombies ? 1 : 0, maxRounds:Number(el("rounds").value), waiting:new Set(),
-    opening:zombies ? [] : [...people], attackOrder:[], attackIndex:0, lastInfected:null, target:null, cards, bag:shuffle(cards), retries:[], count:Number(el("count").value),
-    direction:verbs ? "0" : el("direction").value, hp:8, hearts:4, streak:0, answered:0};
+    opening:zombies ? [] : [...people], attackOrder:[], attackIndex:0, lastInfected:null, target:null, cards, queue:makeQuestionQueue(cards, direction), missed:[], count:Number(el("count").value),
+    direction, hp:8, hearts:4, streak:0, answered:0};
   if (mode === "zombie" && zombies) beginZombieRound();
   if (mode === "boss") prepareBoss();
+  el("practiceChoice").hidden = true;
   el("setup").hidden = true;
   el("game").hidden = false;
   el("bossMeters").hidden = mode !== "boss";
@@ -498,10 +535,48 @@ function judgeTeam(correct, solution) {
   }
 }
 
+const verbChoices = verbBank.map(([base], index) => {
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.value = String(index);
+  const label = document.createElement("label");
+  label.append(checkbox, " " + base);
+  el("verbOptions").append(label);
+  return checkbox;
+});
+
+function updateVerbPicker() {
+  el("verbPicker").hidden = el("vocabSource").value !== "verbs" || el("verbLength").value !== "selected";
+  const search = el("verbSearch").value.trim().toLowerCase();
+  verbChoices.forEach((checkbox, index) => {
+    checkbox.parentElement.hidden = !verbBank[index][0].includes(search);
+  });
+  const count = verbChoices.filter(checkbox => checkbox.checked).length;
+  const visible = verbChoices.some(checkbox => !checkbox.parentElement.hidden);
+  el("verbStatus").textContent = count + " ausgewählt." + (visible ? "" : " Keine passenden Verben.");
+  el("verbSelectVisible").disabled = !visible;
+  el("verbClear").disabled = !count;
+}
+
+el("verbLength").onchange = updateVerbPicker;
+el("verbSearch").oninput = updateVerbPicker;
+el("verbOptions").onchange = updateVerbPicker;
+el("verbSelectVisible").onclick = () => {
+  for (const checkbox of verbChoices) {
+    if (!checkbox.parentElement.hidden) checkbox.checked = true;
+  }
+  updateVerbPicker();
+};
+el("verbClear").onclick = () => {
+  for (const checkbox of verbChoices) checkbox.checked = false;
+  updateVerbPicker();
+};
+
 function setupMode() {
   const mode = el("mode").value;
   const verbs = el("vocabSource").value === "verbs";
   el("verbLengthWrap").hidden = !verbs;
+  updateVerbPicker();
   const custom = el("vocabSource").value === "custom";
   el("customVocabulary").hidden = !custom;
   el("decksPanel").hidden = verbs;
