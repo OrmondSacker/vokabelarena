@@ -98,6 +98,8 @@ section{border-radius:18px;background:#192531;border-color:#364b58}
 #verbOptions label{display:flex;align-items:center;gap:.4rem;margin:0}
 #verbOptions input{width:auto}
 #verbOptions [hidden]{display:none}
+#bossBonus{color:#ffe3a6;font-weight:700;margin:.5rem 0 .25rem}
+#bossProtection{color:#b9e9db;margin:.25rem 0 .5rem}
 </style>
 <main>
 <header><h1>Vokabelarena</h1></header>
@@ -160,6 +162,8 @@ sich erinnern;remember</textarea></label>
 </div>
 <div id="bossIcon" hidden><canvas id="bossSprite" width="96" height="72" aria-hidden="true"></canvas><span id="bossName"></span><span id="bossEffect" hidden></span></div><p id="score"></p><div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
 <p id="turn"></p>
+<p id="bossBonus" aria-live="polite" hidden></p>
+<p id="bossProtection" aria-live="polite" hidden></p>
 <h2 id="word" tabindex="-1" aria-live="polite"></h2>
 <p id="answerKey" hidden></p>
 <p id="feedback" aria-live="polite"></p>
@@ -251,11 +255,13 @@ function question() {
   }
   state.pending = true;
   el("turn").textContent = state.mode === "football" ? state.teamNames[state.team] + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
-    " ist dran · Bonus bei " + state.streak + "/" + state.bonusAt + " richtigen Antworten in Folge";
+    " ist dran";
   el("word").textContent = state.current.card[state.current.side];
   el("feedback").textContent = "";
   el("answerKey").hidden = true;
   el("judge").hidden = state.typed;
+  if (state.mode === "boss") renderBossBonus();
+  else el("revealAnswer").disabled = false;
   el("typedAnswer").hidden = !state.typed;
   el("typedAnswer").reset();
   el("answerLabel").textContent = state.verbs ? "Simple Past" : "Antwort";
@@ -271,6 +277,7 @@ function currentSolution() {
 }
 
 el("revealAnswer").onclick = () => {
+  if (el("revealAnswer").disabled) return;
   const {card,side} = state.current;
   el("word").textContent = currentSolution();
   el("answerKey").textContent = card[side];
@@ -296,6 +303,13 @@ el("typedAnswer").onsubmit = event => {
 };
 function judge(correct) {
   if (!state.pending) return;
+  if (!correct && state.mode === "boss" && state.protections.delete("retry")) {
+    renderBossBonus();
+    el("feedback").textContent = "Zweite Chance! Versuche dieselbe Frage noch einmal.";
+    if (state.typed) el("typedAnswer").reset();
+    el(state.typed ? "answerInput" : "word").focus();
+    return;
+  }
   state.pending = false;
   el("game").dataset.hit = correct ? "right" : "wrong";
   state.answered++;
@@ -309,18 +323,31 @@ function judge(correct) {
   let message;
   if (correct) {
     state.streak++;
-    const bonus = state.streak === state.bonusAt;
-    const damage = Math.min(state.hp,bonus ? 2 : 1);
+    const bonus = state.streak === state.bonusAt ? state.bonus : null;
+    const damage = Math.min(state.hp, bonus === "double" ? 2 : 1);
     state.hp -= damage;
     animateBoss(true,damage);
-    if (bonus) state.streak = 0;
-    message = (bonus ? "Bonusangriff! " : "Treffer! ") + "Der Boss verliert " + damage + " LP.";
+    message = (bonus === "double" ? "Doppeltreffer! " : "Treffer! ") + "Der Boss verliert " + damage + " LP.";
+    if (bonus) {
+      if (bonus === "heal") {
+        state.hearts++;
+        message += " Heiltrank: +1 Herz.";
+      } else if (bonus !== "double") {
+        state.protections.add(bonus);
+        message += " " + bossBonuses[bonus] + " ist jetzt aktiv.";
+      }
+      state.streak = 0;
+      drawBossBonus();
+    }
+  } else if (state.protections.delete("stamina")) {
+    message = "Ausdauertrank verbraucht. Herz und Serie bleiben erhalten. Richtige Lösung: " + solution;
   } else {
     state.hearts--;
     animateBoss(false,1);
     state.streak = 0;
     message = "Richtige Lösung: " + solution;
   }
+  renderBossBonus();
   meters();
   el("feedback").textContent = message;
   el("judge").hidden = true;
@@ -391,6 +418,10 @@ el("config").addEventListener("submit", event => {
   el("setup").hidden = true;
   el("game").hidden = false;
   el("bossMeters").hidden = mode !== "boss";
+  if (mode !== "boss") {
+    el("bossBonus").hidden = true;
+    el("bossProtection").hidden = true;
+  }
   el("bossIcon").hidden = mode !== "boss";
   el("game").dataset.mode = mode;
   el("roster").hidden = mode !== "zombie";
@@ -1074,6 +1105,29 @@ function drawBoss() {
   }
 }
 
+const bossBonuses = {
+  double: "Doppeltreffer",
+  heal: "Heiltrank",
+  stamina: "Ausdauertrank",
+  retry: "Zweite Chance"
+};
+
+function drawBossBonus() {
+  const available = Object.keys(bossBonuses).filter(bonus =>
+    !state.protections.has(bonus) && (bonus !== "heal" || state.hearts < state.maxHearts));
+  state.bonus = available[Math.floor(Math.random() * available.length)];
+}
+
+function renderBossBonus() {
+  const remaining = state.bonusAt - state.streak;
+  el("bossBonus").hidden = false;
+  el("bossBonus").textContent = "Nächster Bonus: " + bossBonuses[state.bonus] + " · noch " +
+    remaining + (remaining === 1 ? " richtige Antwort" : " richtige Antworten") + " in Folge";
+  el("bossProtection").hidden = !state.protections.size;
+  el("bossProtection").textContent = "Aktiv: " + [...state.protections].map(bonus => bossBonuses[bonus]).join(" · ");
+  el("revealAnswer").disabled = state.protections.has("retry");
+}
+
 const bossSeries = [
   {boss:"dragon", hp:6, hearts:4, bonusAt:3},
   {boss:"golem", hp:8, hearts:3, bonusAt:4},
@@ -1097,6 +1151,9 @@ function prepareBoss(requested) {
   state.hp = state.maxHp;
   state.hearts = Math.min(state.hearts, state.maxHearts);
   state.streak = 0;
+  state.protections ??= new Set();
+  drawBossBonus();
+  renderBossBonus();
   const {name,color} = bossRoster[state.boss];
   const arena = el("bossIcon");
   arena.dataset.boss = state.boss;
