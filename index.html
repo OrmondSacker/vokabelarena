@@ -138,52 +138,77 @@ button.gameTile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 2
 .stoneStep{position:relative;height:.65rem;background:#28364e;border-radius:3px}.stoneStep[data-on]{background:var(--stone)}
 .stoneMark{position:absolute;top:100%;right:0;font-size:.7rem;color:#d2deec}.stoneMark::before{display:block;content:"";width:1px;height:3px;background:currentColor;margin:auto}
 
-#playToolbar,#playPanel{display:contents}
 #arenaMain:fullscreen{width:100%;height:100%;max-width:none;box-sizing:border-box;background:#090f1e;overflow:auto}
-#arenaMain:has(#game[data-mode=catapult]:not([hidden])){max-width:1120px;padding:clamp(4px,1.2vmin,12px)}
-#arenaMain:has(#game[data-mode=catapult]:not([hidden])) .masthead{display:none}
-#game[data-mode=catapult]:not([hidden]){
+#arenaMain:has(#game:not([hidden])){max-width:1120px;padding:clamp(4px,1.2vmin,12px)}
+#arenaMain:has(#game:not([hidden])) .masthead{display:none}
+#game:not([hidden]){
   display:flex;flex-direction:column;gap:clamp(4px,1vh,10px);
   box-sizing:border-box;height:calc(100dvh - clamp(8px,2.4vmin,24px));
   padding:clamp(6px,1.4vmin,14px);border-radius:14px;overflow:auto;
 }
-#game[data-mode=catapult] #playToolbar{
+#game #playToolbar{
   display:flex;align-items:center;justify-content:space-between;gap:.45rem;flex:none;text-align:left
 }
-#game[data-mode=catapult] #score{font-size:clamp(.85rem,2.5vmin,1.15rem)}
-#game[data-mode=catapult] #playPanel{display:block;flex:none;min-width:0}
-#game[data-mode=catapult] #targets:empty,#game[data-mode=catapult] #feedback:empty{display:none}
-#game[data-mode=catapult] .catapultArena{display:flex;flex-direction:column;flex:1 0 auto;min-height:min-content;margin:0;overflow:visible}
-#game[data-mode=catapult] #siegeCanvas{
+#game #score{font-size:clamp(.85rem,2.5vmin,1.15rem)}
+#game #playPanel{display:block;flex:none;min-width:0}
+#game #targets:empty,#game #feedback:empty{display:none}
+#game .catapultArena{display:flex;flex-direction:column;flex:1 0 auto;min-height:min-content;margin:0;overflow:visible}
+#game #siegeCanvas{
   flex:1 1 0;height:0;min-height:clamp(64px,17dvh,130px);object-fit:contain;border-radius:inherit
 }
-#game[data-mode=catapult] #catapultStats{flex:none;border-radius:0 0 14px 14px;overflow:hidden}
-#game[data-mode=catapult] .castleStats{padding:clamp(4px,1vh,10px) clamp(5px,1.6vw,14px);line-height:1.15}
-#game[data-mode=catapult] .castleStats small{font-size:clamp(.66rem,1.9vmin,.82rem)}
-#game[data-mode=catapult] .castleStats progress{height:.5rem;margin:.25rem 0}
-#game[data-mode=catapult] .stoneMeter{margin-top:.3rem}
-#game[data-mode=catapult] .stoneSteps{margin:.2rem 0 .95rem}
-#game[data-mode=catapult] .stoneStep{height:.45rem}
-#game[data-mode=catapult] .stoneMark{font-size:.6rem}
-#game[data-mode=catapult] #turn,#game[data-mode=catapult] #answerKey,#game[data-mode=catapult] #feedback{margin:.23rem 0;min-height:0}
-#game[data-mode=catapult] #word{font-size:clamp(1.25rem,4.2vmin,2.45rem);margin:.12rem 0;line-height:1.15}
-#game[data-mode=catapult] #playPanel button,#arenaFullscreen{
+#game #catapultStats{flex:none;border-radius:0 0 14px 14px;overflow:hidden}
+#game .castleStats{padding:clamp(4px,1vh,10px) clamp(5px,1.6vw,14px);line-height:1.15}
+#game .castleStats small{font-size:clamp(.66rem,1.9vmin,.82rem)}
+#game .castleStats progress{height:.5rem;margin:.25rem 0}
+#game .stoneMeter{margin-top:.3rem}
+#game .stoneSteps{margin:.2rem 0 .95rem}
+#game .stoneStep{height:.45rem}
+#game .stoneMark{font-size:.6rem}
+#game #turn,#game #answerKey,#game #feedback{margin:.23rem 0;min-height:0}
+#game #word{font-size:clamp(1.25rem,4.2vmin,2.45rem);margin:.12rem 0;line-height:1.15}
+#game #playPanel button,#arenaFullscreen{
   min-width:0;margin:2px;padding:.35rem .55rem;font-size:clamp(.72rem,2.2vmin,.92rem)
 }
-#game[data-mode=catapult] #catapultActions{justify-content:center;gap:2px;margin:.25rem 0}
-#game[data-mode=catapult] #typedAnswer{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.25rem}
-#game[data-mode=catapult] #typedAnswer label{margin:0;font-size:.85rem}
-#game[data-mode=catapult] #typedAnswer input{box-sizing:border-box;max-width:min(42vw,11rem);padding:.3rem}
+#game #catapultActions{justify-content:center;gap:2px;margin:.25rem 0}
+#game #typedAnswer{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.25rem}
+#game #typedAnswer label{margin:0;font-size:.85rem}
+#game #typedAnswer input{box-sizing:border-box;max-width:min(42vw,11rem);padding:.3rem}
 @media(max-height:540px) and (min-width:600px){
-  #game[data-mode=catapult]:not([hidden]){
+  #game:not([hidden]){
     display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);
     grid-template-rows:auto minmax(min-content,1fr)
   }
-  #game[data-mode=catapult] #playToolbar{grid-column:1/-1}
-  #game[data-mode=catapult] #playPanel{align-self:center}
+  #game #playToolbar{grid-column:1/-1}
+  #game #playPanel{align-self:center;max-height:100%;overflow:auto}
 }
 @media(max-width:520px) and (min-height:541px){
-  #game[data-mode=catapult] #word{font-size:clamp(1.35rem,6vw,2rem)}
+  #game #word{font-size:clamp(1.35rem,6vw,2rem)}
+}
+
+#arenaFullscreen{margin-inline-start:auto;flex:none}
+#playScene{display:flex;flex-direction:column;justify-content:center;flex:1 1 auto;min-width:0;min-height:0}
+#game[data-mode=catapult] #playScene{flex:1 0 auto;min-height:min-content}
+#game[data-mode=football] #playScene{min-height:clamp(84px,20dvh,150px);padding:8px 12px}
+#game #pitch{width:100%;min-height:0;flex:0 1 100%;max-height:clamp(90px,42dvh,250px);margin:0 auto;box-sizing:border-box}
+#game #pitch span{padding:clamp(2px,1.7dvh,12px) 0}
+#game[data-mode=boss] #playScene{min-height:clamp(128px,31dvh,180px);gap:4px}
+#game #bossIcon{width:100%;box-sizing:border-box;margin:0 auto;min-height:0}
+#game #bossSprite{width:clamp(76px,22dvh,226px)}
+#game #bossMeters{margin:0 auto;width:min(100%,560px)}
+#game #bossMeters progress{height:clamp(10px,2dvh,22px)}
+#game #bossBonus,#game #bossProtection{margin:.23rem 0}
+#game[data-mode=zombie] #playScene{min-height:clamp(85px,18dvh,150px)}
+#game .roster{
+  min-height:0;width:100%;max-height:38dvh;overflow:auto;
+  margin:0 auto;gap:6px;font-size:clamp(.72rem,2.2vmin,.95rem);text-align:left
+}
+#game .roster>div{padding:5px;min-width:0}
+#game .roster span{padding:2px 4px;margin:2px}
+#game #targets:not(:empty){max-height:clamp(50px,22dvh,155px);overflow:auto;margin:.2rem 0}
+#game #targets button{overflow-wrap:anywhere}
+@media(max-height:540px) and (min-width:600px){
+  #game .roster{max-height:100%}
+  #game #bossSprite{width:clamp(76px,32dvh,160px)}
 }
 </style>
 <main id="arenaMain">
@@ -262,17 +287,20 @@ sich erinnern;remember</textarea></label>
 </form>
 </section>
 <section id="game" hidden>
+<div id="playToolbar"><p id="score"></p><button type="button" id="arenaFullscreen" class="secondary" hidden>Vollbild</button></div>
+<div id="playScene">
 <div class="meters" id="bossMeters">
 <div><span id="hpLabel"></span><progress id="hp" max="8" aria-label="Boss-Lebenspunkte"></progress></div>
 <div><span id="heartsLabel"></span><progress id="hearts" max="4" aria-label="Verbleibende Herzen"></progress></div>
 </div>
-<div id="bossIcon" hidden><canvas id="bossSprite" width="96" height="72" aria-hidden="true"></canvas><span id="bossName"></span><span id="bossEffect" hidden></span></div><div id="playToolbar"><p id="score"></p><button type="button" id="arenaFullscreen" class="secondary" hidden>Vollbild</button></div>
+<div id="bossIcon" hidden><canvas id="bossSprite" width="96" height="72" aria-hidden="true"></canvas><span id="bossName"></span><span id="bossEffect" hidden></span></div>
 <div id="catapultArena" class="catapultArena" hidden>
 <canvas id="siegeCanvas" width="1000" height="330" role="img" aria-label="Zwei Burgen mit Katapulten"></canvas>
 <div id="catapultStats"></div>
 </div>
-<div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
+<div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div></div>
 <div id="playPanel">
+<div id="targets"></div>
 <p id="turn"></p>
 <p id="bossBonus" aria-live="polite" hidden></p>
 <p id="bossProtection" aria-live="polite" hidden></p>
@@ -562,7 +590,7 @@ el("config").addEventListener("submit", event => {
     state.rotationIndex = [0,0];
   }
   el("nextSet").hidden = true;
-  el("arenaFullscreen").hidden = mode !== "catapult" || !el("arenaMain").requestFullscreen || document.fullscreenEnabled === false;
+  el("arenaFullscreen").hidden = !el("arenaMain").requestFullscreen || document.fullscreenEnabled === false;
   el("catapultArena").hidden = mode !== "catapult";
   delete el("catapultArena").dataset.hit;
   el("catapultActions").hidden = true;
