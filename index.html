@@ -14,6 +14,7 @@ button{cursor:pointer;border:0;font-weight:700;background:#c3b5ff;color:#18162e;
 .options,.meters{display:flex;gap:20px;flex-wrap:wrap;align-items:center}.meters>div{flex:1;min-width:155px}progress{width:100%;height:20px;accent-color:#fdac93}
 #game{text-align:center}.boss{font-size:4rem;margin:0.25em auto;line-height:1}
 #word{font-size:clamp(1.7rem,6vw,3.5rem);overflow-wrap:anywhere;margin:.2em 0}
+#answerKey{font-size:.9rem;margin:.2rem 0 .8rem;color:inherit;opacity:.85;overflow-wrap:anywhere}
 #feedback{min-height:2em;color:#e0d8ff}#turn{color:#c3b5ff;font-weight:700}small{color:#d4d0e4}
 
 :root{font-family:"Barlow",system-ui,sans-serif;background:#101821;color:#f1f7fb}
@@ -100,10 +101,10 @@ sich erinnern;remember</textarea></label>
 </div>
 <div class="boss" id="bossIcon" aria-hidden="true"></div><p id="score"></p><div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div><div id="targets"></div>
 <p id="turn"></p>
-<h2 id="word" tabindex="-1"></h2>
+<h2 id="word" tabindex="-1" aria-live="polite"></h2>
+<p id="answerKey" hidden></p>
 <p id="feedback" aria-live="polite"></p>
 <form id="typedAnswer" hidden autocomplete="off"><label><span id="answerLabel">Antwort</span> <input id="answerInput" required spellcheck="false"></label><label id="partAnswer" hidden>Past Participle <input id="partInput" lang="en" spellcheck="false"></label><button>Prüfen</button></form>
-<p id="answerKey" hidden></p>
 <div id="judge"><button type="button" class="secondary" id="revealAnswer">Lösung anzeigen</button><button type="button" class="correct" id="correct">Richtig</button><button type="button" class="wrong" id="wrong">Falsch</button></div>
 <button type="button" id="next" hidden>Weiter</button>
 <button type="button" class="secondary" id="back">Zur Einrichtung</button>
@@ -179,7 +180,9 @@ function currentSolution() {
 }
 
 el("revealAnswer").onclick = () => {
-  el("answerKey").textContent = "Lösung: " + currentSolution();
+  const {card,side} = state.current;
+  el("word").textContent = currentSolution();
+  el("answerKey").textContent = card[side];
   el("answerKey").hidden = false;
 };
 
@@ -207,7 +210,6 @@ function judge(correct) {
   state.answered++;
   const solution = currentSolution();
   el("typedAnswer").hidden = true;
-  el("answerKey").hidden = true;
   if (state.mode !== "boss") {
     judgeTeam(correct, solution);
     return;
@@ -232,6 +234,7 @@ function judge(correct) {
   el("feedback").textContent = message;
   el("judge").hidden = true;
   if (state.hp === 0 || state.hearts === 0) {
+    el("answerKey").hidden = true;
     el("turn").textContent = "Kampf beendet";
     el("word").textContent = state.hp === 0 ? "Boss besiegt!" : "Der Boss hat gewonnen.";
     el("back").focus();
@@ -385,6 +388,7 @@ function judgeTeam(correct, solution) {
   el("feedback").textContent = message + event;
   el("judge").hidden = true;
   if (result) {
+    el("answerKey").hidden = true;
     el("turn").textContent = "Spiel beendet";
     el("word").textContent = result;
     el("back").focus();
