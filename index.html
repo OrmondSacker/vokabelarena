@@ -566,29 +566,64 @@ function columnLines(data, offset, scale) {
   })).filter(line=>line.text).sort((a,b)=>a.y-b.y);
 }
 
+
 function pairColumns(left,right) {
-  const entries=left.map(line=>({...line,text:line.text.replace(/^[\s\d\u2022\u00b7.*-]+/,"").split(/[\[\/]/,1)[0].trim()}))
-    .filter(line=>plausibleEntry(line.text));
-  const answers=right.filter(line=>plausibleEntry(line.text));
-  if(!entries.length || !answers.length)return [];
-  const median=values=>[...values].sort((a,b)=>a-b)[Math.floor(values.length/2)];
-  const step=median(entries.slice(1).map((line,i)=>line.y-entries[i].y)) || entries[0].height*2;
-  const nearest=(lines,y)=>lines.reduce((a,b)=>Math.abs(a.y-y)<=Math.abs(b.y-y)?a:b);
-  const offset=median(entries.map(line=>nearest(answers,line.y).y-line.y));
-  const tolerance=Math.max(3,step*.37);
-  const matches=new Map();
-  for(const answer of answers){
-    const entry=nearest(entries,answer.y-offset);
-    if(Math.abs(entry.y+offset-answer.y)<=tolerance && !matches.has(entry))matches.set(entry,answer);
+  const entries = left.map(line => ({
+    ...line,
+    text: line.text.replace(/^[\s\d\u2022\u00b7.*-]+/,"").split(/[\[\/]/,1)[0].trim()
+  })).filter(line => line.text);
+  const answers = right.filter(line => line.text);
+  if (!entries.length || !answers.length) return [];
+
+  const median = numbers => [...numbers].sort((a,b) => a-b)[Math.floor(numbers.length/2)];
+  const height = median([...entries,...answers].map(line => line.height).filter(value => value > 0)) || 12;
+  const gaps = lines => lines.slice(1).map((line,i) => line.y-lines[i].y);
+  const rowGap = median([...gaps(entries),...gaps(answers)].filter(gap => gap > height*1.55)) || height*2;
+  const tolerance = Math.max(height*.75,rowGap*.36);
+  const offsets = entries.map(entry => answers.reduce((best,line) =>
+    Math.abs(line.y-entry.y)<Math.abs(best.y-entry.y) ? line : best).y-entry.y);
+  const offset = median(offsets);
+
+  const candidates = [];
+  let first = 0;
+  entries.forEach((entry,i) => {
+    if (!plausibleEntry(entry.text)) return;
+    const target = entry.y+offset;
+    while (first < answers.length && answers[first].y < target-tolerance) first++;
+    for (let j=first; j<answers.length && answers[j].y<=target+tolerance; j++) {
+      if (plausibleEntry(answers[j].text)) candidates.push({i,j,distance:Math.abs(answers[j].y-target)});
+    }
+  });
+
+  const usedLeft = new Set(), usedRight = new Set(), anchors = [];
+  candidates.sort((a,b) => a.distance-b.distance);
+  for (const match of candidates) {
+    if (usedLeft.has(match.i) || usedRight.has(match.j) ||
+        anchors.some(anchor => (anchor.i-match.i)*(anchor.j-match.j) < 0)) continue;
+    anchors.push(match);
+    usedLeft.add(match.i);
+    usedRight.add(match.j);
   }
-  const used=new Set(matches.values());
-  return entries.flatMap((entry,i)=>{
-    const answer=matches.get(entry);
-    if(!answer)return [];
-    const next=answers[answers.indexOf(answer)+1];
-    const continuation=next && !used.has(next) && next.y-answer.y<step*.75 &&
-      next.y<(entries[i+1]?.y??Infinity)+offset-tolerance;
-    return [[entry.text,answer.text+(continuation?" "+next.text:"")]];
+  anchors.sort((a,b) => a.i-b.i);
+
+  function readCell(lines,start,end,followingY) {
+    let value = lines[start].text;
+    for (let i=start+1; i<end; i++) {
+      const line = lines[i];
+      const gap = line.y-lines[i-1].y;
+      const maxGap = Math.max(height*1.65,Math.min(height*2,rowGap*.78));
+      if (gap > maxGap || line.y >= followingY-height*.48 || !/\p{L}/u.test(line.text)) break;
+      value += " " + line.text;
+    }
+    return value;
+  }
+
+  return anchors.map((anchor,k) => {
+    const next = anchors[k+1];
+    return [
+      readCell(entries,anchor.i,next?.i ?? entries.length,next ? answers[next.j].y-offset : Infinity),
+      readCell(answers,anchor.j,next?.j ?? answers.length,next ? entries[next.i].y+offset : Infinity)
+    ];
   });
 }
 
