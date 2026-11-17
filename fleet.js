@@ -262,6 +262,10 @@ const Fleet = (() => {
       const tag=current<0 ? "" : i===current ? "Am Zug" : "Zielraster";
       const shot=viewState.lastShot?.board===i ? {...viewState.lastShot,flash:viewState.phase==="between" || viewState.phase==="finished"} : null;
       list.append(grid(names[i],board,aiming ? onPick : null,aiming && salvo,tag,shot,viewState.phase==="shot"));
+      if (i===0 && boards.length===2 && current>=0) {
+        list.classList.add("fleetBoardsWithTurn");
+        renderTurn(list,viewState.names ?? names,viewState.phase,current,viewState.viewer ?? -1);
+      }
     });
     parent.append(list);
     if (boards.length === 2) {
@@ -442,7 +446,6 @@ const Fleet = (() => {
     const fireShot=cell=>{
       if (match===active && match.revision===revision) shoot(team,cell,match.wide);
     };
-    renderTurn(scene,match.names,match.phase,state.team);
     grids(scene,match.names,boardsView(match.review),shooting ? 1-state.team : -1,
       fireShot,match.wide,{phase:match.phase,team:state.team,lastShot:match.lastShot});
     controls.append(salvoStatus(match.streaks[state.team],match.salvos[state.team]));
@@ -717,21 +720,22 @@ const Fleet = (() => {
       const heading = team < 0 ? "Schiffe versenken · Beamer" : activeTurn
         ? (frame.team===team ? "Du bist dran" : "Das andere Team ist dran")
         : (frame.phase==="placement" ? "Deine Flotte aufstellen" : "Schiffe versenken");
-      container.replaceChildren(make("h2",heading));
+      const title=make("h2",heading);
+      title.hidden=activeTurn && team>=0;
+      container.replaceChildren(title);
       if (frame.phase==="placement") {
         if (team>=0 && !frame.ready[team] && !sent) placement(container,draft,"Eigene Flotte",
           ships=>send({kind:"placement",ships}),show);
         else container.append(make("p","Die Teams stellen ihre Flotten auf."));
       } else {
         const canShoot=team>=0 && frame.phase==="shot" && frame.team===team && !waiting;
-        if (activeTurn) renderTurn(container,frame.names,frame.phase,frame.team,team);
-        else container.append(make("p",frame.turn));
+        if (!activeTurn) container.append(make("p",frame.turn));
         container.append(make("h3",frame.word),make("p",frame.notice));
         container.append(salvoStatus(frame.streak ?? 0,frame.salvo));
         if (canShoot && frame.salvo) container.append(action(wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{wide=!wide;show()}));
         if (canShoot) container.append(make("p",wide ? "Wähle das obere linke Feld der Salve." : "Wähle ein Zielfeld."));
         grids(container,frame.names.map((name,i)=>i===team ? "Eigene Flotte" : name),frame.boards,
-          canShoot ? 1-team : -1,cell=>send({kind:"shot",cell,wide,revision:frame.revision}),wide,frame);
+          canShoot ? 1-team : -1,cell=>send({kind:"shot",cell,wide,revision:frame.revision}),wide,{...frame,viewer:team});
       }
       if (notice) container.append(make("p",notice));
     }
