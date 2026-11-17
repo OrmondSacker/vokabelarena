@@ -686,8 +686,12 @@ const Fleet = (() => {
   }
 
   function openGuest() {
-    el("fleetLanHelp").hidden=Boolean(hostKey);
     if (hostKey) el("fleetMode").value="lan";
+    const updateLanHelp=()=>{
+      el("fleetLanHelp").hidden=Boolean(hostKey) || el("fleetMode").value!=="lan";
+    };
+    el("fleetMode").addEventListener("change",updateLanHelp);
+    updateLanHelp();
     const screen=params.get("fleetView"), key=params.get("fleetJoin"), role=params.get("role");
     if (!screen && !key) return;
     const container=el("fleetGuest");
