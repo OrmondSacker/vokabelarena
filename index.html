@@ -229,9 +229,91 @@ button.gameTile .fleetCover{display:grid;place-items:center;font-size:3rem;backg
 @media(max-width:480px){#fleetGuest[data-team] .fleetBoards{grid-template-columns:1fr}}
 #fleetActions a{color:#a7eaff;display:inline-block;margin:.2rem}
 #fleetActions a:focus-visible{outline:2px solid white}
+
+/* Arcade title screen and fleet boards */
+.masthead{padding:0 0 clamp(14px,2.5vw,24px);text-align:center}
+.brandFrame{
+  position:relative;display:grid;place-items:center;isolation:isolate;overflow:hidden;
+  min-height:clamp(108px,19vw,205px);padding:16px 14px;
+  border:2px solid #6d8ad1;border-bottom:4px solid #30446b;
+  background:linear-gradient(#08142e 5%,#1b2a61 56%,#51446f 100%);
+  box-shadow:inset 0 0 0 4px #101c39,0 4px 0 #070e20
+}
+.brandFrame::before{
+  content:"";z-index:-1;position:absolute;inset:0;
+  background:radial-gradient(circle at 16% 22%,#77dbee 0 2px,transparent 3px),
+    radial-gradient(circle at 81% 16%,#e2d8fb 0 2px,transparent 3px),
+    radial-gradient(circle at 71% 28%,#f8be86 0 1px,transparent 2px),
+    radial-gradient(circle at 24% 33%,#d8c9ff 0 1px,transparent 2px),
+    repeating-linear-gradient(0deg,#04102028 0 1px,transparent 1px 4px)
+}
+.brandHorizon{position:absolute;z-index:-1;inset:58% -18% -24%;transform:perspective(135px) rotateX(35deg);transform-origin:center top;
+  background:repeating-linear-gradient(90deg,transparent 0 6.8%,#788ee66b 7% 7.2%),
+    repeating-linear-gradient(0deg,transparent 0 17px,#66cbe56b 18px 20px),linear-gradient(#226083,#142144)}
+.brandFrame h1{
+  position:relative;justify-content:center;display:flex;flex-wrap:wrap;column-gap:.13em;row-gap:.07em;
+  font-size:clamp(1.75rem,8vw,5.35rem);letter-spacing:-.072em;line-height:.98;
+  color:#fff0b6;text-shadow:3px 3px #a45a45,6px 6px #111d47,7px 7px #060e2e;
+  -webkit-text-stroke:1px #111b41
+}
+.brandFrame h1 span+span{color:#aef9ff;text-shadow:3px 3px #147e9d,6px 6px #111d47,7px 7px #060e2e}
+button.gameTile{border-radius:8px;box-shadow:0 3px 0 #090f22}
+button.gameTile[aria-pressed=true]{box-shadow:0 0 0 2px #aaf4da40,0 3px 0 #090f22}
+button.gameTile .fleetCover{
+  position:relative;display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(#101e48 2%,#43618f 48%,#e58472 57%,#184f70 58%,#0b2949 100%)
+}
+.fleetCover::before{content:"";position:absolute;width:29%;aspect-ratio:1;top:15%;right:14%;
+  background:repeating-linear-gradient(0deg,#ffce82 0 5px,#f69b70 5px 7px);
+  clip-path:polygon(27% 0,73% 0,73% 9%,91% 9%,91% 27%,100% 27%,100% 73%,91% 73%,91% 91%,73% 91%,73% 100%,27% 100%,27% 91%,9% 91%,9% 73%,0 73%,0 27%,9% 27%,9% 9%,27% 9%);
+}
+.fleetCover::after{content:"";position:absolute;inset:64% 0 0;
+  background:repeating-linear-gradient(0deg,transparent 0 9px,#60c2e149 9px 11px);
+  clip-path:polygon(0 10%,27% 10%,27% 17%,65% 17%,65% 0,100% 0,100% 100%,0 100%);
+}
+.fleetCoverShip{position:absolute;z-index:1;inset:27% 8% 18% 9%;
+  background:linear-gradient(#f8d4a2 0 23%,#d7d5cd 24% 58%,#758da4 58% 74%,#344863 74% 82%,#18304c 82% 100%);
+  clip-path:polygon(0 68%,17% 68%,17% 53%,29% 53%,29% 38%,44% 38%,44% 23%,51% 23%,51% 0,55% 0,55% 23%,62% 23%,62% 38%,71% 38%,71% 56%,88% 56%,88% 65%,100% 65%,93% 82%,84% 100%,13% 100%);
+}
+#arenaMain:has(#fleetGuest:not([hidden])) .masthead{display:none}
+#game[data-mode=fleet],#fleetGuest{
+  background:radial-gradient(ellipse at top,#1a3d66,#101e37 62%);
+  border-color:#49769b
+}
+.fleetBoards{gap:clamp(.25rem,1.9vw,1rem);align-items:start}
+.fleetBoards article{
+  box-sizing:border-box;padding:clamp(3px,.85vmin,8px);border:1px solid #52799c;border-radius:4px;
+  background:#102945;box-shadow:inset 0 0 0 2px #0b1c35,0 3px 0 #0a172b
+}
+.fleetBoards article:nth-child(2){border-color:#987656;background:#302945}
+.fleetBoards h3{color:#b8edff;margin:.08rem 0 .35rem;font-weight:800;overflow-wrap:anywhere}
+.fleetBoards article:nth-child(2) h3{color:#ffd8a3}
+.fleetGrid{
+  gap:1px;background:#10283f;border:1px solid #528aa7;border-radius:2px;
+  color:#cbe8ff;padding:2px;box-shadow:inset 0 0 0 1px #081a34
+}
+.fleetGrid>*{font-variant-numeric:tabular-nums;font-weight:800}
+.fleetGrid .sea{
+  background:repeating-linear-gradient(165deg,#19627c 0 5px,#1a6880 5px 7px,#175873 7px 9px);
+  color:#f5faff;border-color:#70acc22e;text-shadow:1px 1px #081831
+}
+.fleetGrid .water{background:repeating-linear-gradient(145deg,#263c59 0 5px,#344b64 5px 7px);color:#d2e8f4}
+.fleetGrid .hit{background:radial-gradient(circle,#a73838,#692d46);color:#fff1b2}
+.fleetGrid .sunk{background:repeating-linear-gradient(135deg,#63233a 0 4px,#3e263a 4px 7px);color:#ffd7af}
+.fleetGrid .ship{background:linear-gradient(#a6cbb5 0 13%,#3e7e7a 13% 75%,#276067 75%);color:#f1f7d7}
+.fleetGrid .hint{border:1px dashed #ffe199;box-shadow:inset 0 0 0 1px #d6a34257}
+.fleetGrid button.sea:enabled:hover,.fleetGrid button.sea:focus-visible{
+  background:#c4f2ff;color:#13304c;text-shadow:none;outline:2px solid #fffad0;outline-offset:-2px;z-index:1
+}
+.fleetLegend{display:flex;justify-content:center;flex-wrap:wrap;gap:.18rem .75rem;margin:.4rem 0 .12rem;color:#d4eaff;font-size:clamp(.64rem,1.7vmin,.83rem)}
+.fleetLegend span::before{display:inline-block;margin-right:.25em;font-weight:900;content:attr(data-mark);color:var(--mark)}
+.fleetLegend .legendWater{--mark:#c7e7ff}.fleetLegend .legendHit{--mark:#ffaf86}.fleetLegend .legendSunk{--mark:#ff91b3}.fleetLegend .legendHint{--mark:#ffdf8f}
 </style>
 <main id="arenaMain">
-<header class="masthead"><h1 aria-label="Vokabelarena"><span>VOKABEL</span><span>ARENA</span></h1></header>
+<header class="masthead"><div class="brandFrame">
+<div class="brandHorizon" aria-hidden="true"></div>
+<h1 aria-label="Vokabelarena"><span>VOKABEL</span><span>ARENA</span></h1>
+</div></header>
 <section id="setup">
 
 <form id="config">
@@ -903,7 +985,12 @@ const gameTiles = gameCatalog.map(game => {
   cover.className = "gameCover";
   cover.setAttribute("aria-hidden","true");
   if (game.position) cover.style.setProperty("--cover-position",game.position);
-  else { cover.classList.add("fleetCover"); cover.textContent = "⚓"; }
+  else {
+    cover.classList.add("fleetCover");
+    const ship = document.createElement("span");
+    ship.className = "fleetCoverShip";
+    cover.append(ship);
+  }
   const title = document.createElement("strong");
   title.textContent = game.title;
   const description = document.createElement("small");
