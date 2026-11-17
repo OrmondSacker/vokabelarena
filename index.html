@@ -368,19 +368,48 @@ button.gameTile .fleetCover{
 .fleetRules li{margin:.38rem 0}
 .fleetAim,.fleetSalvoStatus{font-size:clamp(.72rem,1.9vmin,.9rem);color:#ffe6ad;margin:.3rem 0}
 .fleetGrid .clear{background:#263d52;color:#a8c4d6}
-.fleetGrid .sea[data-last-salvo]{box-shadow:inset 0 0 0 2px #cf975e}
-.fleetGrid .sea[data-salvo-area]{outline:2px solid #94eaff;outline-offset:-2px;background:#306486}
-.fleetGrid .sea[data-salvo-area=locked]{outline-color:#ffe093;background:#765441}
 .fleetLegend .legendClear{--mark:#a8c4d6}
 
 .fleetGrid:has(.fleetHintFrame) .sea.hint{border-color:#70acc22e;box-shadow:inset 0 0 0 1px #f3d97422}
 .fleetGrid .fleetHintFrame{position:absolute;inset:0;z-index:2;aspect-ratio:auto;pointer-events:none;border:2px dashed var(--hint-color);border-radius:4px}
-.fleetGrid .sea[data-salvo-area]{z-index:3}
 .fleetLanHelp{margin:.65rem 0;padding:.75rem;background:#14293f;border:1px solid #426685;border-radius:.55rem}
 .fleetLanHelp p{margin:0 0 .4rem}
 .fleetServerLink,.fleetPackageLink{display:inline-block;margin:.22rem .45rem .22rem 0;color:#b8f4ff}
 .fleetServerLink{padding:.42rem .7rem;border-radius:8px;background:#82dfdd;color:#102238;font-weight:800;text-decoration:none}
 .fleetLanHelp a:focus-visible{outline:2px solid white;outline-offset:2px}
+
+.fleetTurnBanner{
+  margin:.3rem auto .55rem;padding:.35rem .8rem;width:fit-content;max-width:100%;
+  border:2px solid #8be4ff;background:#123944;color:#d2fbff;font-size:clamp(1rem,3vw,1.8rem);
+  line-height:1.15;font-weight:900;border-radius:7px;overflow-wrap:anywhere
+}
+.fleetTurnBanner[data-team="1"]{border-color:#ffc494;background:#4c302a;color:#ffe1c0}
+#game[data-mode=fleet]:has(.fleetTurnBanner) #turn{display:none}
+.fleetBoards article[data-board-role=turn]{border:2px solid #89e6ef}
+.fleetBoards article[data-board-role=turn]:nth-child(2){border-color:#ffc494}
+.fleetBoards article[data-board-role=target]{border:2px solid #f4d58e}
+.fleetBoardRole{margin:.08rem 0 .32rem;color:#f8e1a6;font-size:clamp(.62rem,1.7vmin,.83rem);font-weight:800}
+.fleetShotResult{margin:.28rem 0 .04rem;color:#ffdeb1;font-size:clamp(.66rem,1.8vmin,.88rem);line-height:1.2}
+.fleetGrid .sea[data-aim-area],.fleetGrid .sea[data-last-shot]{position:relative}
+.fleetGrid .sea[data-aim-area]{z-index:3;outline:2px solid #b4f7ff;outline-offset:-2px;background:#397b94}
+.fleetGrid .sea[data-aim-area=locked]{outline-color:#ffeb99;background:#805a49}
+.fleetGrid .sea[data-last-shot]{box-shadow:inset 0 0 0 2px #e2a66b}
+.fleetGrid .sea[data-last-shot=flash]{animation:fleetImpact .5s ease-out}
+.fleetGrid .sea[data-crosshair]::after,.fleetGrid .sea[data-last-crosshair]::after{
+  content:"";position:absolute;inset:11%;z-index:2;pointer-events:none;border-radius:50%;
+  border:2px solid #fff1a9;
+  background:linear-gradient(#fff1a9,#fff1a9) center/2px 100% no-repeat,
+    linear-gradient(#fff1a9,#fff1a9) center/100% 2px no-repeat
+}
+.fleetGrid .sea[data-last-crosshair]::after{opacity:.55}
+.fleetGrid .sea[data-last-crosshair][data-crosshair]::after{opacity:1}
+.fleetGrid .sea[data-last-crosshair] .fleetCellMarker{z-index:3}
+@keyframes fleetImpact{0%{filter:brightness(2)}100%{filter:none}}
+@media(prefers-reduced-motion:reduce){.fleetGrid .sea[data-last-shot=flash]{animation:none}}
+.fleetLinks{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:center;gap:.35rem}
+.fleetJoinCode{border:1px solid #5d8aaa;border-radius:7px;background:#112942;padding:.28rem .5rem}
+.fleetJoinCode summary{cursor:pointer;color:#d1edff;font-weight:800;font-size:.85rem}
+.fleetJoinCode canvas{display:block;width:min(54vw,35dvh,210px);height:auto;margin:.25rem auto;background:white;image-rendering:pixelated}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -516,7 +545,8 @@ sich erinnern;remember</textarea></label>
 </div>
 </section>
 </main>
-<script src="fleet.js?v=multiple-hints"></script>
+<script src="qrcode.js" defer></script>
+<script src="fleet.js?v=target-and-qr"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
