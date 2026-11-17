@@ -418,6 +418,14 @@ button.gameTile .fleetCover{
 </div></header>
 <section id="setup">
 
+<details id="dataTransfer" class="gameSettings">
+<summary>Vokabellisten und Klassen übertragen</summary>
+<p>Die Online-Version und der lokale Server haben getrennte Browserspeicher. Exportiere deine Daten dort, wo sie gespeichert sind, und importiere die Datei in der anderen Version.</p>
+<button type="button" class="secondary" id="exportArenaData">Listen und Klassen exportieren</button>
+<label>Listen und Klassen importieren <input type="file" id="importArenaData" accept=".json,application/json"></label>
+<p id="arenaDataStatus" role="status"></p>
+</details>
+
 <form id="config">
 <div id="vocabStep"><h2 tabindex="-1" id="vocabHeading">Vokabeln auswählen</h2>
 <div class="options"><label>Vokabelquelle <select id="vocabSource"><option value="custom">Eigene Vokabeln</option><option value="saved">Gespeicherte Listen</option><option value="verbs">Unregelmäßige Verben</option></select></label><label>Antworten <select id="answerMode"><option value="manual">Mündlich · Lehrkraft wertet</option><option value="typed">Eintippen · automatisch prüfen</option></select></label></div>
@@ -2280,6 +2288,102 @@ el("deckImport").onchange = async event => {
     status.textContent = count ? count+" Liste(n) importiert. Bestehende Listen wurden nicht überschrieben." : "Diese Listen sind bereits gespeichert.";
   } catch {
     status.textContent = "Import fehlgeschlagen. Prüfe die Vokabelarena-JSON-Datei und den verfügbaren Speicher.";
+  } finally {
+    input.value = "";
+    input.disabled = false;
+  }
+};
+
+function mergeArenaRecords(existing, incoming, field) {
+  const merged = [...existing];
+  for (const record of incoming) {
+    const {title} = record;
+    let name = title;
+    let counter = 2;
+    while (true) {
+      const match = merged.find(entry => entry.title.toLowerCase() === name.toLowerCase());
+      if (!match) {
+        merged.push({title:name,[field]:record[field]});
+        break;
+      }
+      if (JSON.stringify(match[field]) === JSON.stringify(record[field])) break;
+      const suffix = " (" + counter++ + ")";
+      name = title.slice(0,120-suffix.length) + suffix;
+    }
+  }
+  return merged;
+}
+
+function saveArenaBackup(data) {
+  const validTitle = record => typeof record?.title === "string" && record.title.trim();
+  if (data?.format !== "vokabelarena-sicherung" || data.version !== 1 ||
+      !Array.isArray(data.lists) || !Array.isArray(data.classes) ||
+      !data.lists.every(record => validTitle(record) && typeof record.text === "string") ||
+      !data.classes.every(record => validTitle(record) && Array.isArray(record.names) &&
+        record.names.every(name => typeof name === "string"))) {
+    throw new Error("Ungültiges Sicherungsformat");
+  }
+  // Re-read both stores so a newly saved list or class in another tab is included.
+  const savedLists = localStorage.getItem(deckStorageKey);
+  const savedClasses = localStorage.getItem(classStorage);
+  const lists = JSON.parse(savedLists ?? "[]");
+  const classes = JSON.parse(savedClasses ?? "[]");
+  const nextLists = mergeArenaRecords(lists,data.lists,"text");
+  const nextClasses = mergeArenaRecords(classes,data.classes,"names");
+  const listChanged = nextLists.length !== lists.length;
+  try {
+    if (listChanged) localStorage.setItem(deckStorageKey,JSON.stringify(nextLists));
+    if (nextClasses.length !== classes.length) localStorage.setItem(classStorage,JSON.stringify(nextClasses));
+  } catch (error) {
+    if (listChanged) {
+      if (savedLists === null) localStorage.removeItem(deckStorageKey);
+      else localStorage.setItem(deckStorageKey,savedLists);
+    }
+    throw error;
+  }
+  deckRecords = nextLists;
+  classRecords = nextClasses;
+  rebuildDeckControls();
+  refreshClasses(el("classLoad").value);
+  return {lists:nextLists.length-lists.length,classes:nextClasses.length-classes.length};
+}
+
+el("exportArenaData").onclick = () => {
+  const status = el("arenaDataStatus");
+  try {
+    const lists = JSON.parse(localStorage.getItem(deckStorageKey) ?? "[]");
+    const classes = JSON.parse(localStorage.getItem(classStorage) ?? "[]");
+    if (!lists.length && !classes.length) {
+      status.textContent = "In dieser Version sind keine Listen oder Klassen gespeichert. Öffne die Version, in der du sie angelegt hast.";
+      return;
+    }
+    const data = {format:"vokabelarena-sicherung",version:1,lists,classes};
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Vokabelarena-Listen-und-Klassen.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url),1000);
+    status.textContent = "Sicherung mit " + lists.length + " Listen und " + classes.length + " Klassen erstellt.";
+  } catch {
+    status.textContent = "Die gespeicherten Daten konnten nicht gelesen werden.";
+  }
+};
+
+el("importArenaData").onchange = async event => {
+  const input = event.currentTarget;
+  const file = input.files[0];
+  if (!file) return;
+  input.disabled = true;
+  const status = el("arenaDataStatus");
+  try {
+    if (file.size > 20_000_000) throw new Error("Datei zu groß");
+    const added = saveArenaBackup(JSON.parse(await file.text()));
+    status.textContent = added.lists || added.classes
+      ? added.lists + " Vokabellisten und " + added.classes + " Klassen hinzugefügt."
+      : "Die Daten aus dieser Datei sind bereits vorhanden oder die Datei ist leer.";
+  } catch {
+    status.textContent = "Import fehlgeschlagen. Prüfe die Sicherungsdatei und den verfügbaren Browserspeicher.";
   } finally {
     input.value = "";
     input.disabled = false;
