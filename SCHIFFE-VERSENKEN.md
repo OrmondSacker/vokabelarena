@@ -11,8 +11,8 @@
 ## Teamgeräte im Schul-WLAN
 
 1. Lade das Repository als ZIP herunter und entpacke es auf dem Lehrkraft-PC. Der PC benötigt Node.js 18 oder neuer. Auf den Teamgeräten genügt ein Browser.
-2. Öffne im entpackten Ordner ein Terminal und starte den Server mit `node fleet-server.cjs`. Lass das Terminal während der Partie offen.
-3. Öffne am Lehrkraft-PC die ausgegebene **Moderationsadresse** und wähle **Schiffe versenken → Teamgeräte im Schul-WLAN**. Du kannst Vokabellisten aus der öffentlichen Vokabelarena als JSON exportieren und hier importieren. Beide Adressen haben getrennte Browserspeicher.
+2. Doppelklicke im entpackten Ordner auf **Vokabelarena starten.cmd**. Das Fenster bleibt während der Partie offen. Alternativ kannst du den Server mit `node fleet-server.cjs` starten.
+3. Der Starter öffnet die Moderation im Browser. Läuft der Server bereits, kannst du in der öffentlichen Vokabelarena unter **Schiffe versenken** auf **Laufenden Server öffnen** klicken. Schiffe versenken und der Schul-WLAN-Modus sind in der Moderation vorausgewählt. Du kannst Vokabellisten aus der öffentlichen Vokabelarena als JSON exportieren und hier importieren. Beide Adressen haben getrennte Browserspeicher.
 4. Öffne den Beamerlink für die gemeinsame Anzeige. Gib den beiden Teams jeweils ihren eigenen Link. Jedes Team platziert seine Flotte auf seinem Gerät und wählt später dort sein Schussziel. Die Lehrkraft bewertet mündliche Antworten oder lässt die getippte Antwort am Moderationsgerät prüfen.
 5. Wenn mehrere LAN-Adressen angezeigt werden, nutze die Adresse des Schul-WLAN-Adapters. Der PC muss für andere Geräte im WLAN auf TCP-Port 8088 erreichbar sein. Den Moderationslink privat halten. Der Server ist für das lokale Netz vorgesehen.
 
