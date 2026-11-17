@@ -497,11 +497,31 @@ const Fleet = (() => {
   function openProjection() {
     window.open(location.pathname+"#fleetView="+encodeURIComponent(match.channelName),"_blank","noopener");
   }
+  let shownShotEffect = null;
+  function showShotEffect(shot) {
+    const effect=shot?.effect;
+    if (!effect || effect.id===shownShotEffect) return;
+    shownShotEffect=effect.id;
+    const remaining=effect.until-Date.now();
+    if (remaining<=0) return;
+    document.getElementById("fleetShotEffect")?.remove();
+    const overlay=make("div");
+    overlay.id="fleetShotEffect";
+    overlay.className="fleetShotEffect "+effect.kind;
+    overlay.setAttribute("role","status");
+    const title=make("strong",effect.text);
+    title.lang=effect.language;
+    overlay.append(title);
+    document.body.append(overlay);
+    setTimeout(()=>overlay.remove(),Math.min(remaining,3200));
+  }
+
   function sync() {
     if (!match) return;
     match.review = -1;
     if (match.phase==="between" || match.phase==="question") match.phase = state.pending ? "question" : "between";
     render();
+    showShotEffect(match.lastShot);
     channel?.postMessage({frame:snapshot()});
     if (match.room) match.dirty=true;
   }
@@ -565,7 +585,16 @@ const Fleet = (() => {
     const hits=targets.filter(n=>occupied.has(n)).length;
     const report=hits ? hits+" Treffer · "+(targets.length-hits)+" Wasser" : "Wasser";
     const sunkReport=sunk.length ? " · "+sunk.length+(sunk.length===1 ? " Schiff versenkt" : " Schiffe versenkt") : "";
-    match.lastShot={board:1-team,cells:firedArea,result:report+sunkReport};
+    let effect=null;
+    if (hits) {
+      const english=(match.hitEffects ?? 0)%2===1;
+      match.hitEffects=(match.hitEffects ?? 0)+1;
+      const kind=sunk.length ? "sunk" : "hit";
+      effect={id:match.channelName+"-"+Date.now()+"-"+match.hitEffects,
+        kind,language:english ? "en" : "de",until:Date.now()+3200,
+        text:sunk.length ? (english ? "Sunk!" : "Versenkt!") : (english ? "Hit!" : "Treffer!")};
+    }
+    match.lastShot={board:1-team,cells:firedArea,result:report+sunkReport,effect};
     el("feedback").textContent=report+sunkReport+
       (hits && ![...occupied].every(n=>board.shots.has(n)) ? " · Das Team bleibt dran und bekommt eine neue Frage." : "");
     el("answerKey").hidden=true;
@@ -714,6 +743,7 @@ const Fleet = (() => {
       lastGuestFrame=next;
       current=frame;
       show();
+      showShotEffect(frame.lastShot);
     }
     if (screen) {
       const projection=new BroadcastChannel(screen);
