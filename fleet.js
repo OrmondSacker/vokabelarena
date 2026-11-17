@@ -81,11 +81,25 @@ const Fleet = (() => {
     return addRemaining() ? ships : null;
   }
 
+  const hintCells = hint=>area(hint.row,hint.col,hint.width);
+  const intactCells = board=>board.ships.flat().filter(cell=>!board.shots.has(cell));
+
+  function discardEmptyHints(board) {
+    const intact = new Set(intactCells(board));
+    board.hints=board.hints.filter(hint=>hintCells(hint).some(cell=>intact.has(cell)));
+  }
+
   function tighten(board) {
-    const previous = board.hint;
-    const remaining = board.ships.flat().filter(cell=>!board.shots.has(cell));
-    if (!remaining.length || previous?.width===2) return;
-    const target = previous?.target ?? remaining[Math.floor(Math.random()*remaining.length)];
+    discardEmptyHints(board);
+    const remaining = intactCells(board);
+    const index = board.hints.findIndex(hint=>hint.width>2);
+    const previous = board.hints[index];
+    const candidates = previous
+      ? remaining.filter(cell=>hintCells(previous).includes(cell))
+      : remaining.filter(cell=>!board.hints.some(hint=>hintCells(hint).includes(cell)));
+    if (!candidates.length) return;
+    const target = candidates.includes(previous?.target)
+      ? previous.target : candidates[Math.floor(Math.random()*candidates.length)];
     const width = previous ? previous.width-1 : 5;
     const choices = [];
     for (let row=0;row<=size-width;row++) {
@@ -95,7 +109,9 @@ const Fleet = (() => {
         if (area(row,col,width).includes(target)) choices.push({row,col,width,target});
       }
     }
-    board.hint = choices[Math.floor(Math.random()*choices.length)];
+    const next = choices[Math.floor(Math.random()*choices.length)];
+    if (previous) board.hints[index]=next;
+    else board.hints.push(next);
   }
 
   function boardView(board,privileged) {
@@ -105,12 +121,13 @@ const Fleet = (() => {
     if (privileged) {
       for (const cell of board.ships.flat()) if (!visible[cell]) visible[cell] = "ship";
     }
-    const hint = board.hint ? area(board.hint.row,board.hint.col,board.hint.width) : [];
+    const hint = [...new Set(board.hints.flatMap(hintCells))];
+    const hintFrames = board.hints.map(({row,col,width})=>({row,col,width}));
     const ships = board.ships.flatMap((cells,type)=>{
       const destroyed = sunk.includes(cells);
       return privileged || destroyed ? [{cells,type,destroyed}] : [];
     });
-    return {visible,hint,ships,lastSalvo:board.lastSalvo ?? []};
+    return {visible,hint,hintFrames,ships,lastSalvo:board.lastSalvo ?? []};
   }
   function boardsView(viewer=-1) {
     return match.boards.map((board,i)=>boardView(board,viewer===i));
@@ -175,6 +192,15 @@ const Fleet = (() => {
         cells.append(cell);
       }
     }
+    (view.hintFrames ?? []).forEach(({row,col,width},index)=>{
+      const frame=make("span");
+      frame.className="fleetHintFrame";
+      frame.style.gridRow=(row+2)+" / span "+width;
+      frame.style.gridColumn=(col+2)+" / span "+width;
+      frame.style.setProperty("--hint-color",["#ffe199","#95f6df","#ffc2ef","#c7d5ff"][index%4]);
+      frame.setAttribute("aria-hidden","true");
+      cells.append(frame);
+    });
     for (const {cells:ship,type,destroyed} of view.ships ?? []) {
       const first=ship[0], vertical=ship[1]-first===size;
       const sprite=shipSprite(type,vertical,destroyed);
@@ -440,7 +466,7 @@ const Fleet = (() => {
     for (const ship of sunk) {
       for (const n of ship.flatMap(neighbors)) if (!board.shots.has(n)) board.shots.set(n,"clear");
     }
-    if (board.hint && board.shots.has(board.hint.target)) board.hint=null;
+    discardEmptyHints(board);
     const hits=targets.filter(n=>occupied.has(n)).length;
     const report=hits ? hits+" Treffer · "+(targets.length-hits)+" Wasser" : "Wasser";
     const sunkReport=sunk.length ? " · "+sunk.length+(sunk.length===1 ? " Schiff versenkt" : " Schiffe versenkt") : "";
@@ -491,7 +517,7 @@ const Fleet = (() => {
   async function start(names,network) {
     const active = match = {names,network,phase:"placement",placeTeam:0,placing:false,review:-1,revision:0,
       wide:false,salvos:[false,false],streaks:[0,0],draft:{ships:[],vertical:false},
-      boards:names.map(()=>({ships:[],shots:new Map(),hint:null}))};
+      boards:names.map(()=>({ships:[],shots:new Map(),hints:[]}))};
     for (const id of ["judge","typedAnswer","next","answerKey","editGameVocabulary"]) el(id).hidden=true;
     el("score").textContent="Schiffe versenken";
     el("word").textContent="";
