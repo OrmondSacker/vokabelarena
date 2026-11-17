@@ -142,7 +142,7 @@ const Fleet = (() => {
     return sprite;
   }
 
-  function grid(title,view,onPick,wide=false,tag="",lastShot=null) {
+  function grid(title,view,onPick,wide=false,tag="",lastShot=null,confirmShot=false) {
     const article = make("article"), cells = make("div");
     article.append(make("h3",title));
     if (tag) {
@@ -157,6 +157,10 @@ const Fleet = (() => {
     const symbols = {water:"·",hit:"×",sunk:"◆",clear:"○"};
     const gridCells=[];
     let selected=null;
+    const fire = confirmShot && onPick ? action("Schießen",()=>{
+      if (selected!==null) onPick(selected);
+    }) : null;
+    if (fire) fire.disabled=true;
     const paint=(block,locked=false)=>gridCells.forEach((tile,index)=>{
       if (block.includes(index)) tile.dataset.aimArea=locked ? "locked" : "preview";
       else delete tile.dataset.aimArea;
@@ -176,7 +180,8 @@ const Fleet = (() => {
           else {
             selected=n;
             paint(block,true);
-            aim.textContent=(wide ? "Salve: " : "Ziel: ")+coords(block)+". Dasselbe Feld erneut wählen, um zu feuern.";
+            if (fire) fire.disabled=false;
+            aim.textContent=(wide ? "Salve: " : "Ziel: ")+coords(block)+". Schießen drücken oder dasselbe Feld erneut wählen.";
           }
         }) : make("span");
         gridCells.push(cell);
@@ -236,6 +241,7 @@ const Fleet = (() => {
       aim.className="fleetAim";
       aim.setAttribute("role","status");
       article.append(aim);
+      if (fire) article.append(fire);
     }
     if (lastShot) {
       const outcome=make("p",coords(lastShot.cells)+" · "+lastShot.result);
@@ -255,7 +261,7 @@ const Fleet = (() => {
       const aiming=i===active;
       const tag=current<0 ? "" : i===current ? "Am Zug" : "Zielraster";
       const shot=viewState.lastShot?.board===i ? {...viewState.lastShot,flash:viewState.phase==="between" || viewState.phase==="finished"} : null;
-      list.append(grid(names[i],board,aiming ? onPick : null,aiming && salvo,tag,shot));
+      list.append(grid(names[i],board,aiming ? onPick : null,aiming && salvo,tag,shot,viewState.phase==="shot"));
     });
     parent.append(list);
     if (boards.length === 2) {
@@ -424,10 +430,14 @@ const Fleet = (() => {
       }
       return;
     }
-    const shooting = match.phase==="shot" && match.network==="local" && match.review<0;
+    const shooting = match.phase==="shot" && match.review<0;
+    const active=match, team=state.team, revision=match.revision;
+    const fireShot=cell=>{
+      if (match===active && match.revision===revision) shoot(team,cell,match.wide);
+    };
     renderTurn(scene,match.names,match.phase,state.team);
     grids(scene,match.names,boardsView(match.review),shooting ? 1-state.team : -1,
-      cell=>shoot(state.team,cell,match.wide),match.wide,{phase:match.phase,team:state.team,lastShot:match.lastShot});
+      fireShot,match.wide,{phase:match.phase,team:state.team,lastShot:match.lastShot});
     controls.append(salvoStatus(match.streaks[state.team],match.salvos[state.team]));
     if (shooting && match.salvos[state.team]) {
       controls.append(action(match.wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{
@@ -436,7 +446,7 @@ const Fleet = (() => {
       }));
     }
     if (match.phase==="shot" && match.network==="lan") {
-      controls.append(make("p",match.names[state.team]+" wählt das Ziel am eigenen Gerät."));
+      controls.append(make("p","Ziel am Lehrer-PC oder am Teamgerät wählen und schießen."));
     }
     if (match.network==="local") {
       match.names.forEach((name,i)=>controls.append(action(
