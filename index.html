@@ -372,6 +372,10 @@ button.gameTile .fleetCover{
 .fleetGrid .sea[data-salvo-area]{outline:2px solid #94eaff;outline-offset:-2px;background:#306486}
 .fleetGrid .sea[data-salvo-area=locked]{outline-color:#ffe093;background:#765441}
 .fleetLegend .legendClear{--mark:#a8c4d6}
+
+.fleetGrid:has(.fleetHintFrame) .sea.hint{border-color:#70acc22e;box-shadow:inset 0 0 0 1px #f3d97422}
+.fleetGrid .fleetHintFrame{position:absolute;inset:0;z-index:2;aspect-ratio:auto;pointer-events:none;border:2px dashed var(--hint-color);border-radius:4px}
+.fleetGrid .sea[data-salvo-area]{z-index:3}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -431,7 +435,7 @@ sich erinnern;remember</textarea></label>
 <ul>
 <li>Jedes Team hat fünf Schiffe auf einem 10×10-Raster. Die Schiffe sind 5, 4, 3, 3 und 2 Felder lang. Sie liegen waagerecht oder senkrecht und brauchen auch diagonal ein Feld Abstand.</li>
 <li>Eine richtige Vokabelantwort erlaubt einen Schuss. Bei einem Treffer bleibt das Team dran und bekommt eine neue Frage. Bei Wasser wechselt der Zug.</li>
-<li>Eine falsche Antwort beendet den Zug und gibt dem Gegner einen Suchhinweis auf ein ungetroffenes Schiffssegment. Weitere Fehler verkleinern den Bereich von 5×5 über 4×4 und 3×3 auf 2×2. Ein Treffer auf das gesuchte Segment löscht den Hinweis.</li>
+<li>Eine falsche Antwort beendet den Zug und gibt dem Gegner einen Suchhinweis auf ein ungetroffenes Schiffssegment. Weitere Fehler verkleinern den Bereich von 5×5 über 4×4 und 3×3 auf 2×2. Bleibt ein 2×2-Hinweis offen, kann ein weiterer Fehler einen neuen Suchbereich öffnen. Ein Rahmen verschwindet, sobald darin kein ungetroffenes Schiffssegment mehr liegt.</li>
 <li>Nach drei eigenen richtigen Antworten in Folge ist eine 2×2-Salve verfügbar. Es kann höchstens eine gespeichert werden. Sie kann nach einer richtigen Antwort eingesetzt werden. Das obere linke Feld wählen, die vier markierten Felder prüfen und dasselbe Startfeld erneut wählen, um zu feuern. Bereits ausgewertete Felder werden übersprungen.</li>
 <li>Sind alle Felder eines Schiffs getroffen, gilt es als versenkt. Nachbarfelder zeigen freies Wasser. Wer zuerst die gesamte gegnerische Flotte versenkt, gewinnt.</li>
 </ul></details><p id="fleetLanHelp" hidden>Öffne die Moderationsadresse des lokalen Vokabelarena-Servers. Die Teamgeräte erhalten eigene Links.</p></div><div id="footballOptions"><div class="options"><label>Team 1 <input id="team1" maxlength="40" placeholder="Team 1"></label><label>Team 2 <input id="team2" maxlength="40" placeholder="Team 2"></label></div><label id="footballGoal">Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><fieldset id="catapultRules" hidden><legend>Katapultduell</legend>
@@ -502,7 +506,7 @@ sich erinnern;remember</textarea></label>
 </div>
 </section>
 </main>
-<script src="fleet.js?v=salvo-rules"></script>
+<script src="fleet.js?v=multiple-hints"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
