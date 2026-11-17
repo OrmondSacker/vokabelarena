@@ -115,6 +115,19 @@ const Fleet = (() => {
     list.className = "fleetBoards";
     boards.forEach((board,i)=>list.append(grid(names[i],board,i===active ? onPick : null,salvo)));
     parent.append(list);
+    if (boards.length === 2) {
+      const legend = make("p");
+      legend.className = "fleetLegend";
+      for (const [kind, mark, text] of [
+        ["Water","·","Wasser"],["Hit","×","Treffer"],["Sunk","◆","Versenkt"],["Hint","▧","Suchhinweis"]
+      ]) {
+        const entry = make("span",text);
+        entry.className = "legend" + kind;
+        entry.dataset.mark = mark;
+        legend.append(entry);
+      }
+      parent.append(legend);
+    }
   }
   function placement(parent,draft,title,send,rerender) {
     const heading = make("p",title), length = lengths[draft.ships.length];
