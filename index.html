@@ -419,6 +419,47 @@ button.gameTile .fleetCover{
 @keyframes fleetSinking{0%{opacity:0;transform:scale(.3) translateY(-50px) rotate(-6deg)}16%,65%{opacity:1;transform:scale(1) translateY(0) rotate(-3deg)}100%{opacity:0;transform:scale(.8) translateY(100px) rotate(9deg)}}
 @keyframes fleetEffectFade{0%,100%{opacity:0}12%,75%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.fleetShotEffect,.fleetShotEffect strong,.fleetShotEffect.sunk strong{animation:none}}
+
+/* Compact fleet view */
+#arenaMain:has(#fleetGuest:not([hidden])){max-width:1120px;padding:8px}
+#fleetGuest{padding:10px;border-radius:12px}
+#fleetGuest h2{font-size:clamp(1.05rem,3vw,1.5rem);line-height:1.15;margin:.15rem 0 .3rem}
+#fleetGuest h3{font-size:clamp(.9rem,2.3vw,1.2rem);margin:.2rem 0}
+#fleetGuest p{margin:.18rem 0;line-height:1.25}
+#fleetGuest .fleetTurnBanner{display:none}
+.fleetBoards{gap:.4rem}
+.fleetBoards article{padding:4px}
+.fleetBoards h3{margin:.05rem 0 .18rem}
+.fleetBoardRole{margin:.05rem 0 .18rem}
+.fleetAim,.fleetSalvoStatus,.fleetShotResult{margin:.18rem 0;line-height:1.2}
+.fleetLegend{gap:.12rem .5rem;margin:.2rem 0;font-size:.72rem}
+#fleetGuest button,#game[data-mode=fleet] #fleetActions button,.fleetBoards article>button{
+  padding:.35rem .6rem;margin:2px;font-size:.85rem;min-height:36px
+}
+#fleetGuest .fleetGrid button,#game[data-mode=fleet] .fleetGrid button{min-height:0}
+#fleetGuest .fleetBoards article{max-width:min(100%,52dvh,22rem)}
+#game[data-mode=fleet] .fleetTurnBanner{font-size:clamp(.95rem,2.6vmin,1.35rem);padding:.2rem .55rem;margin:.15rem auto .3rem}
+#game[data-mode=fleet] #playToolbar p{margin:.15rem 0}
+#game[data-mode=fleet] #word{font-size:clamp(1.2rem,3.4vmin,2rem)}
+#game[data-mode=fleet] #fleetActions{font-size:.85rem}
+.fleetConnectionLinks{margin:.2rem 0}
+.fleetConnectionLinks>summary{cursor:pointer;font-size:.8rem;color:#c5eaff;padding:.3rem}
+.fleetConnectionLinks .fleetLinks{margin-top:.3rem}
+@media(min-width:800px){
+  #game[data-mode=fleet]:not([hidden]){
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.42fr);
+    grid-template-rows:auto minmax(0,1fr);gap:.6rem
+  }
+  #game[data-mode=fleet] #playToolbar{grid-column:1/-1}
+  #game[data-mode=fleet] #playScene{align-self:center}
+  #game[data-mode=fleet] #playPanel{align-self:center;max-height:100%;overflow:auto}
+  #game[data-mode=fleet] .fleetBoards article{max-width:min(100%,58dvh,23rem)}
+}
+@media(max-width:480px){
+  #fleetGuest .fleetAim{font-size:.72rem}
+  #fleetGuest .fleetBoards h3{font-size:.8rem}
+  #fleetGuest .fleetBoardRole{font-size:.66rem}
+}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
