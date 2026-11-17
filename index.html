@@ -308,6 +308,60 @@ button.gameTile .fleetCover{
 .fleetLegend{display:flex;justify-content:center;flex-wrap:wrap;gap:.18rem .75rem;margin:.4rem 0 .12rem;color:#d4eaff;font-size:clamp(.64rem,1.7vmin,.83rem)}
 .fleetLegend span::before{display:inline-block;margin-right:.25em;font-weight:900;content:attr(data-mark);color:var(--mark)}
 .fleetLegend .legendWater{--mark:#c7e7ff}.fleetLegend .legendHit{--mark:#ffaf86}.fleetLegend .legendSunk{--mark:#ff91b3}.fleetLegend .legendHint{--mark:#ffdf8f}
+
+.fleetGrid{position:relative}
+.fleetBoards:has(>article:only-child){grid-template-columns:minmax(0,1fr)}
+.fleetGrid .fleetCellMarker{position:relative;z-index:2;font-style:normal;pointer-events:none}
+.fleetGrid .shipOverlay{
+  position:absolute;inset:0;z-index:1;display:block;aspect-ratio:auto;
+  container-type:size;pointer-events:none
+}
+.shipSprite{position:absolute;inset:15% 2%;display:block;pointer-events:none;
+  --hull:#98aeca;--edge:#324966;--deck:#e4dfc8;--trim:#f5bd77;--tower:#bbc9d2}
+.shipSprite.vertical{
+  inset:auto;top:50%;left:50%;width:96cqh;height:70cqw;
+  transform:translate(-50%,-50%) rotate(90deg)
+}
+.shipSprite::before,.shipSprite::after,.shipSprite i,.shipSprite b{position:absolute;content:"";display:block}
+.shipSprite::before{
+  inset:6% 0;background:linear-gradient(var(--hull) 0 27%,var(--deck) 27% 53%,var(--hull) 53% 72%,var(--edge) 72%);
+  clip-path:polygon(0 35%,9% 9%,27% 0,83% 0,96% 18%,100% 35%,100% 65%,96% 82%,83% 100%,27% 100%,9% 91%,0 65%)
+}
+.shipSprite::after{
+  inset:32% 19%;background:repeating-linear-gradient(90deg,var(--trim) 0 8%,var(--deck) 8% 16%);
+  clip-path:polygon(0 30%,7% 0,93% 0,100% 30%,100% 70%,93% 100%,7% 100%,0 70%)
+}
+.shipSprite i{z-index:1;inset:14% 23% auto auto;width:15%;height:34%;background:var(--tower);border:1px solid var(--edge);box-shadow:1px 2px var(--edge)}
+.shipSprite b{z-index:1;top:55%;left:20%;width:13%;height:12%;background:var(--edge)}
+.shipModel0{--deck:#4f6075;--hull:#bccddd;--edge:#526880;--trim:#fff1a6}
+.shipModel0::after{inset:32% 12%;background:linear-gradient(transparent 39%,#ffdc86 39% 55%,transparent 55%),repeating-linear-gradient(90deg,#283d57 0 12%,#546887 12% 18%)}
+.shipModel1{--hull:#b88267;--edge:#59394b;--deck:#f0c2a0;--tower:#fff0c9}
+.shipModel1 i{left:44%;right:auto;width:20%}
+.shipModel1 b{width:68%;left:16%;background:repeating-linear-gradient(90deg,#59394b 0 14%,transparent 14% 38%)}
+.shipModel2{--hull:#75a5bf;--edge:#2f5474;--deck:#e4e8d9;--tower:#95d3e8}
+.shipModel2::before{inset:14% 0}
+.shipModel3{--hull:#518780;--edge:#214f57;--deck:#90b5a0;--tower:#c2d5ad}
+.shipModel3::before{inset:20% 0;clip-path:polygon(0 50%,12% 12%,31% 0,79% 0,98% 24%,100% 50%,98% 76%,79% 100%,31% 100%,12% 88%)}
+.shipModel3::after{inset:39% 12%;background:#224d52}
+.shipModel3 i{left:44%;right:auto;width:16%;height:35%}
+.shipModel3 b{display:none}
+.shipModel4{--hull:#e5ad67;--edge:#814453;--deck:#ffda9c;--tower:#fff1bc}
+.shipModel4 i{right:33%;width:24%}
+.shipSprite.destroyed{filter:grayscale(.6) brightness(.64)}
+.fleetPlacementOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:.15rem}
+.fleetShipTray{display:grid;justify-items:center;gap:.15rem;margin:.25rem 0 .45rem}
+.fleetShipTray p{margin:0;font-weight:800;color:#d7f1ff}
+.fleetDragShip{
+  --ship-unit:clamp(18px,4vmin,29px);position:relative;container-type:size;
+  width:calc(var(--segments)*var(--ship-unit));height:var(--ship-unit);
+  background:#152e49;border:1px dashed #87c6e1;border-radius:4px;
+  cursor:grab;touch-action:none;user-select:none
+}
+.fleetDragShip.vertical{width:var(--ship-unit);height:calc(var(--segments)*var(--ship-unit))}
+.fleetDragGhost{position:fixed;z-index:20;opacity:.85;pointer-events:none;transform:translate(-8px,-50%)}
+.fleetDragGhost.vertical{transform:translate(-50%,-8px)}
+.fleetGrid .sea[data-placement=fit]{box-shadow:inset 0 0 0 2px #a0ffd6;background:#387f7d}
+.fleetGrid .sea[data-placement=blocked]{box-shadow:inset 0 0 0 2px #ff8d91;background:#824654}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -431,7 +485,7 @@ sich erinnern;remember</textarea></label>
 </div>
 </section>
 </main>
-<script src="fleet.js"></script>
+<script src="fleet.js?v=ship-placement"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
