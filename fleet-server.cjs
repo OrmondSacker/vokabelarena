@@ -13,7 +13,7 @@ const addresses = Object.values(os.networkInterfaces()).flat()
   .filter(entry => entry.family === "IPv4" && !entry.internal).map(entry => entry.address);
 const publicAddress = process.env.FLEET_ADDRESS || addresses[0] || "127.0.0.1";
 const rooms = new Map();
-const files = new Map([["/","index.html"],["/index.html","index.html"],["/fleet.js","fleet.js"],["/qrcode.js","qrcode.js"]]);
+const files = new Map([["/","index.html"],["/index.html","index.html"],["/fleet.js","fleet.js"],["/qrcode.js","qrcode.js"],["/result-art.css","result-art.css"]]);
 const idleLimit = 4 * 60 * 60 * 1000;
 const moderatorUrl = "http://127.0.0.1:"+port+"/moderation";
 
@@ -47,7 +47,7 @@ const server = http.createServer(async (request,response) => {
     if (request.method === "GET" && files.has(endpoint)) {
       const file = files.get(endpoint);
       const data = await fs.promises.readFile(path.join(__dirname,file));
-      response.writeHead(200,{"Content-Type":file.endsWith(".js") ? "text/javascript; charset=utf-8" : "text/html; charset=utf-8",
+      response.writeHead(200,{"Content-Type":file.endsWith(".js") ? "text/javascript; charset=utf-8" : file.endsWith(".css") ? "text/css; charset=utf-8" : "text/html; charset=utf-8",
         "Cache-Control":"no-cache","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff"});
       response.end(data);
       return;
