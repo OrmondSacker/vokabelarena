@@ -572,7 +572,7 @@ const Fleet = (() => {
       scheduleComputerStep(()=>{
         if (match!==active || match.phase!=="shot" || match.revision!==revision) return;
         const wide=match.salvos[1],view=boardView(match.boards[0],false);
-        const cell=computerTarget(view,state.computer,wide);
+        const cell=computerTarget(view,wide);
         if (cell!==null) shoot(1,cell,wide);
       });
     }
@@ -587,30 +587,71 @@ const Fleet = (() => {
     queueComputerQuestion();
   }
 
-  function computerTarget(view,level,wide) {
-    const score=cell=>{
-      if (view.visible[cell]) return 0;
-      const row=Math.floor(cell/size),col=cell%size;
-      const adjacent=[cell-size,cell+size,...(col ? [cell-1] : []),...(col<size-1 ? [cell+1] : [])];
-      let value=1;
-      if (level!=="easy") {
-        value+=Number(view.hint.includes(cell))*6;
-        value+=adjacent.filter(n=>view.visible[n]==="hit").length*20;
-        value+=Number((row+col)%2===0);
+  function computerTarget(view,wide) {
+    const unknown=cell=>!view.visible[cell];
+    const hits=Array.from({length:size*size},(_,cell)=>cell).filter(cell=>view.visible[cell]==="hit");
+    const hitSet=new Set(hits);
+    const remaining=[...lengths];
+    for (const ship of view.ships ?? []) {
+      if (!ship.destroyed) continue;
+      const index=remaining.indexOf(ship.cells.length);
+      if (index>=0) remaining.splice(index,1);
+    }
+    const density=new Array(size*size).fill(0);
+    const pursuit=new Array(size*size).fill(0);
+    const connectedHits=new Array(size*size).fill(0);
+    // Count legal positions of the remaining ships using only public information.
+    for (const length of remaining) {
+      for (let start=0;start<size*size;start++) {
+        for (const vertical of [false,true]) {
+          const cells=footprint(start,length,vertical);
+          if (!cells.length || cells.some(cell=>view.visible[cell] && !hitSet.has(cell))) continue;
+          const occupied=new Set(cells);
+          if (cells.some(cell=>neighbors(cell).some(neighbor=>hitSet.has(neighbor) && !occupied.has(neighbor)))) continue;
+          const known=cells.filter(cell=>hitSet.has(cell)).length;
+          for (const cell of cells) {
+            if (!unknown(cell)) continue;
+            density[cell]++;
+            if (known && hits.some(hit=>Math.abs(Math.floor(hit/size)-Math.floor(cell/size))+Math.abs(hit%size-cell%size)===1)) {
+              pursuit[cell]+=known*known;
+              connectedHits[cell]=Math.max(connectedHits[cell],known);
+            }
+          }
+        }
       }
-      return value;
-    };
+    }
+    const hintWeight=new Array(size*size).fill(0);
+    for (const frame of view.hintFrames ?? []) {
+      const cells=area(frame.row,frame.col,frame.width).filter(unknown);
+      for (const cell of cells) hintWeight[cell]+=100/cells.length;
+    }
+    // Accept older public frames that supplied the hint cells without rectangles.
+    for (const cell of view.hint ?? []) {
+      if (unknown(cell) && !hintWeight[cell]) hintWeight[cell]=1;
+    }
+    const targetCells=connectedHits.some(value=>value>0);
+    const hintCells=hintWeight.some((value,cell)=>value>0 && density[cell]>0);
     const candidates=[];
     for (let cell=0;cell<size*size;cell++) {
       const row=Math.floor(cell/size),col=cell%size;
       if (wide && (row>=size-1 || col>=size-1)) continue;
-      const cells=wide ? area(row,col,2) : [cell];
-      if (!cells.some(n=>!view.visible[n])) continue;
-      candidates.push({cell,value:cells.reduce((sum,n)=>sum+score(n),0)});
+      const cells=(wide ? area(row,col,2) : [cell]).filter(unknown);
+      if (!cells.length) continue;
+      const target=cells.filter(n=>connectedHits[n]>0);
+      if (targetCells && !target.length) continue;
+      const hinted=cells.filter(n=>hintWeight[n]>0 && density[n]>0);
+      if (!targetCells && hintCells && !hinted.length) continue;
+      const chain=target.length ? Math.max(...target.map(n=>connectedHits[n])) : 0;
+      const priority=target.reduce((total,n)=>total+pursuit[n],0);
+      const hints=hinted.reduce((total,n)=>total+hintWeight[n],0);
+      const coverage=cells.reduce((total,n)=>total+density[n],0);
+      // A longer known hit chain takes precedence over another isolated hit.
+      const value=chain*1_000_000+priority*1000+hints*10+coverage;
+      candidates.push({cell,value});
     }
     if (!candidates.length) return null;
-    const best=Math.max(...candidates.map(item=>item.value));
-    const options=candidates.filter(item=>item.value===best);
+    const best=Math.max(...candidates.map(candidate=>candidate.value));
+    const options=candidates.filter(candidate=>candidate.value===best);
     return options[Math.floor(Math.random()*options.length)].cell;
   }
 
