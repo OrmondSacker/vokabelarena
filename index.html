@@ -986,8 +986,8 @@ function answerMatches(input, solution) {
   if (!actual[0]) return false;
   return [solution, ...solution.split(/[;/|]/u)].some(form =>
     variants(form).some(expected => actual.some(typed =>
-      expected === typed || expected.replace(/^to /u,"") === typed ||
-      expected === typed.replace(/^to /u,""))));
+      expected === typed || expected.replace(/^(?:to|der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines)\s+/u,"") === typed ||
+      expected === typed.replace(/^(?:to|der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines)\s+/u,""))));
 }
 
 el("typedAnswer").onsubmit = event => {
