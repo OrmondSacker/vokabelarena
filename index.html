@@ -556,6 +556,11 @@ sich erinnern;remember</textarea></label>
 <label id="bossChoice" hidden>Boss <select id="bossSelect"><option value="random">Zufällig</option><option value="series">Bossserie · alle drei Bosse</option><option value="dragon">Glutdrache</option><option value="golem">Runengolem</option><option value="ghost">Nebelgeist</option></select></label><label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 
 </div>
+<fieldset id="computerOptions" hidden><legend>Gegner</legend>
+<label><input type="checkbox" id="computerEnabled"> Gegen den Computer spielen</label>
+<label id="computerLevelWrap" hidden>Schwierigkeit <select id="computerLevel"><option value="easy">Leicht · 55 % richtige Antworten</option><option value="normal" selected>Mittel · 75 % richtige Antworten</option><option value="hard">Schwer · 90 % richtige Antworten</option></select></label>
+<p id="computerHelp" hidden>Du spielst als Team 1. Der Computer übernimmt Team 2 und spielt seine Züge automatisch. Deine Vokabeln werden unabhängig vom Computer abgefragt. Schiffe versenken wird dabei auf einem Gerät gespielt.</p>
+</fieldset>
 <div id="fleetOptions" hidden><label>Spielmodus <select id="fleetMode"><option value="local">Lehrkraft und Beamer</option><option value="lan">Teamgeräte im Schul-WLAN</option></select></label><details class="fleetRules"><summary>Spielregeln · Schiffe versenken</summary>
 <ul>
 <li>Jedes Team hat fünf Schiffe auf einem 10×10-Raster. Die Schiffe sind 5, 4, 3, 3 und 2 Felder lang. Sie liegen waagerecht oder senkrecht und brauchen auch diagonal ein Feld Abstand.</li>
@@ -637,7 +642,7 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
-<script src="fleet.js?v=between-boards-1"></script>
+<script src="fleet.js?v=computer-opponents-1"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -695,13 +700,68 @@ function meters() {
   el("heartsLabel").textContent = "Ihr · " + state.hearts + "/" + state.maxHearts + " Herzen";
 }
 
+const computerLevels = {
+  easy:{accuracy:.55,saveTo:2},
+  normal:{accuracy:.75,saveTo:4},
+  hard:{accuracy:.9,saveTo:5}
+};
+let computerTimer;
+function isComputerTurn() {
+  return Boolean(state?.computer && state.team===1);
+}
+function cancelComputerStep() {
+  clearTimeout(computerTimer);
+  computerTimer=null;
+}
+function scheduleComputerStep(callback,delay=1200) {
+  cancelComputerStep();
+  const game=state;
+  computerTimer=setTimeout(()=>{
+    computerTimer=null;
+    if (state!==game || el("game").hidden || !isComputerTurn()) return;
+    callback();
+  },delay);
+}
+function queueComputerQuestion() {
+  if (!isComputerTurn() || state.pending || el("next").hidden) return;
+  el("next").hidden=true;
+  scheduleComputerStep(question);
+}
+function computerCatapultAction() {
+  const side=state.sides[1],enemy=state.sides[0];
+  if (side.double && shotPower(side.stones,true)>=enemy.hp) {
+    fireCatapult(true);
+  } else if (shotPower(side.stones,false)>=enemy.hp) {
+    fireCatapult(false);
+  } else if (side.hp<=3 && side.hp<castleMaxHp && side.stones===1) {
+    el("catapultRepair").onclick();
+  } else if (side.stones<computerLevels[state.computer].saveTo) {
+    el("catapultSave").onclick();
+  } else {
+    fireCatapult(Boolean(side.double));
+  }
+}
+
 function question() {
+  cancelComputerStep();
   showQuestion();
+  if (state.pending && isComputerTurn()) {
+    el("judge").hidden=true;
+    el("typedAnswer").hidden=true;
+    el("word").textContent="Computer überlegt …";
+    el("editGameVocabulary").hidden=true;
+    scheduleComputerStep(()=>{
+      const correct=Math.random()<computerLevels[state.computer].accuracy;
+      el("word").textContent=correct ? currentSolution() : "Computer antwortet falsch";
+      el("editGameVocabulary").hidden=false;
+      judge(correct);
+    },1600);
+  }
   if (state.mode === "fleet") Fleet.sync();
 }
 
 function showQuestion() {
-  if (!state.queue.length) {
+  if (!isComputerTurn() && !state.queue.length) {
     state.queue = shuffle(state.missed);
     state.missed = [];
     if (!state.queue.length) {
@@ -715,7 +775,9 @@ function showQuestion() {
   }
   delete el("game").dataset.hit;
   if (state.mode === "boss") resetBossEffect();
-  state.current = state.queue.shift();
+  state.current = isComputerTurn()
+    ? makeQuestionQueue([state.cards[Math.floor(Math.random()*state.cards.length)]],state.direction)[0]
+    : state.queue.shift();
   if (state.bossStage === 2 && state.direction === "mix" && !state.current.retry) {
     state.current.side = state.nextSide;
     state.nextSide = 1 - state.nextSide;
@@ -789,7 +851,7 @@ function judge(correct) {
   state.pending = false;
   el("game").dataset.hit = correct ? "right" : "wrong";
   state.answered++;
-  if (!correct) state.missed.push({...state.current, retry:true});
+  if (!correct && !isComputerTurn()) state.missed.push({...state.current, retry:true});
   const solution = currentSolution();
   el("typedAnswer").hidden = true;
   if (state.mode === "fleet") { Fleet.judge(correct,solution); return; }
@@ -888,7 +950,9 @@ el("config").addEventListener("submit", event => {
   const error = el("error");
   const {cards, direction} = vocabulary;
   const mode = el("mode").value;
-  if (mode === "fleet" && !Fleet.canStart(el("fleetMode").value)) return;
+  const computer=["football","catapult","fleet"].includes(mode) && el("computerEnabled").checked ? el("computerLevel").value : null;
+  if (mode === "fleet" && !Fleet.canStart(computer ? "local" : el("fleetMode").value)) return;
+  cancelComputerStep();
   Fleet.close();
   const savedPlayers = mode === "zombie" && el("classLoad").value !== "";
   const names = savedPlayers ? classSelection() : el("names").value.split(/\r?\n/).map(name => name.trim());
@@ -900,6 +964,7 @@ el("config").addEventListener("submit", event => {
     return;
   }
   const rotation = mode === "catapult" && el("catapultUseClass").checked ? readCatapultTeams() : null;
+  if (rotation && computer) rotation[1]=["Computer"];
   if (rotation && rotation.some(team => !team.length)) {
     error.hidden = false;
     error.textContent = "Teile beiden Teams mindestens eine Person zu.";
@@ -907,7 +972,8 @@ el("config").addEventListener("submit", event => {
   }
   const people = mode === "zombie" ? shuffle(Array.from({length:players},(_,i) => i+1)) : [];
   const teamNames = ["team1", "team2"].map((id, index) => el(id).value.trim() || "Team " + (index + 1));
-  state = {...vocabulary, mode, names, teamNames, ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
+  if (computer) teamNames[1]="Computer";
+  state = {...vocabulary, mode, computer, names, teamNames, ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
     attackers:people.slice(0,zombies),
     survivors:people.slice(zombies),
     round:zombies ? 1 : 0, maxRounds:Number(el("rounds").value), waiting:new Set(),
@@ -953,7 +1019,7 @@ el("config").addEventListener("submit", event => {
   el("targets").replaceChildren();
   meters();
   renderTeam();
-  if (mode === "fleet") Fleet.start(state.teamNames,el("fleetMode").value);
+  if (mode === "fleet") Fleet.start(state.teamNames,computer ? "local" : el("fleetMode").value);
   else question();
 });
 el("correct").onclick = () => judge(true);
@@ -982,6 +1048,7 @@ el("arenaFullscreen").onclick = async () => {
 };
 
 el("back").onclick = () => {
+  cancelComputerStep();
   Fleet.close();
   el("game").hidden = true;
   el("setup").hidden = false;
@@ -1135,6 +1202,7 @@ function judgeTeam(correct, solution) {
   } else {
     el("next").hidden = false;
     el("next").focus();
+    queueComputerQuestion();
   }
 }
 
@@ -1270,6 +1338,10 @@ function resumeGame() {
   el("error").hidden = true;
   el("setup").hidden = true;
   el("game").hidden = false;
+  if (isComputerTurn() && !state.pending) {
+    el("next").hidden=false;
+    queueComputerQuestion();
+  }
 }
 el("cancelVocabulary").onclick = () => {
   resumeGame();
@@ -1429,7 +1501,11 @@ function judgeCatapult(correct, solution) {
     reward = " Doppelschuss verdient.";
   }
   el("feedback").textContent = "Richtig! +1 Stein." + reward;
-  el("catapultActions").hidden = false;
+  el("catapultActions").hidden = isComputerTurn();
+  if (isComputerTurn()) {
+    el("editGameVocabulary").hidden=true;
+    scheduleComputerStep(computerCatapultAction);
+  }
   renderCatapult();
   syncCatapultActions();
   el("catapultFire").focus();
@@ -1455,6 +1531,8 @@ function finishCatapultTurn() {
   renderCatapult();
   el("next").hidden = false;
   el("next").focus();
+  el("editGameVocabulary").hidden=false;
+  queueComputerQuestion();
 }
 
 function fireCatapult(doubled) {
@@ -1701,6 +1779,17 @@ function animateSiege(source,stones,doubled,damage,done) {
 
 function setupMode() {
   const mode = el("mode").value;
+  const computerGame=["football","catapult","fleet"].includes(mode);
+  const computer=computerGame && el("computerEnabled").checked;
+  el("computerOptions").hidden=!computerGame;
+  el("computerLevelWrap").hidden=!computer;
+  el("computerHelp").hidden=!computer;
+  el("team2").disabled=computer;
+  el("fleetMode").disabled=mode==="fleet" && computer;
+  if (mode==="fleet" && computer) {
+    el("fleetMode").value="local";
+    el("fleetMode").dispatchEvent(new Event("change"));
+  }
   const verbs = el("vocabSource").value === "verbs";
   el("verbLengthWrap").hidden = !verbs;
   updateVerbPicker();
@@ -1726,6 +1815,7 @@ function setupMode() {
   for (const id of ["zombies", "rounds"]) el(id).disabled = mode !== "zombie";
 }
 el("mode").onchange = setupMode;
+el("computerEnabled").onchange = setupMode;
 el("vocabSource").onchange = setupMode;
 setupMode();
 
