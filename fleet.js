@@ -127,7 +127,7 @@ const Fleet = (() => {
       const destroyed = sunk.includes(cells);
       return privileged || destroyed ? [{cells,type,destroyed}] : [];
     });
-    return {visible,hint,hintFrames,ships,lastSalvo:board.lastSalvo ?? []};
+    return {visible,hint,hintFrames,ships};
   }
   function boardsView(viewer=-1) {
     return match.boards.map((board,i)=>boardView(board,viewer===i));
@@ -142,17 +142,26 @@ const Fleet = (() => {
     return sprite;
   }
 
-  function grid(title,view,onPick,wide=false) {
+  function grid(title,view,onPick,wide=false,tag="",lastShot=null) {
     const article = make("article"), cells = make("div");
-    article.append(make("h3",title),cells);
+    article.append(make("h3",title));
+    if (tag) {
+      const badge=make("p",tag);
+      badge.className="fleetBoardRole";
+      article.dataset.boardRole=tag==="Am Zug" ? "turn" : "target";
+      article.append(badge);
+    }
+    article.append(cells);
     cells.className = "fleetGrid";
     const labels = {water:"Wasser",hit:"Treffer",sunk:"Versenkt",ship:"Schiff",clear:"Freies Wasser um versenktes Schiff"};
     const symbols = {water:"·",hit:"×",sunk:"◆",clear:"○"};
     const gridCells=[];
     let selected=null;
     const paint=(block,locked=false)=>gridCells.forEach((tile,index)=>{
-      if (block.includes(index)) tile.dataset.salvoArea=locked ? "locked" : "preview";
-      else delete tile.dataset.salvoArea;
+      if (block.includes(index)) tile.dataset.aimArea=locked ? "locked" : "preview";
+      else delete tile.dataset.aimArea;
+      if (block[0]===index) tile.dataset.crosshair="";
+      else delete tile.dataset.crosshair;
     });
     cells.append(make("span"));
     for (let col=0;col<size;col++) cells.append(make("span",col+1));
@@ -160,25 +169,35 @@ const Fleet = (() => {
       cells.append(make("span",String.fromCharCode(65+row)));
       for (let col=0;col<size;col++) {
         const n = row*size+col, kind = view.visible[n];
-        const block = row<9 && col<9 ? area(row,col,2) : [];
+        const block = wide ? (row<9 && col<9 ? area(row,col,2) : []) : [n];
         const pickable = onPick && (wide ? block.some(cell=>!view.visible[cell]) : !kind);
         const cell = pickable ? action("",()=>{
-          if (!wide || selected===n) onPick(n);
+          if (selected===n) onPick(n);
           else {
             selected=n;
             paint(block,true);
-            aim.textContent="Salve auf "+coords(block)+". Dasselbe Startfeld erneut wählen, um zu feuern.";
+            aim.textContent=(wide ? "Salve: " : "Ziel: ")+coords(block)+". Dasselbe Feld erneut wählen, um zu feuern.";
           }
         }) : make("span");
         gridCells.push(cell);
-        if (pickable && wide) {
-          const preview=()=>paint(block,selected===n);
-          const restore=()=>paint(selected===null ? [] : area(Math.floor(selected/size),selected%size,2),true);
+        if (pickable) {
+          const showSelection=()=>selected===null ? [] : area(Math.floor(selected/size),selected%size,wide ? 2 : 1);
+          const preview=()=>{
+            paint(block,selected===n);
+            if (selected===null) aim.textContent=(wide ? "Salve: " : "Ziel: ")+coords(block);
+          };
+          const restore=()=>{
+            paint(showSelection(),true);
+            if (selected===null) aim.textContent=aimPrompt;
+          };
           cell.onpointerenter=cell.onfocus=preview;
           cell.onpointerleave=cell.onblur=restore;
         }
         cell.dataset.fleetCell = String(n);
-        if (view.lastSalvo?.includes(n)) cell.dataset.lastSalvo="";
+        if (lastShot?.cells.includes(n)) {
+          cell.dataset.lastShot=lastShot.flash ? "flash" : "marked";
+          if (n===lastShot.cells[0]) cell.dataset.lastCrosshair="";
+        }
         if (symbols[kind]) {
           const marker = make("i",symbols[kind]);
           marker.className = "fleetCellMarker";
@@ -211,21 +230,33 @@ const Fleet = (() => {
       overlay.append(sprite);
       cells.append(overlay);
     }
-    const aim=make("p","Oberes linkes Feld wählen. Erneut antippen oder Enter drücken, um zu feuern.");
-    if (onPick && wide) {
+    const aimPrompt=wide ? "Oberes linkes Feld der Salve wählen." : "Zielfeld wählen.";
+    const aim=make("p",aimPrompt);
+    if (onPick) {
       aim.className="fleetAim";
       aim.setAttribute("role","status");
       article.append(aim);
+    }
+    if (lastShot) {
+      const outcome=make("p",coords(lastShot.cells)+" · "+lastShot.result);
+      outcome.className="fleetShotResult";
+      article.append(outcome);
     }
     return article;
   }
   function coords(block) {
     return block.map(n=>String.fromCharCode(65+Math.floor(n/size))+(n%size+1)).join(", ");
   }
-  function grids(parent,names,boards,active=-1,onPick=null,salvo=false) {
+  function grids(parent,names,boards,active=-1,onPick=null,salvo=false,viewState={}) {
     const list = make("div");
     list.className = "fleetBoards";
-    boards.forEach((board,i)=>list.append(grid(names[i],board,i===active ? onPick : null,salvo)));
+    const current= ["question","shot"].includes(viewState.phase) ? viewState.team : -1;
+    boards.forEach((board,i)=>{
+      const aiming=i===active;
+      const tag=current<0 ? "" : i===current ? "Am Zug" : "Zielraster";
+      const shot=viewState.lastShot?.board===i ? {...viewState.lastShot,flash:viewState.phase==="between" || viewState.phase==="finished"} : null;
+      list.append(grid(names[i],board,aiming ? onPick : null,aiming && salvo,tag,shot));
+    });
     parent.append(list);
     if (boards.length === 2) {
       const legend = make("p");
@@ -337,7 +368,7 @@ const Fleet = (() => {
     return {names:match.names, phase:match.phase, team:state.team, ready:match.boards.map(board=>Boolean(board.ships.length)),
       notice:placing ? "Die Teams stellen ihre Flotten auf." : el("feedback").textContent,
       word:placing ? "" : el("word").textContent, turn:placing ? "" : el("turn").textContent,
-      salvo:match.salvos[state.team], streak:match.streaks[state.team], revision:match.revision,
+      salvo:match.salvos[state.team], streak:match.streaks[state.team], revision:match.revision, lastShot:match.lastShot ?? null,
       boards:placing ? [] : boardsView(viewer)};
   }
   function render() {
@@ -347,13 +378,36 @@ const Fleet = (() => {
     if (match.network === "local") {
       controls.append(action("Beameransicht öffnen",openProjection));
     } else if (match.links) {
-      const links = make("div");
+      const links=make("div");
+      links.className="fleetLinks";
       for (const [label,url] of Object.entries(match.links)) {
-        const link = make("a",label);
+        const link = make("a",label+" öffnen");
         link.href = url;
         link.target = "_blank";
         link.rel = "noopener";
-        links.append(link);
+        const role=new URL(url).hash.match(/(?:[#&])role=([01])$/u);
+        if (!role) {
+          links.append(link);
+          continue;
+        }
+        const team=Number(role[1]), details=make("details");
+        const labelText=label.replace(/Team [12]$/u,match.names[team]);
+        details.className="fleetJoinCode";
+        details.open=match.openCodes.has(url);
+        details.append(make("summary","QR-Code · "+labelText),link);
+        const showCode=()=>{
+          if (!details.open || details.querySelector("canvas")) return;
+          try { details.append(teamCode(url,labelText)); }
+          catch { details.append(make("p","QR-Code nicht verfügbar. Verwende den Teamlink.")); }
+        };
+        details.ontoggle=()=>{
+          if (!details.isConnected) return;
+          if (details.open) match?.openCodes.add(url);
+          else match?.openCodes.delete(url);
+          showCode();
+        };
+        showCode();
+        links.append(details);
       }
       controls.append(links);
     }
@@ -371,8 +425,9 @@ const Fleet = (() => {
       return;
     }
     const shooting = match.phase==="shot" && match.network==="local" && match.review<0;
+    renderTurn(scene,match.names,match.phase,state.team);
     grids(scene,match.names,boardsView(match.review),shooting ? 1-state.team : -1,
-      cell=>shoot(state.team,cell,match.wide),match.wide);
+      cell=>shoot(state.team,cell,match.wide),match.wide,{phase:match.phase,team:state.team,lastShot:match.lastShot});
     controls.append(salvoStatus(match.streaks[state.team],match.salvos[state.team]));
     if (shooting && match.salvos[state.team]) {
       controls.append(action(match.wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{
@@ -390,6 +445,35 @@ const Fleet = (() => {
           render();
         })));
     }
+  }
+
+  function teamCode(url,name) {
+    const qr=qrcode(0,"M");
+    qr.addData(url);
+    qr.make();
+    const cells=qr.getModuleCount(), moduleSize=5, margin=4;
+    const canvas=make("canvas");
+    canvas.width=canvas.height=(cells+margin*2)*moduleSize;
+    canvas.setAttribute("role","img");
+    canvas.setAttribute("aria-label","Beitritts-QR-Code für "+name);
+    const ctx=canvas.getContext("2d");
+    ctx.fillStyle="#fff";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#000";
+    for (let y=0;y<cells;y++) {
+      for (let x=0;x<cells;x++) {
+        if (qr.isDark(y,x)) ctx.fillRect((x+margin)*moduleSize,(y+margin)*moduleSize,moduleSize,moduleSize);
+      }
+    }
+    return canvas;
+  }
+
+  function renderTurn(parent,names,phase,team) {
+    if (!["question","shot"].includes(phase)) return;
+    const turn=make("p",names[team]+" ist dran");
+    turn.className="fleetTurnBanner";
+    turn.dataset.team=String(team);
+    parent.append(turn);
   }
 
   function salvoStatus(streak,ready) {
@@ -459,7 +543,7 @@ const Fleet = (() => {
     const board=match.boards[1-team], occupied=new Set(board.ships.flat());
     const targets=(wide ? area(row,col,2) : [cell]).filter(n=>!board.shots.has(n));
     if (!targets.length) return;
-    board.lastSalvo=wide ? area(row,col,2) : [];
+    const firedArea=wide ? area(row,col,2) : [cell];
     if (wide) match.salvos[team]=false;
     for (const n of targets) board.shots.set(n,occupied.has(n) ? "hit" : "water");
     const sunk=board.ships.filter(ship=>ship.some(n=>targets.includes(n)) && ship.every(n=>board.shots.has(n)));
@@ -470,6 +554,7 @@ const Fleet = (() => {
     const hits=targets.filter(n=>occupied.has(n)).length;
     const report=hits ? hits+" Treffer · "+(targets.length-hits)+" Wasser" : "Wasser";
     const sunkReport=sunk.length ? " · "+sunk.length+(sunk.length===1 ? " Schiff versenkt" : " Schiffe versenkt") : "";
+    match.lastShot={board:1-team,cells:firedArea,result:report+sunkReport};
     el("feedback").textContent=report+sunkReport+
       (hits && ![...occupied].every(n=>board.shots.has(n)) ? " · Das Team bleibt dran und bekommt eine neue Frage." : "");
     el("answerKey").hidden=true;
@@ -516,7 +601,7 @@ const Fleet = (() => {
 
   async function start(names,network) {
     const active = match = {names,network,phase:"placement",placeTeam:0,placing:false,review:-1,revision:0,
-      wide:false,salvos:[false,false],streaks:[0,0],draft:{ships:[],vertical:false},
+      wide:false,openCodes:new Set(),salvos:[false,false],streaks:[0,0],draft:{ships:[],vertical:false},
       boards:names.map(()=>({ships:[],shots:new Map(),hints:[]}))};
     for (const id of ["judge","typedAnswer","next","answerKey","editGameVocabulary"]) el(id).hidden=true;
     el("score").textContent="Schiffe versenken";
@@ -584,12 +669,14 @@ const Fleet = (() => {
         else container.append(make("p","Die Teams stellen ihre Flotten auf."));
       } else {
         const canShoot=team>=0 && frame.phase==="shot" && frame.team===team && !waiting;
-        container.append(make("p",frame.turn),make("h3",frame.word),make("p",frame.notice));
+        if (["question","shot"].includes(frame.phase)) renderTurn(container,frame.names,frame.phase,frame.team);
+        else container.append(make("p",frame.turn));
+        container.append(make("h3",frame.word),make("p",frame.notice));
         container.append(salvoStatus(frame.streak ?? 0,frame.salvo));
         if (canShoot && frame.salvo) container.append(action(wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{wide=!wide;show()}));
         if (canShoot) container.append(make("p",wide ? "Wähle das obere linke Feld der Salve." : "Wähle ein Zielfeld."));
         grids(container,frame.names.map((name,i)=>i===team ? "Eigene Flotte" : name),frame.boards,
-          canShoot ? 1-team : -1,cell=>send({kind:"shot",cell,wide,revision:frame.revision}),wide);
+          canShoot ? 1-team : -1,cell=>send({kind:"shot",cell,wide,revision:frame.revision}),wide,frame);
       }
       if (notice) container.append(make("p",notice));
     }
