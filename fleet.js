@@ -378,7 +378,7 @@ const Fleet = (() => {
     return {names:match.names, phase:match.phase, team:state.team, ready:match.boards.map(board=>Boolean(board.ships.length)),
       notice:placing ? "Die Teams stellen ihre Flotten auf." : el("feedback").textContent,
       word:placing ? "" : el("word").textContent, turn:placing ? "" : el("turn").textContent,
-      salvo:match.salvos[state.team], streak:match.streaks[state.team], revision:match.revision, lastShot:match.lastShot ?? null,
+      salvo:match.salvos[state.team], streak:match.streaks[state.team], revision:match.revision, lastShot:match.lastShot ?? null, outcome:match.outcome ?? null,
       boards:placing ? [] : boardsView(viewer)};
   }
   function render() {
@@ -650,8 +650,10 @@ const Fleet = (() => {
       el("turn").textContent="Spiel beendet";
       el("editGameVocabulary").hidden=true;
       match.phase="finished";
+      match.outcome={winner:team,message:match.names[team]+" gewinnt!"};
     } else advance(hits>0);
     sync();
+    if (match.outcome) showGameResult(!state.computer || match.outcome.winner===0,match.outcome.message);
   }
 
   async function api(path,key,body) {
@@ -754,7 +756,7 @@ const Fleet = (() => {
     const team=role==="0" || role==="1" ? Number(role) : -1;
     if (team>=0) container.dataset.team = String(team);
     const draft={ships:[],vertical:false};
-    let current=null, wide=false, waiting=false, sent=false, notice="";
+    let current=null, wide=false, waiting=false, sent=false, notice="", resultShown=false;
     function show() {
       if (!current) return;
       const frame=current;
@@ -801,6 +803,10 @@ const Fleet = (() => {
       current=frame;
       show();
       showShotEffect(frame.lastShot);
+      if (frame.outcome && !resultShown) {
+        resultShown=true;
+        showGameResult(team<0 || team===frame.outcome.winner,frame.outcome.message);
+      }
     }
     if (screen) {
       const projection=new BroadcastChannel(screen);
