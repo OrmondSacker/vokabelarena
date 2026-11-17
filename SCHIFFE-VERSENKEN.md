@@ -20,7 +20,7 @@
 
 - 10 × 10 Felder und fünf Schiffe mit den Längen 5, 4, 3, 3 und 2. Schiffe liegen waagerecht oder senkrecht. Auch diagonal bleibt mindestens ein Feld Abstand.
 - Eine richtige Antwort erlaubt einen Schuss. Nach einem Treffer bleibt das Team dran und erhält eine neue Frage. Bei Wasser oder einer falschen Antwort wechselt der Zug.
-- Eine falsche Antwort gibt dem Gegner auf der eigenen Flotte einen Suchhinweis. Weitere Fehler verkleinern denselben Bereich von 5 × 5 auf 4 × 4, 3 × 3 und 2 × 2. Ein Treffer auf das gesuchte Segment löscht den Hinweis.
+- Eine falsche Antwort gibt dem Gegner auf der eigenen Flotte einen Suchhinweis. Weitere Fehler verkleinern denselben Bereich von 5 × 5 auf 4 × 4, 3 × 3 und 2 × 2. Ist ein Hinweis bei 2 × 2 angekommen, kann ein weiterer Fehler einen neuen Suchbereich öffnen. Ein Rahmen verschwindet, sobald darin kein ungetroffenes Schiffssegment mehr liegt.
 - Drei eigene richtige Antworten in Folge bringen eine 2 × 2-Salve. Pro Team kann eine Salve gespeichert werden. Das obere linke Feld wählen, die vier markierten Felder prüfen und dasselbe Startfeld zum Feuern erneut wählen. Bereits ausgewertete Felder werden übersprungen.
 - Beim Versenken werden die Nachbarfelder als freies Wasser markiert.
 - Wer die gegnerische Flotte zuerst komplett versenkt, gewinnt.
