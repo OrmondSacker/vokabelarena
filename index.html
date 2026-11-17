@@ -587,6 +587,9 @@ button.gameTile .fleetCover{
   #fleetGuest[data-team] .fleetBoards>article:nth-of-type(2){grid-column:1;grid-row:3}
   #fleetGuest[data-team] .fleetBoards>.fleetTurnBanner{grid-column:1;grid-row:2;margin:0;block-size:3.6em}
 }
+.scanSources{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem 1rem;margin:.5rem 0}
+.scanSources label{min-width:0;max-width:100%;margin:0}
+.scanSources input[type=file]{max-width:100%}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -629,7 +632,10 @@ zuverlässig;reliable
 die Bestellung;order
 verbessern;improve
 sich erinnern;remember</textarea></label>
-<label>Foto oder Scan <input id="scan" type="file" accept="image/*"></label><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div class="cropZoom"><button type="button" class="secondary" id="cropFit">Ganze Seite</button><label for="cropZoom">Zoom <input type="range" id="cropZoom" min="40" max="300" step="10" value="100"></label><output id="cropZoomValue" for="cropZoom">100 %</output></div><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div></div><label id="verbLengthWrap" hidden>Umfang <select id="verbLength"><option value="10">10 Verben</option><option value="20">20 Verben</option><option value="all">Alle 334 Verben</option><option value="selected">Verben selbst auswählen</option></select></label>
+<div class="scanSources"><label>Foto oder Scan auswählen <input id="scan" type="file" accept="image/*"></label>
+<button type="button" class="secondary" id="takeScanPhoto">Foto aufnehmen</button>
+<input id="scanCamera" type="file" accept="image/*" capture="environment" hidden>
+</div><div id="cropPanel" hidden><p id="cropHelp" aria-live="polite"></p><div class="cropZoom"><button type="button" class="secondary" id="cropFit">Ganze Seite</button><label for="cropZoom">Zoom <input type="range" id="cropZoom" min="40" max="300" step="10" value="100"></label><output id="cropZoomValue" for="cropZoom">100 %</output></div><div id="cropStage"><canvas id="cropCanvas" aria-label="Buchfoto mit markierbaren Vokabelspalten"></canvas></div><button type="button" class="secondary" id="resetCrop">Markierungen löschen</button><button type="button" class="secondary" id="ocr" disabled>Markierte Spalten lesen</button></div><p id="scanStatus" role="status"></p><div id="review" hidden><table><thead><tr><th>✓</th><th>Vokabel</th><th>Übersetzung</th></tr></thead><tbody id="scanRows"></tbody></table><button type="button" id="acceptScan">Auswahl übernehmen</button><button type="button" class="secondary" id="cancelScan">Verwerfen</button></div></div><label id="verbLengthWrap" hidden>Umfang <select id="verbLength"><option value="10">10 Verben</option><option value="20">20 Verben</option><option value="all">Alle 334 Verben</option><option value="selected">Verben selbst auswählen</option></select></label>
 <fieldset id="verbPicker" hidden><legend>Verben für diese Partie</legend>
 <label>Grundform suchen <input id="verbSearch" type="search" spellcheck="false" placeholder="z. B. go"></label>
 <button type="button" class="secondary" id="verbSelectVisible">Angezeigte auswählen</button>
@@ -2073,29 +2079,42 @@ el("resetCrop").onclick=()=>{
   el("review").hidden=true;
   redraw();
 };
-el("scan").onchange=async()=>{
-  const id=++requestId, file=el("scan").files[0];
+async function loadScanPhoto(file) {
+  if (!file || scanning) return;
+  const id=++requestId;
   cropBoxes=[];
+  cropImage=null;
   el("review").hidden=true;
   el("cropPanel").hidden=true;
+  el("ocr").disabled=true;
   el("scanStatus").textContent="";
-  if(!file)return;
   const url=URL.createObjectURL(file);
-  try{
+  try {
     const image=new Image();
     image.src=url;
     await image.decode();
-    if(id!==requestId)return;
+    if (id!==requestId) return;
     cropImage=image;
     canvas.width=image.naturalWidth;
     canvas.height=image.naturalHeight;
     el("cropPanel").hidden=false;
     el("cropFit").onclick();
     redraw();
-  }catch{
-    if(id===requestId)el("scanStatus").textContent="Das Bild konnte nicht geöffnet werden.";
-  }finally{URL.revokeObjectURL(url);}
+  } catch {
+    if (id===requestId) el("scanStatus").textContent="Das Bild konnte nicht geöffnet werden.";
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+el("scan").onchange=event=>loadScanPhoto(event.currentTarget.files[0]);
+el("takeScanPhoto").onclick=()=>el("scanCamera").click();
+el("scanCamera").onchange=event=>{
+  const input=event.currentTarget;
+  const file=input.files[0];
+  input.value="";
+  return loadScanPhoto(file);
 };
+
 
 
 function clearTableRules(ctx,width,height) {
@@ -2248,8 +2267,7 @@ el("cancelScan").onclick = () => {
 };
 el("ocr").onclick = async () => {
   const status = el("scanStatus");
-  const file = el("scan").files[0];
-  if (!file) {
+  if (!cropImage) {
     status.textContent = "Wähle zuerst ein Foto oder einen Scan als Bilddatei.";
     return;
   }
@@ -2257,6 +2275,8 @@ el("ocr").onclick = async () => {
   if (cropBoxes.length !== 2) return;
   scanning = true;
   el("scan").disabled = true;
+  el("scanCamera").disabled = true;
+  el("takeScanPhoto").disabled = true;
   el("resetCrop").disabled = true;
   el("ocr").disabled = true;
   el("start").disabled = true;
@@ -2294,6 +2314,8 @@ el("ocr").onclick = async () => {
     if (worker) await worker.terminate().catch(() => {});
     scanning = false;
     el("scan").disabled = false;
+    el("scanCamera").disabled = false;
+    el("takeScanPhoto").disabled = false;
     el("resetCrop").disabled = false;
     el("ocr").disabled = cropBoxes.length !== 2;
     el("start").disabled = false;
