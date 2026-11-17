@@ -35,14 +35,25 @@ const Fleet = (() => {
     return Array.from({length},(_,i) => cell+i*(vertical ? size : 1));
   }
 
+  function neighbors(cell) {
+    const row=Math.floor(cell/size), col=cell%size, result=[];
+    for (let y=Math.max(0,row-1);y<=Math.min(size-1,row+1);y++) {
+      for (let x=Math.max(0,col-1);x<=Math.min(size-1,col+1);x++) result.push(y*size+x);
+    }
+    return result;
+  }
+  function blockedBy(ships) {
+    return new Set(ships.flat().flatMap(neighbors));
+  }
+
   function validFleet(ships) {
     if (!Array.isArray(ships) || ships.length !== lengths.length) return false;
-    const occupied = new Set();
+    const blocked = new Set();
     return ships.every((ship,i) => {
       if (!Array.isArray(ship) || ship.length!==lengths[i] ||
-          !ship.every(n=>Number.isInteger(n)&&n>=0&&n<size*size&&!occupied.has(n))) return false;
+          !ship.every(n=>Number.isInteger(n)&&n>=0&&n<size*size&&!blocked.has(n))) return false;
       const fits = [false,true].some(vertical => footprint(ship[0],ship.length,vertical).join()===ship.join());
-      for (const cell of ship) occupied.add(cell);
+      for (const cell of ship.flatMap(neighbors)) blocked.add(cell);
       return fits;
     });
   }
@@ -51,7 +62,7 @@ const Fleet = (() => {
     function addRemaining() {
       if (ships.length===lengths.length) return true;
       const length = lengths[ships.length];
-      const used = new Set(ships.flat());
+      const used = blockedBy(ships);
       const free = [];
       for (let cell=0;cell<size*size;cell++) {
         for (const vertical of [false,true]) {
@@ -99,7 +110,7 @@ const Fleet = (() => {
       const destroyed = sunk.includes(cells);
       return privileged || destroyed ? [{cells,type,destroyed}] : [];
     });
-    return {visible,hint,ships};
+    return {visible,hint,ships,lastSalvo:board.lastSalvo ?? []};
   }
   function boardsView(viewer=-1) {
     return match.boards.map((board,i)=>boardView(board,viewer===i));
@@ -118,8 +129,14 @@ const Fleet = (() => {
     const article = make("article"), cells = make("div");
     article.append(make("h3",title),cells);
     cells.className = "fleetGrid";
-    const labels = {water:"Wasser",hit:"Treffer",sunk:"Versenkt",ship:"Schiff"};
-    const symbols = {water:"·",hit:"×",sunk:"◆"};
+    const labels = {water:"Wasser",hit:"Treffer",sunk:"Versenkt",ship:"Schiff",clear:"Freies Wasser um versenktes Schiff"};
+    const symbols = {water:"·",hit:"×",sunk:"◆",clear:"○"};
+    const gridCells=[];
+    let selected=null;
+    const paint=(block,locked=false)=>gridCells.forEach((tile,index)=>{
+      if (block.includes(index)) tile.dataset.salvoArea=locked ? "locked" : "preview";
+      else delete tile.dataset.salvoArea;
+    });
     cells.append(make("span"));
     for (let col=0;col<size;col++) cells.append(make("span",col+1));
     for (let row=0;row<size;row++) {
@@ -128,8 +145,23 @@ const Fleet = (() => {
         const n = row*size+col, kind = view.visible[n];
         const block = row<9 && col<9 ? area(row,col,2) : [];
         const pickable = onPick && (wide ? block.some(cell=>!view.visible[cell]) : !kind);
-        const cell = pickable ? action("",()=>onPick(n)) : make("span");
+        const cell = pickable ? action("",()=>{
+          if (!wide || selected===n) onPick(n);
+          else {
+            selected=n;
+            paint(block,true);
+            aim.textContent="Salve auf "+coords(block)+". Dasselbe Startfeld erneut wählen, um zu feuern.";
+          }
+        }) : make("span");
+        gridCells.push(cell);
+        if (pickable && wide) {
+          const preview=()=>paint(block,selected===n);
+          const restore=()=>paint(selected===null ? [] : area(Math.floor(selected/size),selected%size,2),true);
+          cell.onpointerenter=cell.onfocus=preview;
+          cell.onpointerleave=cell.onblur=restore;
+        }
         cell.dataset.fleetCell = String(n);
+        if (view.lastSalvo?.includes(n)) cell.dataset.lastSalvo="";
         if (symbols[kind]) {
           const marker = make("i",symbols[kind]);
           marker.className = "fleetCellMarker";
@@ -153,7 +185,16 @@ const Fleet = (() => {
       overlay.append(sprite);
       cells.append(overlay);
     }
+    const aim=make("p","Oberes linkes Feld wählen. Erneut antippen oder Enter drücken, um zu feuern.");
+    if (onPick && wide) {
+      aim.className="fleetAim";
+      aim.setAttribute("role","status");
+      article.append(aim);
+    }
     return article;
+  }
+  function coords(block) {
+    return block.map(n=>String.fromCharCode(65+Math.floor(n/size))+(n%size+1)).join(", ");
   }
   function grids(parent,names,boards,active=-1,onPick=null,salvo=false) {
     const list = make("div");
@@ -164,7 +205,7 @@ const Fleet = (() => {
       const legend = make("p");
       legend.className = "fleetLegend";
       for (const [kind, mark, text] of [
-        ["Water","·","Wasser"],["Hit","×","Treffer"],["Sunk","◆","Versenkt"],["Hint","▧","Suchhinweis"]
+        ["Water","·","Wasser"],["Hit","×","Treffer"],["Sunk","◆","Versenkt"],["Clear","○","Freies Wasser"],["Hint","▧","Suchhinweis"]
       ]) {
         const entry = make("span",text);
         entry.className = "legend" + kind;
@@ -199,11 +240,12 @@ const Fleet = (() => {
     const visible = Object.fromEntries(draft.ships.flat().map(n=>[n,"ship"]));
     const ships = draft.ships.map((cells,type)=>({cells,type,destroyed:false}));
     const shipAt = cell=>Number.isInteger(cell) && model ? footprint(cell,model.length,draft.vertical) : [];
-    const fits = ship=>ship.length && ship.every(n=>!visible[n]);
+    const blocked = blockedBy(draft.ships);
+    const fits = ship=>ship.length && ship.every(n=>!blocked.has(n));
     const pick = model ? cell=>{
       const ship = shipAt(cell);
       if (!fits(ship)) {
-        heading.textContent = "Das Schiff passt dort nicht hin.";
+        heading.textContent = "Das Schiff passt dort nicht hin. Halte auch diagonal ein Feld Abstand."
         return;
       }
       draft.ships.push(ship);
@@ -269,7 +311,7 @@ const Fleet = (() => {
     return {names:match.names, phase:match.phase, team:state.team, ready:match.boards.map(board=>Boolean(board.ships.length)),
       notice:placing ? "Die Teams stellen ihre Flotten auf." : el("feedback").textContent,
       word:placing ? "" : el("word").textContent, turn:placing ? "" : el("turn").textContent,
-      salvo:match.salvos[state.team], revision:match.revision,
+      salvo:match.salvos[state.team], streak:match.streaks[state.team], revision:match.revision,
       boards:placing ? [] : boardsView(viewer)};
   }
   function render() {
@@ -305,6 +347,7 @@ const Fleet = (() => {
     const shooting = match.phase==="shot" && match.network==="local" && match.review<0;
     grids(scene,match.names,boardsView(match.review),shooting ? 1-state.team : -1,
       cell=>shoot(state.team,cell,match.wide),match.wide);
+    controls.append(salvoStatus(match.streaks[state.team],match.salvos[state.team]));
     if (shooting && match.salvos[state.team]) {
       controls.append(action(match.wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{
         match.wide=!match.wide;
@@ -321,6 +364,13 @@ const Fleet = (() => {
           render();
         })));
     }
+  }
+
+  function salvoStatus(streak,ready) {
+    const info=make("p",ready ? "2×2-Salve bereit · bei richtiger Antwort einsetzbar." :
+      "2×2-Salve: "+streak+"/3 eigene richtige Antworten in Folge.");
+    info.className="fleetSalvoStatus";
+    return info;
   }
 
   function openProjection() {
@@ -368,9 +418,9 @@ const Fleet = (() => {
     sync();
   }
 
-  function advance() {
+  function advance(keepTurn=false) {
     match.phase="between";
-    state.team=1-state.team;
+    if (!keepTurn) state.team=1-state.team;
     match.wide=false;
     el("next").hidden=false;
     el("next").focus();
@@ -383,18 +433,26 @@ const Fleet = (() => {
     const board=match.boards[1-team], occupied=new Set(board.ships.flat());
     const targets=(wide ? area(row,col,2) : [cell]).filter(n=>!board.shots.has(n));
     if (!targets.length) return;
+    board.lastSalvo=wide ? area(row,col,2) : [];
     if (wide) match.salvos[team]=false;
     for (const n of targets) board.shots.set(n,occupied.has(n) ? "hit" : "water");
+    const sunk=board.ships.filter(ship=>ship.some(n=>targets.includes(n)) && ship.every(n=>board.shots.has(n)));
+    for (const ship of sunk) {
+      for (const n of ship.flatMap(neighbors)) if (!board.shots.has(n)) board.shots.set(n,"clear");
+    }
     if (board.hint && board.shots.has(board.hint.target)) board.hint=null;
     const hits=targets.filter(n=>occupied.has(n)).length;
-    el("feedback").textContent=hits ? hits+" Treffer"+" · "+(targets.length-hits)+" Wasser" : "Wasser";
+    const report=hits ? hits+" Treffer · "+(targets.length-hits)+" Wasser" : "Wasser";
+    const sunkReport=sunk.length ? " · "+sunk.length+(sunk.length===1 ? " Schiff versenkt" : " Schiffe versenkt") : "";
+    el("feedback").textContent=report+sunkReport+
+      (hits && ![...occupied].every(n=>board.shots.has(n)) ? " · Das Team bleibt dran und bekommt eine neue Frage." : "");
     el("answerKey").hidden=true;
     if ([...occupied].every(n=>board.shots.has(n))) {
       el("word").textContent=match.names[team]+" gewinnt!";
       el("turn").textContent="Spiel beendet";
       el("editGameVocabulary").hidden=true;
       match.phase="finished";
-    } else advance();
+    } else advance(hits>0);
     sync();
   }
 
@@ -501,6 +559,7 @@ const Fleet = (() => {
       } else {
         const canShoot=team>=0 && frame.phase==="shot" && frame.team===team && !waiting;
         container.append(make("p",frame.turn),make("h3",frame.word),make("p",frame.notice));
+        container.append(salvoStatus(frame.streak ?? 0,frame.salvo));
         if (canShoot && frame.salvo) container.append(action(wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{wide=!wide;show()}));
         if (canShoot) container.append(make("p",wide ? "Wähle das obere linke Feld der Salve." : "Wähle ein Zielfeld."));
         grids(container,frame.names.map((name,i)=>i===team ? "Eigene Flotte" : name),frame.boards,
