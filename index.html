@@ -606,6 +606,26 @@ button.gameTile .fleetCover{
 #golfJokers button[aria-pressed=true]{background:#ffe09b;color:#253328;outline:2px solid #f5b642}
 #game[data-mode=golf] #playScene{overflow:auto}
 @media(max-width:799px){#game[data-mode=golf]:not([hidden]){grid-template-rows:2.6rem minmax(250px,50%) minmax(0,1fr)}}
+
+#golfScene{gap:.35rem}
+#golfCanvas{min-height:150px;border-color:#9cbaa1;box-shadow:0 8px 24px #031c2440}
+#golfJokers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem}
+#golfJokers button{display:flex;flex-direction:column;gap:.18rem;align-items:flex-start;text-align:left;padding:.45rem .6rem;margin:0;border:1px solid #72958e;border-radius:9px;min-width:0}
+#golfJokers strong{font-size:.82rem}
+#golfJokers small{font-size:.7rem;line-height:1.2;color:inherit;opacity:.9}
+#golfJokers button>span{font-size:.66rem;font-weight:800}
+#golfJokers button:disabled{opacity:.58;cursor:default}
+#golfJokers button[aria-pressed=true]{opacity:1;background:#ffe09b;border-color:#f7ba52}
+#golfJokerInfo,#golfShotSummary{font-size:.75rem;line-height:1.2;margin:0;overflow:auto}
+#golfJokerInfo{block-size:2.5em;color:#fbe8af}
+#golfShotSummary{block-size:3.6em;border-top:1px solid #426b65;padding-top:.3rem;color:#cce6e2}
+#golfGauge{position:relative}
+#golfGauge[data-joker=precision]{border-color:#f9d77b;box-shadow:inset 0 0 0 1px #f9d77b55}
+#golfGauge[data-joker=safety]{border-color:#86e7df}
+#golfGaugeLabel{line-height:1.2;block-size:2.4em;overflow:auto}
+#golfSeries{min-height:0;block-size:2.5em}
+@media(max-width:799px){#game[data-mode=golf]:not([hidden]){grid-template-rows:2.6rem minmax(330px,57%) minmax(0,1fr)}}
+#golfCanvas{height:auto;flex:0 0 auto;aspect-ratio:8/5;min-height:0}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -679,7 +699,7 @@ sich erinnern;remember</textarea></label>
 </div>
 <fieldset id="golfOptions" hidden><legend>Minigolf</legend>
 <label>Vokabeln pro Schlag <select id="golfQuestions"><option value="5">5 Vokabeln</option><option value="7">7 Vokabeln</option></select></label>
-<details><summary>Spielregeln</summary><p>Zwei Teams spielen drei Bahnen. Nach jeweils fünf oder sieben Antworten stoppt der Zeiger automatisch und der Ball wird geschlagen. Mehr richtige Antworten verbessern Richtung, Stärke und Timing passend zur Situation. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p><p>Jedes Team hat einmal pro Partie einen Präzisionsschläger und einen Sicherheitsball. Vor einer Vokabelserie auswählen. Der Schläger verbessert den Schlag um eine richtige Antwort, der Sicherheitsball verhindert die Wasserstrafe.</p></details>
+<details><summary>Spielregeln</summary><p>Zwei Teams spielen drei Bahnen. Nach jeweils fünf oder sieben Antworten stoppt der Zeiger automatisch und der Ball wird geschlagen. Mehr richtige Antworten verbessern Richtung, Stärke und Timing passend zur Situation. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p><p>Jedes Team hat einmal pro Partie einen Präzisionsschläger und einen Sicherheitsball. Vor einer Vokabelserie auswählen. Der Schläger verbessert die Schlagwertung um eine richtige Antwort. Der Sicherheitsball hält den Ball vor dem Wasser an und verhindert den Strafschlag. Jeder Joker wird einmal beim Schlag verbraucht.</p></details>
 </fieldset>
 <fieldset id="computerOptions" hidden><legend>Gegner</legend>
 <label><input type="checkbox" id="computerEnabled"> Gegen den Computer spielen</label>
@@ -729,7 +749,11 @@ sich erinnern;remember</textarea></label>
 <div id="golfScene" hidden><canvas id="golfCanvas" width="960" height="600" role="img" aria-label="Minigolfbahn"></canvas>
 <div id="golfGauge" aria-live="polite"><div id="golfGaugeLabel">Bereit für die Vokabelserie</div><div class="golfGaugeTrack"><span id="golfIdealZone"></span><span id="golfNeedle"></span></div></div>
 <p id="golfSeries" role="status"></p>
-<div id="golfJokers" class="stepActions"><button type="button" id="golfPrecision" class="secondary">Präzisionsschläger</button><button type="button" id="golfSafety" class="secondary">Sicherheitsball</button></div>
+<div id="golfJokers" class="stepActions">
+<button type="button" id="golfPrecision" class="secondary"><strong>Präzisionsschläger</strong><small>+1 richtige Antwort für den nächsten Schlag</small><span id="golfPrecisionStock">1× verfügbar</span></button>
+<button type="button" id="golfSafety" class="secondary"><strong>Sicherheitsball</strong><small>Hält vor Wasser an · kein Strafschlag</small><span id="golfSafetyStock">1× verfügbar</span></button>
+</div>
+<p id="golfJokerInfo" role="status"></p><p id="golfShotSummary" role="status"></p>
 <button type="button" id="golfNextHole" hidden>Nächste Bahn</button>
 </div>
 <div id="fleetScene" hidden></div>
@@ -774,7 +798,7 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
-<script src="golf.js?v=prototype-1"></script>
+<script src="golf.js?v=physics-2"></script>
 <script src="fleet.js?v=stable-layout-1"></script>
 <script>
 "use strict";
@@ -1216,7 +1240,7 @@ el("config").addEventListener("submit",event=>{
   const vocabulary=readVocabulary();
   if (!vocabulary) {showSetupStep(false,true);return;}
   const mode=el("mode").value;
-  const computer=["football","catapult","fleet"].includes(mode) && el("computerEnabled").checked ? el("computerLevel").value : null;
+  const computer=["football","catapult","fleet","golf"].includes(mode) && el("computerEnabled").checked ? el("computerLevel").value : null;
   const savedPlayers=mode==="zombie" && el("classLoad").value!=="";
   const names=savedPlayers ? classSelection() : el("names").value.split(/\r?\n/).map(name=>name.trim());
   const rotation=mode==="catapult" && el("catapultUseClass").checked ? readCatapultTeams() : null;
@@ -1997,11 +2021,13 @@ function animateSiege(source,stones,doubled,damage,done) {
 
 function setupMode() {
   const mode = el("mode").value;
-  const computerGame=["football","catapult","fleet"].includes(mode);
+  const computerGame=["football","catapult","fleet","golf"].includes(mode);
   const computer=computerGame && el("computerEnabled").checked;
   el("computerOptions").hidden=!computerGame;
   el("computerLevelWrap").hidden=!computer;
   el("computerHelp").hidden=!computer;
+  el("computerHelp").textContent="Du spielst als Team 1. Der Computer übernimmt Team 2 und spielt seine Züge automatisch. Deine Vokabeln werden unabhängig vom Computer abgefragt."+
+    (mode==="fleet" ? " Schiffe versenken wird dabei auf einem Gerät gespielt." : mode==="golf" ? " Der Computer beantwortet dieselbe Anzahl Fragen pro Schlag und setzt seine Joker selbst ein." : "");
   el("team2").disabled=computer;
   el("fleetMode").disabled=mode==="fleet" && computer;
   if (mode==="fleet" && computer) {
