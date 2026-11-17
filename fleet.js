@@ -835,35 +835,46 @@ const Fleet = (() => {
         : (frame.phase==="placement" ? "Deine Flotte aufstellen" : "Schiffe versenken");
       const title=make("h2",heading);
       title.hidden=activeTurn && team>=0;
-      container.replaceChildren(title);
+      const content=make("div");
+      content.className="fleetGuestContent";
+      let noticeArea=content;
+      container.replaceChildren(title,content);
       if (frame.phase==="placement") {
-        if (team>=0 && !frame.ready[team] && !sent) placement(container,draft,"Eigene Flotte",
+        if (team>=0 && !frame.ready[team] && !sent) placement(content,draft,"Eigene Flotte",
           ships=>send({kind:"placement",ships}),show);
-        else container.append(make("p","Die Teams stellen ihre Flotten auf."));
+        else content.append(make("p","Die Teams stellen ihre Flotten auf."));
       } else {
+        const vocabulary=make("div"),controls=make("div"),boardArea=make("div");
+        vocabulary.className="fleetGuestVocabulary";
+        controls.className="fleetGuestControls";
+        boardArea.className="fleetGuestBoards";
+        content.append(vocabulary,controls,boardArea);
+        noticeArea=controls;
         const canShoot=team>=0 && frame.phase==="shot" && frame.team===team && !waiting;
-        if (!activeTurn) container.append(make("p",frame.turn));
+        if (!activeTurn) controls.append(make("p",frame.turn));
         const word=make("h3",frame.word);
         word.className="fleetQuestionWord";
-        container.append(word);
-        if (frame.secondaryWord) {
-          const original=make("p",frame.secondaryWord);
+        vocabulary.append(word);
+        {
+          const original=make("p",frame.secondaryWord ?? "");
           original.className="fleetQuestionOriginal";
-          container.append(original);
+          vocabulary.append(original);
         }
-        container.append(make("p",frame.notice));
-        container.append(salvoStatus(frame.streak ?? 0,frame.salvo));
+        const notice=make("p",frame.notice);
+        notice.className="fleetGuestNotice";
+        vocabulary.append(notice);
+        vocabulary.append(salvoStatus(frame.streak ?? 0,frame.salvo));
         if (canShoot && frame.salvo) {
           const salvoButton=action(wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{wide=!wide;show()});
           salvoButton.className="fleetSalvoToggle";
           salvoButton.setAttribute("aria-pressed",String(wide));
-          container.append(salvoButton);
+          controls.append(salvoButton);
         }
-        if (canShoot) container.append(make("p",wide ? "Wähle das obere linke Feld der Salve." : "Wähle ein Zielfeld."));
-        grids(container,frame.names.map((name,i)=>i===team ? "Eigene Flotte" : name),frame.boards,
+        if (canShoot) controls.append(make("p",wide ? "Wähle das obere linke Feld der Salve." : "Wähle ein Zielfeld."));
+        grids(boardArea,frame.names.map((name,i)=>i===team ? "Eigene Flotte" : name),frame.boards,
           canShoot ? 1-team : -1,cell=>send({kind:"shot",cell,wide,revision:frame.revision}),wide,{...frame,viewer:team});
       }
-      if (notice) container.append(make("p",notice));
+      if (notice) noticeArea.append(make("p",notice));
     }
     async function send(command) {
       if (waiting) return;
