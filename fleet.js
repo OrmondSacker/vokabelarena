@@ -468,9 +468,10 @@ const Fleet = (() => {
     return canvas;
   }
 
-  function renderTurn(parent,names,phase,team) {
+  function renderTurn(parent,names,phase,team,viewer=-1) {
     if (!["question","shot"].includes(phase)) return;
-    const turn=make("p",names[team]+" ist dran");
+    const label = viewer < 0 ? names[team]+" ist dran" : viewer===team ? "Du bist dran" : "Das andere Team ist dran";
+    const turn=make("p",label);
     turn.className="fleetTurnBanner";
     turn.dataset.team=String(team);
     parent.append(turn);
@@ -662,14 +663,18 @@ const Fleet = (() => {
     function show() {
       if (!current) return;
       const frame=current;
-      container.replaceChildren(make("h2",team>=0 ? frame.names[team] : "Schiffe versenken · Beamer"));
+      const activeTurn = ["question","shot"].includes(frame.phase);
+      const heading = team < 0 ? "Schiffe versenken · Beamer" : activeTurn
+        ? (frame.team===team ? "Du bist dran" : "Das andere Team ist dran")
+        : (frame.phase==="placement" ? "Deine Flotte aufstellen" : "Schiffe versenken");
+      container.replaceChildren(make("h2",heading));
       if (frame.phase==="placement") {
         if (team>=0 && !frame.ready[team] && !sent) placement(container,draft,"Eigene Flotte",
           ships=>send({kind:"placement",ships}),show);
         else container.append(make("p","Die Teams stellen ihre Flotten auf."));
       } else {
         const canShoot=team>=0 && frame.phase==="shot" && frame.team===team && !waiting;
-        if (["question","shot"].includes(frame.phase)) renderTurn(container,frame.names,frame.phase,frame.team);
+        if (activeTurn) renderTurn(container,frame.names,frame.phase,frame.team,team);
         else container.append(make("p",frame.turn));
         container.append(make("h3",frame.word),make("p",frame.notice));
         container.append(salvoStatus(frame.streak ?? 0,frame.salvo));
