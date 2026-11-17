@@ -500,6 +500,19 @@ button.gameTile .fleetCover{
 @keyframes gameResultFade{from{opacity:0}to{opacity:1}}
 @keyframes gameResultPop{from{opacity:0;transform:scale(.35) translateY(25px)}70%{opacity:1;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.gameResultOverlay,.gameResultArt{animation:none}}
+
+.fleetSalvoBadge{display:inline-grid;place-items:center;margin-right:.4rem;padding:.18rem .35rem;border:2px solid #ff4d65;border-radius:5px;background:#802b62;color:#fff4fc;font-weight:900;line-height:1.1}
+.fleetSalvoStatus[data-ready=true]{color:#ffe0f3;font-weight:800}
+.fleetSalvoStatus[data-ready=true] .fleetSalvoBadge{background:#c2428f;box-shadow:0 0 12px #ff456b66}
+#fleetActions .fleetSalvoToggle,#fleetGuest .fleetSalvoToggle{background:#74275c;color:#fff0fb;border:2px solid #ff4d65;font-weight:900}
+#fleetActions .fleetSalvoToggle[aria-pressed=true],#fleetGuest .fleetSalvoToggle[aria-pressed=true]{background:#c2428f;box-shadow:0 0 0 2px #ff7187,0 0 16px #ff456b55}
+.fleetGrid .sea[data-salvo-aim]{background:#a13e86;outline:2px solid #ff4d65;outline-offset:-2px}
+.fleetGrid .sea[data-salvo-aim=locked]{background:#bd4b98;outline-color:#ff304f}
+.fleetGrid .sea[data-salvo-aim][data-crosshair]::after{border-color:#ffdbf1;background:linear-gradient(#ffdbf1,#ffdbf1) center/2px 100% no-repeat,linear-gradient(#ffdbf1,#ffdbf1) center/100% 2px no-repeat}
+.fleetGrid .fleetSalvoFrame{position:absolute;inset:0;z-index:5;border:3px solid #ff304f;border-radius:3px;pointer-events:none;background:#ff4ba914;box-shadow:0 0 10px #ff315f88}
+.fleetGrid .sea[data-last-salvo]{box-shadow:inset 0 0 0 2px #ff4d65}
+#fleetGuest .fleetQuestionWord{font-size:clamp(1.25rem,3.5vmin,2.2rem);line-height:1.12;margin:.2rem 0;overflow-wrap:anywhere}
+#fleetGuest .fleetQuestionOriginal{font-size:clamp(.8rem,2vmin,1rem);color:#c9dbea;margin:.12rem 0 .3rem}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -655,7 +668,7 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
-<script src="fleet.js?v=game-result-1"></script>
+<script src="fleet.js?v=salvo-projection-1"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
