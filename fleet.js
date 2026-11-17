@@ -2,7 +2,14 @@
 
 const Fleet = (() => {
   const size = 10;
-  const lengths = [5,4,3,3,2];
+  const models = [
+    {name:"Flugzeugträger",length:5},
+    {name:"Schlachtschiff",length:4},
+    {name:"Kreuzer",length:3},
+    {name:"U-Boot",length:3},
+    {name:"Patrouillenboot",length:2}
+  ];
+  const lengths = models.map(model=>model.length);
   const params = new URLSearchParams(location.hash.slice(1));
   const hostKey = params.get("fleetHost");
   let match, channel, timer, guestTimer;
@@ -39,20 +46,28 @@ const Fleet = (() => {
       return fits;
     });
   }
-  function randomFleet() {
-    const ships = [];
-    for (const length of lengths) {
+  function randomFleet(prefix=[]) {
+    const ships = prefix.map(ship=>[...ship]);
+    function addRemaining() {
+      if (ships.length===lengths.length) return true;
+      const length = lengths[ships.length];
+      const used = new Set(ships.flat());
       const free = [];
       for (let cell=0;cell<size*size;cell++) {
         for (const vertical of [false,true]) {
           const ship = footprint(cell,length,vertical);
-          if (ship.length && ship.every(n=>!ships.some(other=>other.includes(n)))) free.push(ship);
+          if (ship.length && ship.every(n=>!used.has(n))) free.push(ship);
         }
       }
-      if (!free.length) return randomFleet();
-      ships.push(free[Math.floor(Math.random()*free.length)]);
+      while (free.length) {
+        const pick = Math.floor(Math.random()*free.length);
+        ships.push(free.splice(pick,1)[0]);
+        if (addRemaining()) return true;
+        ships.pop();
+      }
+      return false;
     }
-    return ships;
+    return addRemaining() ? ships : null;
   }
 
   function tighten(board) {
@@ -80,10 +95,23 @@ const Fleet = (() => {
       for (const cell of board.ships.flat()) if (!visible[cell]) visible[cell] = "ship";
     }
     const hint = board.hint ? area(board.hint.row,board.hint.col,board.hint.width) : [];
-    return {visible,hint};
+    const ships = board.ships.flatMap((cells,type)=>{
+      const destroyed = sunk.includes(cells);
+      return privileged || destroyed ? [{cells,type,destroyed}] : [];
+    });
+    return {visible,hint,ships};
   }
   function boardsView(viewer=-1) {
     return match.boards.map((board,i)=>boardView(board,viewer===i));
+  }
+
+  function shipSprite(type,vertical,destroyed=false) {
+    const sprite = make("span");
+    sprite.className = "shipSprite shipModel"+type+(vertical ? " vertical" : "")+(destroyed ? " destroyed" : "");
+    sprite.style.setProperty("--segments",models[type].length);
+    sprite.append(make("i"),make("b"));
+    sprite.setAttribute("aria-hidden","true");
+    return sprite;
   }
 
   function grid(title,view,onPick,wide=false) {
@@ -91,7 +119,7 @@ const Fleet = (() => {
     article.append(make("h3",title),cells);
     cells.className = "fleetGrid";
     const labels = {water:"Wasser",hit:"Treffer",sunk:"Versenkt",ship:"Schiff"};
-    const symbols = {water:"·",hit:"×",sunk:"◆",ship:"■"};
+    const symbols = {water:"·",hit:"×",sunk:"◆"};
     cells.append(make("span"));
     for (let col=0;col<size;col++) cells.append(make("span",col+1));
     for (let row=0;row<size;row++) {
@@ -100,13 +128,30 @@ const Fleet = (() => {
         const n = row*size+col, kind = view.visible[n];
         const block = row<9 && col<9 ? area(row,col,2) : [];
         const pickable = onPick && (wide ? block.some(cell=>!view.visible[cell]) : !kind);
-        const cell = pickable ? action(symbols[kind] || "",()=>onPick(n)) : make("span",symbols[kind] || "");
+        const cell = pickable ? action("",()=>onPick(n)) : make("span");
+        cell.dataset.fleetCell = String(n);
+        if (symbols[kind]) {
+          const marker = make("i",symbols[kind]);
+          marker.className = "fleetCellMarker";
+          marker.setAttribute("aria-hidden","true");
+          cell.append(marker);
+        }
         cell.className = ["sea",kind,view.hint.includes(n) ? "hint" : ""].filter(Boolean).join(" ");
         const label = String.fromCharCode(65+row)+(col+1)+(kind ? " · "+labels[kind] : "");
         cell.title = label;
         cell.setAttribute("aria-label",label);
         cells.append(cell);
       }
+    }
+    for (const {cells:ship,type,destroyed} of view.ships ?? []) {
+      const first=ship[0], vertical=ship[1]-first===size;
+      const sprite=shipSprite(type,vertical,destroyed);
+      const overlay=make("span");
+      overlay.className="shipOverlay";
+      overlay.style.gridRow=(Math.floor(first/size)+2)+" / span "+(vertical ? ship.length : 1);
+      overlay.style.gridColumn=(first%size+2)+" / span "+(vertical ? 1 : ship.length);
+      overlay.append(sprite);
+      cells.append(overlay);
     }
     return article;
   }
@@ -130,24 +175,93 @@ const Fleet = (() => {
     }
   }
   function placement(parent,draft,title,send,rerender) {
-    const heading = make("p",title), length = lengths[draft.ships.length];
-    parent.append(heading);
-    if (!length) parent.append(action("Flotte bestätigen",()=>send(draft.ships)));
-    else parent.append(make("p","Schiff mit "+length+" Feldern platzieren"),
-      action(draft.vertical ? "Senkrecht · drehen" : "Waagerecht · drehen",()=>{draft.vertical=!draft.vertical;rerender()}));
-    parent.append(action("Zufällig aufstellen",()=>{draft.ships=randomFleet();rerender()}),
-      action("Leeren",()=>{draft.ships=[];rerender()}));
+    const heading = make("p",title), type=draft.ships.length, model=models[type];
+    const options=make("div"), tray=make("div");
+    options.className="fleetPlacementOptions";
+    tray.className="fleetShipTray";
+    parent.append(heading,options,tray);
+    if (!model) options.append(action("Flotte bestätigen",()=>send(draft.ships)));
+    else options.append(action(draft.vertical ? "Senkrecht · drehen" : "Waagerecht · drehen",()=>{draft.vertical=!draft.vertical;rerender()}));
+    const fill=action("Rest zufällig setzen",()=>{
+      const complete=randomFleet(draft.ships);
+      if (!complete) {
+        heading.textContent="Für die restlichen Schiffe ist kein Platz. Entferne zuerst ein Schiff.";
+        return;
+      }
+      draft.ships=complete;
+      rerender();
+    });
+    fill.disabled=!model;
+    options.append(fill);
+    const undo=action("Letztes Schiff entfernen",()=>{draft.ships.pop();rerender()});
+    undo.disabled=!draft.ships.length;
+    options.append(undo,action("Leeren",()=>{draft.ships=[];rerender()}));
     const visible = Object.fromEntries(draft.ships.flat().map(n=>[n,"ship"]));
-    const pick = length ? cell=>{
-      const ship = footprint(cell,length,draft.vertical);
-      if (!ship.length || ship.some(n=>visible[n])) {
+    const ships = draft.ships.map((cells,type)=>({cells,type,destroyed:false}));
+    const shipAt = cell=>Number.isInteger(cell) && model ? footprint(cell,model.length,draft.vertical) : [];
+    const fits = ship=>ship.length && ship.every(n=>!visible[n]);
+    const pick = model ? cell=>{
+      const ship = shipAt(cell);
+      if (!fits(ship)) {
         heading.textContent = "Das Schiff passt dort nicht hin.";
         return;
       }
       draft.ships.push(ship);
       rerender();
     } : null;
-    grids(parent,[title],[{visible,hint:[]}],0,pick);
+    grids(parent,[title],[{visible,hint:[],ships}],0,pick);
+    if (!model) {
+      tray.append(make("p","Alle fünf Schiffe liegen bereit."));
+      return;
+    }
+    tray.append(make("p",model.name+" · "+model.length+" Felder"),
+      make("small","Schiff ziehen oder das Startfeld anklicken."));
+    const source = make("div");
+    source.className="fleetDragShip"+(draft.vertical ? " vertical" : "");
+    source.style.setProperty("--segments",model.length);
+    source.append(shipSprite(type,draft.vertical));
+    tray.append(source);
+    source.onpointerdown = event=>{
+      if (event.button!==0 || !event.isPrimary) return;
+      event.preventDefault();
+      const pointer=event.pointerId;
+      const ghost=source.cloneNode(true);
+      ghost.classList.add("fleetDragGhost");
+      ghost.setAttribute("aria-hidden","true");
+      tray.append(ghost);
+      const cells=[...parent.querySelectorAll("[data-fleet-cell]")];
+      let marked=[];
+      const lookAt = e=>{
+        ghost.style.left=e.clientX+"px";
+        ghost.style.top=e.clientY+"px";
+        const cell=document.elementFromPoint(e.clientX,e.clientY)?.closest("[data-fleet-cell]");
+        return cell && parent.contains(cell) ? Number(cell.dataset.fleetCell) : null;
+      };
+      const clear=()=>{for (const cell of marked) cell.removeAttribute("data-placement");marked=[]};
+      const move=e=>{
+        if (e.pointerId!==pointer) return;
+        clear();
+        const cell=lookAt(e), ship=shipAt(cell);
+        const color=fits(ship) ? "fit" : "blocked";
+        marked=(ship.length ? ship : cell===null ? [] : [cell]).map(n=>cells[n]);
+        for (const tile of marked) tile.dataset.placement=color;
+      };
+      const clean=()=>{
+        clear();
+        ghost.remove();
+        source.onpointermove=source.onpointerup=source.onpointercancel=source.onlostpointercapture=null;
+      };
+      source.onpointermove=move;
+      source.onpointercancel=source.onlostpointercapture=clean;
+      source.onpointerup=e=>{
+        if (e.pointerId!==pointer) return;
+        const cell=lookAt(e);
+        clean();
+        if (cell!==null) pick(cell);
+      };
+      source.setPointerCapture(pointer);
+      move(event);
+    };
   }
 
   function snapshot(viewer=-1) {
