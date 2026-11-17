@@ -415,7 +415,14 @@ const Fleet = (() => {
         showCode();
         links.append(details);
       }
-      controls.append(links);
+      const connections=make("details");
+      connections.className="fleetConnectionLinks";
+      connections.open=Boolean(match.linksOpen);
+      connections.append(make("summary","Teamlinks und QR-Codes"),links);
+      connections.ontoggle=()=>{
+        if (connections.isConnected) match.linksOpen=connections.open;
+      };
+      controls.append(connections);
     }
     if (match.networkError) controls.append(make("p",match.networkError));
     if (match.phase==="placement") {
