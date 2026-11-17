@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 const {randomBytes} = require("node:crypto");
+const {execFile} = require("node:child_process");
 
 const port = Number(process.env.FLEET_PORT || 8088);
 const secret = () => randomBytes(24).toString("base64url");
@@ -14,6 +15,7 @@ const publicAddress = process.env.FLEET_ADDRESS || addresses[0] || "127.0.0.1";
 const rooms = new Map();
 const files = new Map([["/","index.html"],["/index.html","index.html"],["/fleet.js","fleet.js"]]);
 const idleLimit = 4 * 60 * 60 * 1000;
+const moderatorUrl = "http://127.0.0.1:"+port+"/moderation";
 
 function json(response,status,data) {
   response.writeHead(status,{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"});
@@ -34,6 +36,14 @@ function retire(room) {
 const server = http.createServer(async (request,response) => {
   try {
     const endpoint = new URL(request.url,"http://localhost").pathname;
+    if (request.method === "GET" && endpoint === "/moderation") {
+      const localAddress = ["127.0.0.1","::ffff:127.0.0.1"].includes(request.socket.remoteAddress);
+      const localHost = ["127.0.0.1:"+port,"localhost:"+port].includes(request.headers.host);
+      if (!localAddress || !localHost) return json(response,403,{message:"Moderation nur am Lehrkraft-PC."});
+      response.writeHead(302,{"Location":"/#fleetHost="+setupKey,"Cache-Control":"no-store","Referrer-Policy":"no-referrer"});
+      response.end();
+      return;
+    }
     if (request.method === "GET" && files.has(endpoint)) {
       const file = files.get(endpoint);
       const data = await fs.promises.readFile(path.join(__dirname,file));
@@ -104,7 +114,10 @@ const server = http.createServer(async (request,response) => {
   }
 });
 server.listen(port,"0.0.0.0",()=>{
-  console.log("Moderation: http://127.0.0.1:"+port+"/#fleetHost="+setupKey);
+  console.log("Moderation: "+moderatorUrl);
   console.log("WLAN-Adressen: "+addresses.join(", "));
-  console.log("Nur den jeweiligen Teamlink weitergeben. Den Moderationslink privat halten.");
+  console.log("Nur die Team- und Beamerlinks weitergeben. Dieses Fenster waehrend des Spiels offen lassen.");
+  if (process.platform === "win32" && process.argv.includes("--open")) {
+    execFile("explorer.exe",[moderatorUrl],{windowsHide:true});
+  }
 });
