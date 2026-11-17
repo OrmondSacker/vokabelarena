@@ -161,12 +161,25 @@ const Fleet = (() => {
       if (selected!==null) onPick(selected);
     }) : null;
     if (fire) fire.disabled=true;
-    const paint=(block,locked=false)=>gridCells.forEach((tile,index)=>{
+    const salvoFrame=wide && onPick ? make("span") : null;
+    if (salvoFrame) {salvoFrame.className="fleetSalvoFrame";salvoFrame.hidden=true;salvoFrame.setAttribute("aria-hidden","true");}
+    const paint=(block,locked=false)=>{
+    gridCells.forEach((tile,index)=>{
       if (block.includes(index)) tile.dataset.aimArea=locked ? "locked" : "preview";
       else delete tile.dataset.aimArea;
       if (block[0]===index) tile.dataset.crosshair="";
       else delete tile.dataset.crosshair;
+      if (wide && block.includes(index)) tile.dataset.salvoAim=locked ? "locked" : "preview";
+      else delete tile.dataset.salvoAim;
     });
+    if (salvoFrame) {
+      salvoFrame.hidden=!block.length;
+      if (block.length) {
+        salvoFrame.style.gridRow=(Math.floor(block[0]/size)+2)+" / span 2";
+        salvoFrame.style.gridColumn=(block[0]%size+2)+" / span 2";
+      }
+    }
+    };
     cells.append(make("span"));
     for (let col=0;col<size;col++) cells.append(make("span",col+1));
     for (let row=0;row<size;row++) {
@@ -201,6 +214,7 @@ const Fleet = (() => {
         cell.dataset.fleetCell = String(n);
         if (lastShot?.cells.includes(n)) {
           cell.dataset.lastShot=lastShot.flash ? "flash" : "marked";
+          if (lastShot.cells.length===4) cell.dataset.lastSalvo="";
           if (n===lastShot.cells[0]) cell.dataset.lastCrosshair="";
         }
         if (symbols[kind]) {
@@ -216,6 +230,7 @@ const Fleet = (() => {
         cells.append(cell);
       }
     }
+    if (salvoFrame) cells.append(salvoFrame);
     (view.hintFrames ?? []).forEach(({row,col,width},index)=>{
       const frame=make("span");
       frame.className="fleetHintFrame";
@@ -375,9 +390,12 @@ const Fleet = (() => {
 
   function snapshot(viewer=-1) {
     const placing = match.phase==="placement";
+    const reviewed=!placing && match.phase!=="finished" && !state.pending ? match.answerReview : null;
+    const secondaryWord=placing ? "" : !el("answerKey").hidden
+      ? el("answerKey").textContent : reviewed?.word ?? "";
     return {names:match.names, phase:match.phase, team:state.team, ready:match.boards.map(board=>Boolean(board.ships.length)),
       notice:placing ? "Die Teams stellen ihre Flotten auf." : el("feedback").textContent,
-      word:placing ? "" : el("word").textContent, turn:placing ? "" : el("turn").textContent,
+      word:placing ? "" : reviewed?.solution ?? el("word").textContent, secondaryWord, turn:placing ? "" : el("turn").textContent,
       salvo:match.salvos[state.team], streak:match.streaks[state.team], revision:match.revision, lastShot:match.lastShot ?? null, outcome:match.outcome ?? null,
       boards:placing ? [] : boardsView(viewer)};
   }
@@ -450,10 +468,13 @@ const Fleet = (() => {
       fireShot,match.wide,{phase:match.phase,team:state.team,lastShot:match.lastShot});
     controls.append(salvoStatus(match.streaks[state.team],match.salvos[state.team]));
     if (shooting && match.salvos[state.team]) {
-      controls.append(action(match.wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{
+      const salvoButton=action(match.wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{
         match.wide=!match.wide;
         render();
-      }));
+      });
+      salvoButton.className="fleetSalvoToggle";
+      salvoButton.setAttribute("aria-pressed",String(match.wide));
+      controls.append(salvoButton);
     }
     if (match.phase==="shot" && match.network==="lan") {
       controls.append(make("p","Ziel am Lehrer-PC oder am Teamgerät wählen und schießen."));
@@ -501,6 +522,11 @@ const Fleet = (() => {
     const info=make("p",ready ? "2×2-Salve bereit · bei richtiger Antwort einsetzbar." :
       "2×2-Salve: "+streak+"/3 eigene richtige Antworten in Folge.");
     info.className="fleetSalvoStatus";
+    info.dataset.ready=String(Boolean(ready));
+    const icon=make("span","2×2");
+    icon.className="fleetSalvoBadge";
+    icon.setAttribute("aria-hidden","true");
+    info.prepend(icon);
     return info;
   }
 
@@ -549,6 +575,7 @@ const Fleet = (() => {
   }
 
   function judge(correct,solution) {
+    match.answerReview={word:state.current.card[state.current.side],solution};
     el("judge").hidden=true;
     if (correct) {
       match.phase="shot";
@@ -796,6 +823,7 @@ const Fleet = (() => {
     container.textContent="Warte auf die Moderation …";
     const team=role==="0" || role==="1" ? Number(role) : -1;
     if (team>=0) container.dataset.team = String(team);
+    else container.dataset.projection="true";
     const draft={ships:[],vertical:false};
     let current=null, wide=false, waiting=false, sent=false, notice="", resultShown=false;
     function show() {
@@ -815,9 +843,22 @@ const Fleet = (() => {
       } else {
         const canShoot=team>=0 && frame.phase==="shot" && frame.team===team && !waiting;
         if (!activeTurn) container.append(make("p",frame.turn));
-        container.append(make("h3",frame.word),make("p",frame.notice));
+        const word=make("h3",frame.word);
+        word.className="fleetQuestionWord";
+        container.append(word);
+        if (frame.secondaryWord) {
+          const original=make("p",frame.secondaryWord);
+          original.className="fleetQuestionOriginal";
+          container.append(original);
+        }
+        container.append(make("p",frame.notice));
         container.append(salvoStatus(frame.streak ?? 0,frame.salvo));
-        if (canShoot && frame.salvo) container.append(action(wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{wide=!wide;show()}));
+        if (canShoot && frame.salvo) {
+          const salvoButton=action(wide ? "Einzelschuss wählen" : "2 × 2-Salve wählen",()=>{wide=!wide;show()});
+          salvoButton.className="fleetSalvoToggle";
+          salvoButton.setAttribute("aria-pressed",String(wide));
+          container.append(salvoButton);
+        }
         if (canShoot) container.append(make("p",wide ? "Wähle das obere linke Feld der Salve." : "Wähle ein Zielfeld."));
         grids(container,frame.names.map((name,i)=>i===team ? "Eigene Flotte" : name),frame.boards,
           canShoot ? 1-team : -1,cell=>send({kind:"shot",cell,wide,revision:frame.revision}),wide,{...frame,viewer:team});
