@@ -649,6 +649,7 @@ sich erinnern;remember</textarea></label>
 <button type="button" class="secondary" id="practiceStop">Aufhören</button>
 </div>
 <button type="button" class="secondary" id="editGameVocabulary">Vokabeln ändern</button>
+<button type="button" id="restartGame" hidden>Noch einmal spielen</button>
 <button type="button" class="secondary" id="back">Zur Einrichtung</button>
 </div>
 </section>
@@ -788,14 +789,25 @@ function showGameResult(won,message) {
   button.type="button";
   button.textContent="Ergebnis ansehen";
   button.onclick=closeGameResult;
-  panel.append(art,detail,button);
+  const replay=document.createElement("button");
+  replay.type="button";
+  replay.textContent="Noch einmal spielen";
+  replay.onclick=restartCurrentGame;
+  replay.hidden=el("game").hidden || !state?.restartSettings;
+  if (!replay.hidden) el("restartGame").hidden=false;
+  panel.append(art,detail,replay,button);
   overlay.append(panel);
   overlay.onkeydown=event=>{
     if (event.key==="Escape") closeGameResult();
-    if (event.key==="Tab") {event.preventDefault();button.focus();}
+    if (event.key==="Tab") {
+      event.preventDefault();
+      const buttons=replay.hidden ? [button] : [replay,button];
+      const current=buttons.indexOf(document.activeElement);
+      buttons[(current+(event.shiftKey ? -1 : 1)+buttons.length)%buttons.length].focus();
+    }
   };
   document.body.append(overlay);
-  button.focus();
+  (replay.hidden ? button : replay).focus();
 }
 
 function question() {
@@ -992,59 +1004,40 @@ function readVocabulary() {
   return {cards, verbs, direction, typed, selectionKey};
 }
 
-el("config").addEventListener("submit", event => {
-  event.preventDefault();
-  if (!el("vocabStep").hidden) {
-    if (editingVocabulary) el("applyVocabulary").click();
-    else el("chooseGame").click();
+function startGame(settings) {
+  const {vocabulary,mode,computer,names,teamNames,players,zombies,rotation,goalLimit,maxRounds,count,setLimit,boss,network}=settings;
+  const error=el("error");
+  if (mode==="fleet" && !Fleet.canStart(network)) return;
+  if (mode==="zombie" && (players<2 || zombies>=players)) {
+    error.hidden=false;
+    error.textContent=players<2 ? "Wähle mindestens zwei Personen aus." : "Mindestens eine Person muss als überlebende Person starten.";
     return;
   }
-  const vocabulary = readVocabulary();
-  if (!vocabulary) {
-    showSetupStep(false, true);
+  if (rotation && rotation.some(team=>!team.length)) {
+    error.hidden=false;
+    error.textContent="Teile beiden Teams mindestens eine Person zu.";
     return;
   }
-  const error = el("error");
-  const {cards, direction} = vocabulary;
-  const mode = el("mode").value;
   closeGameResult();
-  const computer=["football","catapult","fleet"].includes(mode) && el("computerEnabled").checked ? el("computerLevel").value : null;
-  if (mode === "fleet" && !Fleet.canStart(computer ? "local" : el("fleetMode").value)) return;
   cancelComputerStep();
   Fleet.close();
-  const savedPlayers = mode === "zombie" && el("classLoad").value !== "";
-  const names = savedPlayers ? classSelection() : el("names").value.split(/\r?\n/).map(name => name.trim());
-  const players = savedPlayers ? names.length : Number(el("players").value);
-  const zombies = Number(el("zombies").value);
-  if (mode === "zombie" && (players < 2 || zombies >= players)) {
-    error.hidden = false;
-    error.textContent = players < 2 ? "Wähle mindestens zwei Personen aus." : "Mindestens eine Person muss als überlebende Person starten.";
-    return;
-  }
-  const rotation = mode === "catapult" && el("catapultUseClass").checked ? readCatapultTeams() : null;
-  if (rotation && computer) rotation[1]=["Computer"];
-  if (rotation && rotation.some(team => !team.length)) {
-    error.hidden = false;
-    error.textContent = "Teile beiden Teams mindestens eine Person zu.";
-    return;
-  }
-  const people = mode === "zombie" ? shuffle(Array.from({length:players},(_,i) => i+1)) : [];
-  const teamNames = ["team1", "team2"].map((id, index) => el(id).value.trim() || "Team " + (index + 1));
-  if (computer) teamNames[1]="Computer";
-  state = {...vocabulary, mode, computer, names, teamNames, ball:3, team:0, goals:[0,0], goalLimit:Number(el("goals").value),
+  const {cards,direction}=vocabulary;
+  const people=mode==="zombie" ? shuffle(Array.from({length:players},(_,i)=>i+1)) : [];
+  state = {...vocabulary, mode, computer, names, teamNames, restartSettings:settings, ball:3, team:0, goals:[0,0], goalLimit,
     attackers:people.slice(0,zombies),
     survivors:people.slice(zombies),
-    round:zombies ? 1 : 0, maxRounds:Number(el("rounds").value), waiting:new Set(),
-    opening:zombies ? [] : [...people], attackOrder:[], attackIndex:0, lastInfected:null, target:null, queue:makeQuestionQueue(cards, direction), missed:[], count:Number(el("count").value),
+    round:zombies ? 1 : 0, maxRounds, waiting:new Set(),
+    opening:zombies ? [] : [...people], attackOrder:[], attackIndex:0, lastInfected:null, target:null, queue:makeQuestionQueue(cards, direction), missed:[], count,
     hearts:4, bossStage:null, nextSide:Number(Math.random() < 0.5), answered:0};
   if (mode === "catapult") {
     state.sides = freshCastles();
-    state.setLimit = Number(el("catapultSets").value);
+    state.setLimit = setLimit;
     state.sets = [0,0];
     state.setNumber = 1;
     state.rotation = rotation;
     state.rotationIndex = [0,0];
   }
+  el("restartGame").hidden = true;
   el("nextSet").hidden = true;
   el("arenaFullscreen").hidden = !el("arenaMain").requestFullscreen || document.fullscreenEnabled === false;
   el("fleetScene").hidden = mode !== "fleet";
@@ -1054,7 +1047,7 @@ el("config").addEventListener("submit", event => {
   el("catapultActions").hidden = true;
   if (mode === "zombie" && zombies) beginZombieRound();
   if (mode === "boss") {
-    const selectedBoss = el("bossSelect").value;
+    const selectedBoss = boss;
     if (selectedBoss === "series") state.bossStage = 0;
     prepareBoss(selectedBoss);
   }
@@ -1077,8 +1070,40 @@ el("config").addEventListener("submit", event => {
   el("targets").replaceChildren();
   meters();
   renderTeam();
-  if (mode === "fleet") Fleet.start(state.teamNames,computer ? "local" : el("fleetMode").value);
+  if (mode === "fleet") Fleet.start(state.teamNames,network);
   else question();
+
+}
+function restartCurrentGame() {
+  if (!state?.restartSettings) return;
+  const {cards,verbs,direction,typed,selectionKey}=state;
+  startGame({...state.restartSettings,vocabulary:{cards,verbs,direction,typed,selectionKey}});
+}
+el("restartGame").onclick=restartCurrentGame;
+
+el("config").addEventListener("submit",event=>{
+  event.preventDefault();
+  if (!el("vocabStep").hidden) {
+    if (editingVocabulary) el("applyVocabulary").click();
+    else el("chooseGame").click();
+    return;
+  }
+  const vocabulary=readVocabulary();
+  if (!vocabulary) {showSetupStep(false,true);return;}
+  const mode=el("mode").value;
+  const computer=["football","catapult","fleet"].includes(mode) && el("computerEnabled").checked ? el("computerLevel").value : null;
+  const savedPlayers=mode==="zombie" && el("classLoad").value!=="";
+  const names=savedPlayers ? classSelection() : el("names").value.split(/\r?\n/).map(name=>name.trim());
+  const rotation=mode==="catapult" && el("catapultUseClass").checked ? readCatapultTeams() : null;
+  if (rotation && computer) rotation[1]=["Computer"];
+  const teamNames=["team1","team2"].map((id,index)=>el(id).value.trim() || "Team "+(index+1));
+  if (computer) teamNames[1]="Computer";
+  startGame({vocabulary,mode,computer,names,teamNames,rotation,
+    players:savedPlayers ? names.length : Number(el("players").value),
+    zombies:Number(el("zombies").value),goalLimit:Number(el("goals").value),
+    maxRounds:Number(el("rounds").value),count:Number(el("count").value),
+    setLimit:Number(el("catapultSets").value),boss:el("bossSelect").value,
+    network:computer ? "local" : el("fleetMode").value});
 });
 el("correct").onclick = () => judge(true);
 el("wrong").onclick = () => judge(false);
@@ -2362,7 +2387,7 @@ function renderBossBonus() {
     remaining + (remaining === 1 ? " richtige Antwort" : " richtige Antworten") + " in Folge";
   el("bossProtection").hidden = !state.protections.size;
   el("bossProtection").textContent = "Aktiv: " + [...state.protections].map(bonus => bossBonuses[bonus]).join(" · ");
-  el("revealAnswer").disabled = state.protections.has("retry");
+  el("revealAnswer").disabled = false;
 }
 
 const bossSeries = [
