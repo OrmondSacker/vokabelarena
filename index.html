@@ -3,6 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vokabelarena</title>
+<link rel="stylesheet" href="golf-art.css?v=1">
 <link rel="stylesheet" href="result-art.css?v=1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=DM+Sans:wght@400;600;700&amp;display=swap">
 <style>
@@ -590,6 +591,21 @@ button.gameTile .fleetCover{
 .scanSources{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem 1rem;margin:.5rem 0}
 .scanSources label{min-width:0;max-width:100%;margin:0}
 .scanSources input[type=file]{max-width:100%}
+
+.gameCover.golfCover{background-image:var(--golf-art);background-size:cover;background-position:center}
+#golfScene{min-width:0;min-height:0;display:flex;flex-direction:column;gap:.4rem;height:100%;box-sizing:border-box}
+#golfCanvas{display:block;width:100%;height:0;flex:1 1 auto;min-height:120px;object-fit:contain;background:#0e2631;border:2px solid #527d73;border-radius:12px;box-sizing:border-box}
+#golfGauge{flex:none;padding:.4rem .65rem;border:1px solid #487668;border-radius:10px;background:#132b35}
+#golfGaugeLabel{font-size:.85rem;font-weight:700;min-height:1.25em;margin-bottom:.3rem;color:#e8f5dc}
+.golfGaugeTrack{position:relative;height:22px;margin:.2rem .6rem;background:linear-gradient(90deg,#e3666b,#e5b351 25%,#e5b351 75%,#e3666b);border:2px solid #102433;border-radius:5px}
+#golfIdealZone{position:absolute;left:50%;top:0;bottom:0;width:16%;background:#6cea9a;transform:translateX(-50%);border-inline:2px solid #d7ffe0}
+#golfNeedle{position:absolute;left:50%;top:-6px;bottom:-6px;width:4px;background:#fff;box-shadow:0 0 0 2px #17243b;transform:translateX(-50%)}
+#golfSeries{flex:none;min-height:2.5em;margin:0;line-height:1.2;text-align:center;font-size:.85rem;overflow:auto}
+#golfJokers{flex:none;margin:0;gap:.2rem}
+#golfJokers button{font-size:.8rem;padding:.35rem .5rem;min-height:36px}
+#golfJokers button[aria-pressed=true]{background:#ffe09b;color:#253328;outline:2px solid #f5b642}
+#game[data-mode=golf] #playScene{overflow:auto}
+@media(max-width:799px){#game[data-mode=golf]:not([hidden]){grid-template-rows:2.6rem minmax(250px,50%) minmax(0,1fr)}}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -657,10 +673,14 @@ sich erinnern;remember</textarea></label>
 <h2 id="gameHeading" tabindex="-1">Spiel auswählen</h2>
 <div id="gameTiles" class="gameTiles" role="group" aria-labelledby="gameHeading"></div>
 <div class="gameSettings"><h3>Spieleinstellungen</h3>
-<div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option><option value="fleet">Schiffe versenken</option></select></label>
+<div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option><option value="fleet">Schiffe versenken</option><option value="golf">Minigolf</option></select></label>
 <label id="bossChoice" hidden>Boss <select id="bossSelect"><option value="random">Zufällig</option><option value="series">Bossserie · alle drei Bosse</option><option value="dragon">Glutdrache</option><option value="golem">Runengolem</option><option value="ghost">Nebelgeist</option></select></label><label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 
 </div>
+<fieldset id="golfOptions" hidden><legend>Minigolf</legend>
+<label>Vokabeln pro Schlag <select id="golfQuestions"><option value="5">5 Vokabeln</option><option value="7">7 Vokabeln</option></select></label>
+<details><summary>Spielregeln</summary><p>Zwei Teams spielen drei Bahnen. Nach jeweils fünf oder sieben Antworten stoppt der Zeiger automatisch und der Ball wird geschlagen. Mehr richtige Antworten verbessern Richtung, Stärke und Timing passend zur Situation. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p><p>Jedes Team hat einmal pro Partie einen Präzisionsschläger und einen Sicherheitsball. Vor einer Vokabelserie auswählen. Der Schläger verbessert den Schlag um eine richtige Antwort, der Sicherheitsball verhindert die Wasserstrafe.</p></details>
+</fieldset>
 <fieldset id="computerOptions" hidden><legend>Gegner</legend>
 <label><input type="checkbox" id="computerEnabled"> Gegen den Computer spielen</label>
 <label id="computerLevelWrap" hidden>Schwierigkeit <select id="computerLevel"><option value="easy">Leicht · 55 % richtige Antworten</option><option value="normal" selected>Mittel · 75 % richtige Antworten</option><option value="hard">Schwer · 90 % richtige Antworten</option></select></label>
@@ -706,6 +726,12 @@ sich erinnern;remember</textarea></label>
 <section id="game" hidden>
 <div id="playToolbar"><p id="score"></p><button type="button" id="arenaFullscreen" class="secondary" hidden>Vollbild</button></div>
 <div id="playScene">
+<div id="golfScene" hidden><canvas id="golfCanvas" width="960" height="600" role="img" aria-label="Minigolfbahn"></canvas>
+<div id="golfGauge" aria-live="polite"><div id="golfGaugeLabel">Bereit für die Vokabelserie</div><div class="golfGaugeTrack"><span id="golfIdealZone"></span><span id="golfNeedle"></span></div></div>
+<p id="golfSeries" role="status"></p>
+<div id="golfJokers" class="stepActions"><button type="button" id="golfPrecision" class="secondary">Präzisionsschläger</button><button type="button" id="golfSafety" class="secondary">Sicherheitsball</button></div>
+<button type="button" id="golfNextHole" hidden>Nächste Bahn</button>
+</div>
 <div id="fleetScene" hidden></div>
 <div class="meters" id="bossMeters">
 <div><span id="hpLabel"></span><progress id="hp" max="8" aria-label="Boss-Lebenspunkte"></progress></div>
@@ -748,6 +774,7 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
+<script src="golf.js?v=prototype-1"></script>
 <script src="fleet.js?v=stable-layout-1"></script>
 <script>
 "use strict";
@@ -793,6 +820,7 @@ el("practiceStop").onclick = () => {
   el("editGameVocabulary").hidden = true;
   el("feedback").textContent = "";
   if (state.mode === "fleet") Fleet.stop();
+  if (state.mode === "golf") Golf.stop();
   el("back").focus();
   showGameResult(true,"Alle Vokabeln geschafft!");
 };
@@ -919,6 +947,7 @@ function question() {
     },1600);
   }
   if (state.mode === "fleet") Fleet.sync();
+  if (state.mode === "golf") Golf.sync();
 }
 
 function showQuestion() {
@@ -944,7 +973,7 @@ function showQuestion() {
     state.nextSide = 1 - state.nextSide;
   }
   state.pending = true;
-  el("turn").textContent = state.mode === "fleet" ? state.teamNames[state.team] + " ist dran" : state.mode === "catapult" ? catapultTurnLabel() : state.mode === "football" ? state.teamNames[state.team] + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
+  el("turn").textContent = state.mode === "fleet" ? state.teamNames[state.team] + " ist dran" : state.mode === "catapult" ? catapultTurnLabel() : state.mode === "golf" ? Golf.turnLabel() : state.mode === "football" ? state.teamNames[state.team] + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
     " ist dran";
   el("word").textContent = state.current.card[state.current.side];
   el("feedback").textContent = "";
@@ -1098,7 +1127,7 @@ function readVocabulary() {
 }
 
 function startGame(settings) {
-  const {vocabulary,mode,computer,names,teamNames,players,zombies,rotation,goalLimit,maxRounds,count,setLimit,boss,network}=settings;
+  const {vocabulary,mode,computer,names,teamNames,players,zombies,rotation,goalLimit,maxRounds,count,setLimit,boss,network,golfQuestions=5}=settings;
   const error=el("error");
   if (mode==="fleet" && !Fleet.canStart(network)) return;
   if (mode==="zombie" && (players<2 || zombies>=players)) {
@@ -1114,6 +1143,7 @@ function startGame(settings) {
   closeGameResult();
   cancelComputerStep();
   Fleet.close();
+  Golf.close();
   const {cards,direction}=vocabulary;
   const people=mode==="zombie" ? shuffle(Array.from({length:players},(_,i)=>i+1)) : [];
   state = {...vocabulary, mode, computer, names, teamNames, restartSettings:settings, ball:3, team:0, goals:[0,0], goalLimit,
@@ -1133,6 +1163,7 @@ function startGame(settings) {
   el("restartGame").hidden = true;
   el("nextSet").hidden = true;
   el("arenaFullscreen").hidden = !el("arenaMain").requestFullscreen || document.fullscreenEnabled === false;
+  el("golfScene").hidden = mode !== "golf";
   el("fleetScene").hidden = mode !== "fleet";
   el("fleetActions").hidden = mode !== "fleet";
   el("catapultArena").hidden = mode !== "catapult";
@@ -1164,6 +1195,7 @@ function startGame(settings) {
   meters();
   renderTeam();
   if (mode === "fleet") Fleet.start(state.teamNames,network);
+  else if (mode === "golf") Golf.start(golfQuestions);
   else question();
 
 }
@@ -1196,7 +1228,7 @@ el("config").addEventListener("submit",event=>{
     zombies:Number(el("zombies").value),goalLimit:Number(el("goals").value),
     maxRounds:Number(el("rounds").value),count:Number(el("count").value),
     setLimit:Number(el("catapultSets").value),boss:el("bossSelect").value,
-    network:computer ? "local" : el("fleetMode").value});
+    network:computer ? "local" : el("fleetMode").value,golfQuestions:Number(el("golfQuestions").value)});
 });
 el("correct").onclick = () => judge(true);
 el("wrong").onclick = () => judge(false);
@@ -1227,6 +1259,7 @@ el("back").onclick = () => {
   cancelComputerStep();
   closeGameResult();
   Fleet.close();
+  Golf.close();
   el("game").hidden = true;
   el("setup").hidden = false;
   showSetupStep(false);
@@ -1361,6 +1394,9 @@ function judgeTeam(correct, solution) {
       else state.ball = 3;
     }
     state.team = 1 - state.team;
+  } else if (state.mode === "golf") {
+    Golf.judge(correct,solution);
+    return;
   } else if (state.mode === "catapult") {
     judgeCatapult(correct, solution);
     return;
@@ -1460,7 +1496,8 @@ const gameCatalog = [
   {id:"zombie", title:"Zombieangriff", description:"Wer überlebt die Infektion?", position:"100% 0%"},
   {id:"boss", title:"Bosskampf", description:"Ein Boss oder die ganze Bossserie.", position:"0% 100%"},
   {id:"catapult", title:"Katapultduell", description:"Steine sammeln und Burgen verteidigen.", position:"100% 100%"},
-  {id:"fleet", title:"Schiffe versenken", description:"Zwei Flotten, Hinweise und Salven auf 10 × 10 Feldern."}
+  {id:"fleet", title:"Schiffe versenken", description:"Zwei Flotten, Hinweise und Salven auf 10 × 10 Feldern."},
+  {id:"golf", title:"Minigolf", description:"Vokabelserien bestimmen deinen Schlag.", position:"50% 50%"}
 ];
 
 let editingVocabulary = false;
@@ -1472,6 +1509,7 @@ const gameTiles = gameCatalog.map(game => {
   cover.className = "gameCover";
   cover.setAttribute("aria-hidden","true");
   if (game.id==="football") cover.classList.add("footballCover");
+  if (game.id==="golf") cover.classList.add("golfCover");
   if (game.position) cover.style.setProperty("--cover-position",game.position);
   else {
     cover.classList.add("fleetCover");
@@ -1984,7 +2022,8 @@ function setupMode() {
   el("pairs").required = custom;
   el("bossOptions").hidden = mode !== "boss";
   el("bossChoice").hidden = mode !== "boss";
-  el("footballOptions").hidden = !["football","catapult","fleet"].includes(mode);
+  el("footballOptions").hidden = !["football","catapult","fleet","golf"].includes(mode);
+  el("golfOptions").hidden = mode !== "golf";
   gameTiles.forEach((tile,index) => tile.setAttribute("aria-pressed",String(gameCatalog[index].id === mode)));
   el("fleetOptions").hidden = mode !== "fleet";
   el("footballGoal").hidden = mode !== "football";
@@ -2795,6 +2834,7 @@ el("importArenaData").onchange = async event => {
   }
 };
 
+Golf.bind();
 Fleet.openGuest();
 if (new URLSearchParams(location.hash.slice(1)).has("fleetHost")) {
   el("mode").value = "fleet";
