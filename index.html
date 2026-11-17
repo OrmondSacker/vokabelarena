@@ -210,6 +210,25 @@ button.gameTile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 2
   #game .roster{max-height:100%}
   #game #bossSprite{width:clamp(76px,32dvh,160px)}
 }
+
+button.gameTile .fleetCover{display:grid;place-items:center;font-size:3rem;background:repeating-linear-gradient(167deg,#175575 0 12px,#1f6c84 12px 24px)}
+#fleetScene{overflow:auto;min-height:0}
+.fleetBoards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;justify-content:center}
+.fleetBoards article{min-width:0;width:100%;max-width:min(100%,40dvh,21rem);margin:auto;align-self:start}
+.fleetBoards h3{font-size:.88rem;margin:.2rem 0}
+.fleetGrid{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:1px;background:#0b344a;padding:2px;border-radius:.35rem}
+.fleetGrid>*{box-sizing:border-box;aspect-ratio:1;display:grid;place-items:center;padding:0!important;margin:0!important;min-width:0!important;border-radius:2px;font-size:clamp(.5rem,1.65vmin,.76rem);line-height:1}
+.fleetGrid .sea{background:#1a5a74;color:#f2faff;border:1px solid transparent}
+.fleetGrid button.sea:enabled:hover,.fleetGrid button.sea:focus-visible{background:#97e9ff;color:#092333}
+.fleetGrid .hint{border:1px dashed #fff1a4}
+.fleetGrid .water{background:#253c54}.fleetGrid .hit{background:#b34738}.fleetGrid .sunk{background:#7d2435}.fleetGrid .ship{background:#428276}
+#fleetActions button,#fleetGuest button{margin:3px}
+#fleetGuest{padding:clamp(.4rem,2vw,1.25rem);text-align:center}
+#fleetGuest h2,#fleetGuest p{margin:.35rem 0}
+#fleetGuest .fleetBoards article{max-width:min(100%,63dvh,24rem)}
+@media(max-width:480px){#fleetGuest[data-team] .fleetBoards{grid-template-columns:1fr}}
+#fleetActions a{color:#a7eaff;display:inline-block;margin:.2rem}
+#fleetActions a:focus-visible{outline:2px solid white}
 </style>
 <main id="arenaMain">
 <header class="masthead"><h1 aria-label="Vokabelarena"><span>VOKABEL</span><span>ARENA</span></h1></header>
@@ -232,7 +251,7 @@ button.gameTile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 2
 <p id="deckStatus" role="status"></p>
 </div>
 <div id="customVocabulary">
-<label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon</small>
+<label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon · Alternativen mit /, | oder Semikolon</small>
 <textarea id="pairs" required spellcheck="false">entscheiden;decide
 anbieten;offer
 erklären;explain
@@ -258,11 +277,11 @@ sich erinnern;remember</textarea></label>
 <h2 id="gameHeading" tabindex="-1">Spiel auswählen</h2>
 <div id="gameTiles" class="gameTiles" role="group" aria-labelledby="gameHeading"></div>
 <div class="gameSettings"><h3>Spieleinstellungen</h3>
-<div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option></select></label>
+<div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option><option value="fleet">Schiffe versenken</option></select></label>
 <label id="bossChoice" hidden>Boss <select id="bossSelect"><option value="random">Zufällig</option><option value="series">Bossserie · alle drei Bosse</option><option value="dragon">Glutdrache</option><option value="golem">Runengolem</option><option value="ghost">Nebelgeist</option></select></label><label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 
 </div>
-<div id="footballOptions"><div class="options"><label>Team 1 <input id="team1" maxlength="40" placeholder="Team 1"></label><label>Team 2 <input id="team2" maxlength="40" placeholder="Team 2"></label></div><label id="footballGoal">Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><fieldset id="catapultRules" hidden><legend>Katapultduell</legend>
+<div id="fleetOptions" hidden><label>Spielmodus <select id="fleetMode"><option value="local">Lehrkraft und Beamer</option><option value="lan">Teamgeräte im Schul-WLAN</option></select></label><p id="fleetLanHelp" hidden>Öffne die Moderationsadresse des lokalen Vokabelarena-Servers. Die Teamgeräte erhalten eigene Links.</p></div><div id="footballOptions"><div class="options"><label>Team 1 <input id="team1" maxlength="40" placeholder="Team 1"></label><label>Team 2 <input id="team2" maxlength="40" placeholder="Team 2"></label></div><label id="footballGoal">Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><fieldset id="catapultRules" hidden><legend>Katapultduell</legend>
 <label>Gewinnsätze <select id="catapultSets"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
 <label><input type="checkbox" id="catapultUseClass"> Schülerinnen und Schüler automatisch aufrufen</label>
 <div id="catapultClassSetup" hidden>
@@ -286,9 +305,11 @@ sich erinnern;remember</textarea></label>
 <p id="error" role="alert" hidden></p>
 </form>
 </section>
+<section id="fleetGuest" hidden></section>
 <section id="game" hidden>
 <div id="playToolbar"><p id="score"></p><button type="button" id="arenaFullscreen" class="secondary" hidden>Vollbild</button></div>
 <div id="playScene">
+<div id="fleetScene" hidden></div>
 <div class="meters" id="bossMeters">
 <div><span id="hpLabel"></span><progress id="hp" max="8" aria-label="Boss-Lebenspunkte"></progress></div>
 <div><span id="heartsLabel"></span><progress id="hearts" max="4" aria-label="Verbleibende Herzen"></progress></div>
@@ -300,6 +321,7 @@ sich erinnern;remember</textarea></label>
 </div>
 <div id="pitch" aria-label="Spielfeld"></div><div id="roster" class="roster" hidden></div></div>
 <div id="playPanel">
+<div id="fleetActions" hidden></div>
 <div id="targets"></div>
 <p id="turn"></p>
 <p id="bossBonus" aria-live="polite" hidden></p>
@@ -327,6 +349,7 @@ sich erinnern;remember</textarea></label>
 </div>
 </section>
 </main>
+<script src="fleet.js"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -370,6 +393,7 @@ el("practiceStop").onclick = () => {
   el("word").textContent = "Alle Vokabeln geschafft!";
   el("editGameVocabulary").hidden = true;
   el("feedback").textContent = "";
+  if (state.mode === "fleet") Fleet.stop();
   el("back").focus();
 };
 
@@ -384,6 +408,11 @@ function meters() {
 }
 
 function question() {
+  showQuestion();
+  if (state.mode === "fleet") Fleet.sync();
+}
+
+function showQuestion() {
   if (!state.queue.length) {
     state.queue = shuffle(state.missed);
     state.missed = [];
@@ -404,7 +433,7 @@ function question() {
     state.nextSide = 1 - state.nextSide;
   }
   state.pending = true;
-  el("turn").textContent = state.mode === "catapult" ? catapultTurnLabel() : state.mode === "football" ? state.teamNames[state.team] + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
+  el("turn").textContent = state.mode === "fleet" ? state.teamNames[state.team] + " ist dran" : state.mode === "catapult" ? catapultTurnLabel() : state.mode === "football" ? state.teamNames[state.team] + " ist dran" : state.mode === "zombie" ? playerName(state.target) + " verteidigt sich" : "Person " + (state.answered % state.count + 1) +
     " ist dran";
   el("word").textContent = state.current.card[state.current.side];
   el("feedback").textContent = "";
@@ -432,25 +461,34 @@ el("revealAnswer").onclick = () => {
   el("word").textContent = currentSolution();
   el("answerKey").textContent = card[side];
   el("answerKey").hidden = false;
+  if (state.mode === "fleet") Fleet.sync();
 };
 
-function normalizeAnswer(value) {
-  return value.normalize("NFC").trim().replace(/\s+/g," ").toLowerCase();
+function normalizeAnswer(value, punctuationSpace = " ") {
+  return value.normalize("NFC").toLowerCase()
+    .replace(/['’‘]/gu, "").replace(/\p{P}/gu, punctuationSpace).trim().replace(/\s+/gu, " ");
+}
+
+function answerMatches(input, solution) {
+  const variants = value => [" ", ""].map(separator => normalizeAnswer(value,separator));
+  const actual = variants(input);
+  if (!actual[0]) return false;
+  return [solution, ...solution.split(/[;/|]/u)].some(form =>
+    variants(form).some(expected => actual.some(typed =>
+      expected === typed || expected.replace(/^to /u,"") === typed ||
+      expected === typed.replace(/^to /u,""))));
 }
 
 el("typedAnswer").onsubmit = event => {
   event.preventDefault();
   if (!state?.pending || !state.typed) return;
-  const matches = (input, solution, separator) =>
-    [solution, ...solution.split(separator)].some(form => normalizeAnswer(form) === normalizeAnswer(input));
   const {card,side} = state.current;
   const answer = el("answerInput").value;
-  if (state.verbs) {
-    judge(matches(answer,card[1],"/") && matches(el("partInput").value,card[2],"/"));
-  } else {
-    judge(matches(answer,card[1-side],/;|\s+\/\s+/));
-  }
+  judge(state.verbs
+    ? answerMatches(answer,card[1]) && answerMatches(el("partInput").value,card[2])
+    : answerMatches(answer,card[1-side]));
 };
+
 function judge(correct) {
   if (!state.pending) return;
   if (!correct && state.mode === "boss" && state.protections.delete("retry")) {
@@ -466,6 +504,7 @@ function judge(correct) {
   if (!correct) state.missed.push({...state.current, retry:true});
   const solution = currentSolution();
   el("typedAnswer").hidden = true;
+  if (state.mode === "fleet") { Fleet.judge(correct,solution); return; }
   if (state.mode !== "boss") {
     judgeTeam(correct, solution);
     return;
@@ -556,8 +595,11 @@ el("config").addEventListener("submit", event => {
     showSetupStep(false, true);
     return;
   }
+  const error = el("error");
   const {cards, direction} = vocabulary;
   const mode = el("mode").value;
+  if (mode === "fleet" && !Fleet.canStart(el("fleetMode").value)) return;
+  Fleet.close();
   const savedPlayers = mode === "zombie" && el("classLoad").value !== "";
   const names = savedPlayers ? classSelection() : el("names").value.split(/\r?\n/).map(name => name.trim());
   const players = savedPlayers ? names.length : Number(el("players").value);
@@ -591,6 +633,8 @@ el("config").addEventListener("submit", event => {
   }
   el("nextSet").hidden = true;
   el("arenaFullscreen").hidden = !el("arenaMain").requestFullscreen || document.fullscreenEnabled === false;
+  el("fleetScene").hidden = mode !== "fleet";
+  el("fleetActions").hidden = mode !== "fleet";
   el("catapultArena").hidden = mode !== "catapult";
   delete el("catapultArena").dataset.hit;
   el("catapultActions").hidden = true;
@@ -619,7 +663,8 @@ el("config").addEventListener("submit", event => {
   el("targets").replaceChildren();
   meters();
   renderTeam();
-  question();
+  if (mode === "fleet") Fleet.start(state.teamNames,el("fleetMode").value);
+  else question();
 });
 el("correct").onclick = () => judge(true);
 el("wrong").onclick = () => judge(false);
@@ -647,6 +692,7 @@ el("arenaFullscreen").onclick = async () => {
 };
 
 el("back").onclick = () => {
+  Fleet.close();
   el("game").hidden = true;
   el("setup").hidden = false;
   showSetupStep(false);
@@ -844,7 +890,8 @@ const gameCatalog = [
   {id:"football", title:"Fußball", description:"Zwei Teams spielen um Tore.", position:"0% 0%"},
   {id:"zombie", title:"Zombieangriff", description:"Wer überlebt die Infektion?", position:"100% 0%"},
   {id:"boss", title:"Bosskampf", description:"Ein Boss oder die ganze Bossserie.", position:"0% 100%"},
-  {id:"catapult", title:"Katapultduell", description:"Steine sammeln und Burgen verteidigen.", position:"100% 100%"}
+  {id:"catapult", title:"Katapultduell", description:"Steine sammeln und Burgen verteidigen.", position:"100% 100%"},
+  {id:"fleet", title:"Schiffe versenken", description:"Zwei Flotten, Hinweise und Salven auf 10 × 10 Feldern."}
 ];
 
 let editingVocabulary = false;
@@ -855,7 +902,8 @@ const gameTiles = gameCatalog.map(game => {
   const cover = document.createElement("span");
   cover.className = "gameCover";
   cover.setAttribute("aria-hidden","true");
-  cover.style.setProperty("--cover-position",game.position);
+  if (game.position) cover.style.setProperty("--cover-position",game.position);
+  else { cover.classList.add("fleetCover"); cover.textContent = "⚓"; }
   const title = document.createElement("strong");
   title.textContent = game.title;
   const description = document.createElement("small");
@@ -1338,8 +1386,9 @@ function setupMode() {
   el("pairs").required = custom;
   el("bossOptions").hidden = mode !== "boss";
   el("bossChoice").hidden = mode !== "boss";
-  el("footballOptions").hidden = !["football","catapult"].includes(mode);
+  el("footballOptions").hidden = !["football","catapult","fleet"].includes(mode);
   gameTiles.forEach((tile,index) => tile.setAttribute("aria-pressed",String(gameCatalog[index].id === mode)));
+  el("fleetOptions").hidden = mode !== "fleet";
   el("footballGoal").hidden = mode !== "football";
   el("catapultRules").hidden = mode !== "catapult";
   if (mode === "catapult") refreshCatapultClasses();
@@ -1671,7 +1720,11 @@ try {
 
 function parsePairs(input) {
   return input.split(/\r?\n/).filter(line => line.trim()).map(line =>
-    line.split(line.includes("\t") ? "\t" : ";").map(part => part.trim()));
+    {
+      const delimiter = line.includes("\t") ? "\t" : ";";
+      const split = line.indexOf(delimiter);
+      return split < 0 ? [line.trim()] : [line.slice(0,split).trim(),line.slice(split+1).trim()];
+    });
 }
 
 function selectedDeckCards() {
@@ -2031,5 +2084,6 @@ el("deckImport").onchange = async event => {
   }
 };
 
+Fleet.openGuest();
 </script>
 </html>
