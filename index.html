@@ -285,9 +285,9 @@ button.gameTile .fleetCover{
   box-sizing:border-box;padding:clamp(3px,.85vmin,8px);border:1px solid #52799c;border-radius:4px;
   background:#102945;box-shadow:inset 0 0 0 2px #0b1c35,0 3px 0 #0a172b
 }
-.fleetBoards article:nth-child(2){border-color:#987656;background:#302945}
+.fleetBoards article:nth-of-type(2){border-color:#987656;background:#302945}
 .fleetBoards h3{color:#b8edff;margin:.08rem 0 .35rem;font-weight:800;overflow-wrap:anywhere}
-.fleetBoards article:nth-child(2) h3{color:#ffd8a3}
+.fleetBoards article:nth-of-type(2) h3{color:#ffd8a3}
 .fleetGrid{
   gap:1px;background:#10283f;border:1px solid #528aa7;border-radius:2px;
   color:#cbe8ff;padding:2px;box-shadow:inset 0 0 0 1px #081a34
@@ -386,7 +386,7 @@ button.gameTile .fleetCover{
 .fleetTurnBanner[data-team="1"]{border-color:#ffc494;background:#4c302a;color:#ffe1c0}
 #game[data-mode=fleet]:has(.fleetTurnBanner) #turn{display:none}
 .fleetBoards article[data-board-role=turn]{border:2px solid #89e6ef}
-.fleetBoards article[data-board-role=turn]:nth-child(2){border-color:#ffc494}
+.fleetBoards article[data-board-role=turn]:nth-of-type(2){border-color:#ffc494}
 .fleetBoards article[data-board-role=target]{border:2px solid #f4d58e}
 .fleetBoardRole{margin:.08rem 0 .32rem;color:#f8e1a6;font-size:clamp(.62rem,1.7vmin,.83rem);font-weight:800}
 .fleetShotResult{margin:.28rem 0 .04rem;color:#ffdeb1;font-size:clamp(.66rem,1.8vmin,.88rem);line-height:1.2}
@@ -459,6 +459,25 @@ button.gameTile .fleetCover{
   #fleetGuest .fleetAim{font-size:.72rem}
   #fleetGuest .fleetBoards h3{font-size:.8rem}
   #fleetGuest .fleetBoardRole{font-size:.66rem}
+}
+
+/* Turn indicator between the boards */
+.fleetBoardsWithTurn{grid-template-columns:minmax(0,1fr) minmax(64px,100px) minmax(0,1fr);gap:.3rem;align-items:center}
+.fleetBoardsWithTurn article{align-self:center}
+.fleetBoardsWithTurn>.fleetTurnBanner,#fleetGuest .fleetBoardsWithTurn>.fleetTurnBanner,
+#game[data-mode=fleet] .fleetBoardsWithTurn>.fleetTurnBanner{
+  display:block;box-sizing:border-box;width:100%;margin:0;padding:.35rem .2rem;
+  font-size:clamp(.7rem,1.6vmin,.9rem);line-height:1.2;border-width:1px;border-radius:6px;
+  text-align:center;overflow-wrap:anywhere
+}
+#game[data-mode=fleet]:has(.fleetBoardsWithTurn) #turn{display:none}
+#game[data-mode=fleet] .fleetBoards article{max-width:min(100%,48dvh,23rem)}
+#fleetGuest .fleetBoards article{max-width:min(100%,48dvh,22rem)}
+#fleetGuest .fleetBoardsWithTurn .fleetBoardRole,
+#game[data-mode=fleet] .fleetBoardsWithTurn .fleetBoardRole{display:none}
+@media(max-width:480px){
+  #fleetGuest[data-team] .fleetBoardsWithTurn{grid-template-columns:minmax(0,1fr)}
+  #fleetGuest[data-team] .fleetBoardsWithTurn>.fleetTurnBanner{width:fit-content;max-width:100%;padding:.2rem .6rem;justify-self:center}
 }
 </style>
 <main id="arenaMain">
@@ -604,7 +623,7 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
-<script src="fleet.js?v=shot-effects-1"></script>
+<script src="fleet.js?v=between-boards-1"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
