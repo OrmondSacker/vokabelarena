@@ -376,6 +376,11 @@ button.gameTile .fleetCover{
 .fleetGrid:has(.fleetHintFrame) .sea.hint{border-color:#70acc22e;box-shadow:inset 0 0 0 1px #f3d97422}
 .fleetGrid .fleetHintFrame{position:absolute;inset:0;z-index:2;aspect-ratio:auto;pointer-events:none;border:2px dashed var(--hint-color);border-radius:4px}
 .fleetGrid .sea[data-salvo-area]{z-index:3}
+.fleetLanHelp{margin:.65rem 0;padding:.75rem;background:#14293f;border:1px solid #426685;border-radius:.55rem}
+.fleetLanHelp p{margin:0 0 .4rem}
+.fleetServerLink,.fleetPackageLink{display:inline-block;margin:.22rem .45rem .22rem 0;color:#b8f4ff}
+.fleetServerLink{padding:.42rem .7rem;border-radius:8px;background:#82dfdd;color:#102238;font-weight:800;text-decoration:none}
+.fleetLanHelp a:focus-visible{outline:2px solid white;outline-offset:2px}
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -438,7 +443,12 @@ sich erinnern;remember</textarea></label>
 <li>Eine falsche Antwort beendet den Zug und gibt dem Gegner einen Suchhinweis auf ein ungetroffenes Schiffssegment. Weitere Fehler verkleinern den Bereich von 5×5 über 4×4 und 3×3 auf 2×2. Bleibt ein 2×2-Hinweis offen, kann ein weiterer Fehler einen neuen Suchbereich öffnen. Ein Rahmen verschwindet, sobald darin kein ungetroffenes Schiffssegment mehr liegt.</li>
 <li>Nach drei eigenen richtigen Antworten in Folge ist eine 2×2-Salve verfügbar. Es kann höchstens eine gespeichert werden. Sie kann nach einer richtigen Antwort eingesetzt werden. Das obere linke Feld wählen, die vier markierten Felder prüfen und dasselbe Startfeld erneut wählen, um zu feuern. Bereits ausgewertete Felder werden übersprungen.</li>
 <li>Sind alle Felder eines Schiffs getroffen, gilt es als versenkt. Nachbarfelder zeigen freies Wasser. Wer zuerst die gesamte gegnerische Flotte versenkt, gewinnt.</li>
-</ul></details><p id="fleetLanHelp" hidden>Öffne die Moderationsadresse des lokalen Vokabelarena-Servers. Die Teamgeräte erhalten eigene Links.</p></div><div id="footballOptions"><div class="options"><label>Team 1 <input id="team1" maxlength="40" placeholder="Team 1"></label><label>Team 2 <input id="team2" maxlength="40" placeholder="Team 2"></label></div><label id="footballGoal">Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><fieldset id="catapultRules" hidden><legend>Katapultduell</legend>
+</ul></details><div id="fleetLanHelp" class="fleetLanHelp" hidden>
+<p><strong>Schul-WLAN am Lehrkraft-PC</strong></p>
+<p>Einmal das Spielpaket entpacken. Starte dann <strong>Vokabelarena starten.cmd</strong> per Doppelklick. Die Moderation öffnet sich automatisch.</p>
+<a class="fleetServerLink" href="http://127.0.0.1:8088/moderation" target="_blank" rel="noopener">Laufenden Server öffnen ↗</a>
+<a class="fleetPackageLink" href="https://github.com/OrmondSacker/vokabelarena/archive/refs/heads/main.zip">Windows-Spielpaket herunterladen</a>
+</div></div><div id="footballOptions"><div class="options"><label>Team 1 <input id="team1" maxlength="40" placeholder="Team 1"></label><label>Team 2 <input id="team2" maxlength="40" placeholder="Team 2"></label></div><label id="footballGoal">Spielziel <select id="goals"><option>1</option><option selected>2</option><option>3</option></select> Tore</label></div><fieldset id="catapultRules" hidden><legend>Katapultduell</legend>
 <label>Gewinnsätze <select id="catapultSets"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
 <label><input type="checkbox" id="catapultUseClass"> Schülerinnen und Schüler automatisch aufrufen</label>
 <div id="catapultClassSetup" hidden>
@@ -2247,5 +2257,9 @@ el("deckImport").onchange = async event => {
 };
 
 Fleet.openGuest();
+if (new URLSearchParams(location.hash.slice(1)).has("fleetHost")) {
+  el("mode").value = "fleet";
+  setupMode();
+}
 </script>
 </html>
