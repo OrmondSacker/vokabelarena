@@ -441,7 +441,7 @@ const Fleet = (() => {
       }
       return;
     }
-    const shooting = match.phase==="shot" && match.review<0;
+    const shooting = match.phase==="shot" && match.review<0 && !isComputerTurn();
     const active=match, team=state.team, revision=match.revision;
     const fireShot=cell=>{
       if (match===active && match.revision===revision) shoot(team,cell,match.wide);
@@ -567,6 +567,15 @@ const Fleet = (() => {
       advance();
     }
     sync();
+    if (isComputerTurn() && match.phase==="shot") {
+      const active=match,revision=match.revision;
+      scheduleComputerStep(()=>{
+        if (match!==active || match.phase!=="shot" || match.revision!==revision) return;
+        const wide=match.salvos[1],view=boardView(match.boards[0],false);
+        const cell=computerTarget(view,state.computer,wide);
+        if (cell!==null) shoot(1,cell,wide);
+      });
+    }
   }
 
   function advance(keepTurn=false) {
@@ -575,6 +584,34 @@ const Fleet = (() => {
     match.wide=false;
     el("next").hidden=false;
     el("next").focus();
+    queueComputerQuestion();
+  }
+
+  function computerTarget(view,level,wide) {
+    const score=cell=>{
+      if (view.visible[cell]) return 0;
+      const row=Math.floor(cell/size),col=cell%size;
+      const adjacent=[cell-size,cell+size,...(col ? [cell-1] : []),...(col<size-1 ? [cell+1] : [])];
+      let value=1;
+      if (level!=="easy") {
+        value+=Number(view.hint.includes(cell))*6;
+        value+=adjacent.filter(n=>view.visible[n]==="hit").length*20;
+        value+=Number((row+col)%2===0);
+      }
+      return value;
+    };
+    const candidates=[];
+    for (let cell=0;cell<size*size;cell++) {
+      const row=Math.floor(cell/size),col=cell%size;
+      if (wide && (row>=size-1 || col>=size-1)) continue;
+      const cells=wide ? area(row,col,2) : [cell];
+      if (!cells.some(n=>!view.visible[n])) continue;
+      candidates.push({cell,value:cells.reduce((sum,n)=>sum+score(n),0)});
+    }
+    if (!candidates.length) return null;
+    const best=Math.max(...candidates.map(item=>item.value));
+    const options=candidates.filter(item=>item.value===best);
+    return options[Math.floor(Math.random()*options.length)].cell;
   }
 
   function shoot(team,cell,wide) {
@@ -659,6 +696,10 @@ const Fleet = (() => {
     el("turn").textContent="";
     el("feedback").textContent="";
     state.pending=false;
+    if (state.computer) {
+      active.boards[1].ships=randomFleet();
+      active.placing=true;
+    }
     if (network==="local") {
       active.channelName="fleet-"+Date.now()+"-"+Math.random().toString(36).slice(2);
       channel=new BroadcastChannel(active.channelName);
@@ -679,6 +720,7 @@ const Fleet = (() => {
   }
 
   function close() {
+    cancelComputerStep();
     if (!match) return;
     channel?.postMessage({closed:true});
     channel?.close();
