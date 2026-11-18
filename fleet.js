@@ -15,6 +15,7 @@ const Fleet = (() => {
   let match, channel, timer, guestTimer;
   let sending = false;
   let lastGuestFrame = "";
+  let heardShotSound=null;
 
   const make = (tag,text) => {
     const element = document.createElement(tag);
@@ -535,11 +536,17 @@ const Fleet = (() => {
   }
   let shownShotEffect = null;
   function showShotEffect(shot) {
+    const sound=shot?.sound;
+    if(sound && sound.id!==heardShotSound) {
+      heardShotSound=sound.id;
+      if(sound.until>Date.now()) {window.ArenaAudio?.play("cannon");if(sound.water)window.ArenaAudio?.play("splash");}
+    }
     const effect=shot?.effect;
     if (!effect || effect.id===shownShotEffect) return;
     shownShotEffect=effect.id;
     const remaining=effect.until-Date.now();
     if (remaining<=0) return;
+    window.ArenaAudio?.play(effect.kind==="sunk" ? "sunk" : "shipHit");
     document.getElementById("fleetShotEffect")?.remove();
     const overlay=make("div");
     overlay.id="fleetShotEffect";
@@ -709,7 +716,7 @@ const Fleet = (() => {
         kind,language:english ? "en" : "de",until:Date.now()+3200,
         text:sunk.length ? (english ? "Sunk!" : "Versenkt!") : (english ? "Hit!" : "Treffer!")};
     }
-    match.lastShot={board:1-team,cells:firedArea,result:report+sunkReport,effect};
+    match.lastShot={board:1-team,cells:firedArea,result:report+sunkReport,effect,sound:{id:match.channelName+"-"+Date.now()+"-"+match.revision,water:!hits,until:Date.now()+10000}};
     el("feedback").textContent=report+sunkReport+
       (hits && ![...occupied].every(n=>board.shots.has(n)) ? " · Das Team bleibt dran und bekommt eine neue Frage." : "");
     el("answerKey").hidden=true;
