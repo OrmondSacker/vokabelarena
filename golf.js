@@ -12,6 +12,27 @@ const Golf = (() => {
       targets:[{x:350,y:350},{x:650,y:350},{x:790,y:235}],walls:[],
       water:[{x:410,y:145,w:150,h:155},{x:410,y:400,w:150,h:115}]}
   ];
+  courses.push(
+    {name:"Der Felsentunnel",par:2,kind:"shortcut",tee:{x:150,y:330},hole:{x:790,y:330},
+      targets:[{x:355,y:455},{x:650,y:455},{x:790,y:330}],walls:[{x:445,y:145,w:65,h:168},{x:445,y:347,w:65,h:72}],water:[],
+      description:"Vor der Serie wählen: sicher unten um den Felsen (drei Etappen) oder direkt durch den engen Tunnel. Im Tunnel kostet fehlende Zielkontrolle leicht den ganzen Fortschritt."},
+    {name:"Das Sternenportal",par:2,kind:"portal",tee:{x:150,y:410},hole:{x:790,y:235},
+      targets:[{x:360,y:390},{x:790,y:235}],walls:[],water:[],portal:{entry:{x:360,y:390},exit:{x:655,y:235}},
+      description:"Investiere zwei Punkte in die Portalenergie. Trifft der Ball das violette Portal, erscheint er beim blauen Portal. Die übrigen Punkte steuern den Anflug. Ohne Aktivierung bleibt der Ball vor dem Portal."},
+    {name:"Die Förderwerft",par:2,kind:"conveyor",tee:{x:150,y:350},hole:{x:790,y:235},
+      targets:[{x:660,y:350},{x:790,y:235}],walls:[],water:[],belt:{x:300,y:310,w:330,h:80},
+      description:"Vor der Serie sanftes Band oder Express wählen. Das Band trägt den Ball automatisch zum Ausgang. Express beschleunigt stärker: Ein ungenauer Anflug und fehlende Dosierung wirken sich anders aus. Punkte auf Spurhaltung und Ausstieg verteilen."}
+  );
+  const themes={bank:["#183c33","#4f845b","#71aa71","#a1cf86"],windmill:["#354c63","#6ca186","#83b49a","#d3d8b5"],water:["#0c4052","#5aab9b","#71bba6","#d6bd7c"],shortcut:["#472d35","#b8875b","#c59869","#e9c08b"],portal:["#171a41","#53628d","#6376a1","#afa9ef"],conveyor:["#263e4a","#688d80","#80a493","#c4ae79"]};
+  function currentCourse() {
+    const base=courses[game.order[game.hole]],ball=game.balls[state.team];
+    if(base.kind==="shortcut" && ball?.route==="tunnel") return {...base,targets:[base.hole]};
+    if(base.kind==="conveyor") return {...base,belt:{...base.belt,direction:1,drive:ball?.route==="express" ? 360 : 200}};
+    return base;
+  }
+  function pointCaps(course,ball,total) {
+    return course.kind==="portal" && ball.stage===0 ? [Math.min(2,total),Math.max(0,total-2)] : [Math.ceil(total/2),Math.floor(total/2)];
+  }
   let game=null,frameId=null;
   const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -23,7 +44,7 @@ const Golf = (() => {
   }
   function simulate(course,ball,angle,speed,options={}) {
     let x=ball.x,y=ball.y,vx=Math.cos(angle)*speed,vy=Math.sin(angle)*speed;
-    let bounces=0,water=false,rescued=false,holed=false,crossing=null,time=0,travel=0;
+    let bounces=0,water=false,rescued=false,holed=false,crossing=null,time=0,travel=0,portalUsed=false;
     const samples=options.record ? [{x,y,time:0,speed,travel:0}] : [];
     function collide(rect) {
       const nearestX=clamp(x,rect.x,rect.x+rect.w),nearestY=clamp(y,rect.y,rect.y+rect.h);
@@ -62,6 +83,11 @@ const Golf = (() => {
         if(options.safety){x=previous.x;y=previous.y;rescued=true;}
         vx=0;vy=0;
       }
+      const onBelt=course.belt && x>course.belt.x && x<course.belt.x+course.belt.w && y>course.belt.y && y<course.belt.y+course.belt.h;
+      if(onBelt) vx+=(course.belt.direction ?? 1)*(course.belt.drive ?? 200)*step;
+      if(options.portalActive && course.portal && distance({x,y},course.portal.entry)<22 && !portalUsed) {
+        x=course.portal.exit.x;y=course.portal.exit.y;vx=0;vy=0;portalUsed=true;
+      }
       const velocity=Math.hypot(vx,vy);
       if(!water && options.capture && distance({x,y},course.hole)<13 && velocity<145) {
         x=course.hole.x;y=course.hole.y;vx=0;vy=0;holed=true;
@@ -71,9 +97,9 @@ const Golf = (() => {
       vx*=factor;vy*=factor;
       travel+=distance(previous,{x,y});
       if(options.record) samples.push({x,y,time,speed:reduced,travel});
-      if(water || holed || reduced<2) break;
+      if(water || holed || portalUsed || (reduced<2 && !onBelt)) break;
     }
-    return {x,y,time,bounces,water,rescued,holed,crossing,samples};
+    return {x,y,time,bounces,water,rescued,holed,crossing,samples,portalUsed};
   }
   function planShot(course,ball) {
     const target=course.targets[ball.stage],putting=ball.stage===course.targets.length-1;
@@ -125,39 +151,44 @@ const Golf = (() => {
     const effective=Math.min(total,correct+Number(joker==="precision"));
     const quality=effective/total,error=1-quality,sign=ball.shots%2===0 ? 1 : -1;
     const plan=planShot(course,ball);
-    const caps=[Math.ceil(total/2),Math.floor(total/2)];
+    const caps=pointCaps(course,ball,total);
     const first=allocation ? allocation[0]/caps[0] : quality;
     const second=allocation ? (caps[1] ? allocation[1]/caps[1] : 1) : quality;
-    const direction=course.kind==="windmill" && !plan.putting ? quality : first;
-    const angle=plan.angle+sign*(1-direction)*.3;
+    const direction=course.kind==="portal" && ball.stage===0 ? second : course.kind==="windmill" && !plan.putting ? quality : first;
+    const angle=plan.angle+sign*(1-direction)*(course.kind==="shortcut" && course.targets.length===1 ? .55 : .3);
     const speed=plan.speed*(1+(plan.putting || course.kind==="water" ? sign : -1)*(1-second)*.55);
     const phase=plan.phase+(1-(course.kind==="windmill" ? first : quality))*.8;
-    const flight=simulate(course,ball,angle,speed,{record:true,capture:plan.putting,phase,safety:joker==="safety"});
+    const portalActive=course.kind==="portal" && ball.stage===0 && allocation?.[0]>=2;
+    const flight=simulate(course,ball,angle,speed,{record:true,capture:plan.putting,phase,safety:joker==="safety",portalActive});
     const factor=plan.putting ? "Schlagstärke" : course.kind==="windmill" ? "Timing" : "Richtung";
     const ideal=plan.putting ? .3 : factor==="Timing" ? .5 : .7;
     const needle=clamp(ideal+sign*(1-quality)*.36,.035,.965);
     const penalty=flight.water && !flight.rescued ? 1 : 0;
     const position=penalty ? {x:ball.x,y:ball.y} : {x:flight.x,y:flight.y};
     let stage=ball.stage;
-    if(!flight.water && distance(position,plan.target)<65 && !plan.putting) stage++;
+    if(!flight.water && distance(position,plan.target)<65 && !plan.putting && !(course.kind==="portal" && ball.stage===0)) stage++;
+    if(flight.portalUsed) stage=1;
     let message=flight.holed ? "Eingelocht!" : quality===1 ? "Ideal getroffen. Der Ball rollt in die geplante Position." : "Der Ball kommt zum Liegen.";
     if(plan.putting && !flight.holed) message=sign>0 ? "Zu kräftig oder seitlich versetzt: Der Ball verfehlt das Loch." : "Zu sanft oder seitlich versetzt: Der Putt bleibt liegen.";
     if(course.kind==="windmill" && !plan.putting && flight.x<course.gate.x && flight.bounces) message="Timing verpasst: Die Windmühle lässt den Ball abprallen.";
+    if(flight.portalUsed) message="Portal aktiviert! Der Ball erscheint auf dem Sternengrün.";
+    else if(course.kind==="portal" && ball.stage===0) message=portalActive ? "Portal aufgeladen, aber der Anflug verfehlt den Eingang." : "Portal nicht aktiviert. Für den Transport müssen zwei Punkte in Portalenergie investiert werden.";
     if(penalty) message="Im Wasser. Zurück zur vorherigen Position, plus ein Strafschlag.";
     if(flight.rescued) message="Sicherheitsball ausgelöst: vor dem Wasser gestoppt, kein Strafschlag.";
     return {effective,quality,plan,angle,speed,phase,flight,factor,ideal,needle,penalty,position,stage,message,joker,correct,total};
   }
 
-  function start(total) {
+  function start(total,choice=el("golfCourseSelect").value) {
     close();
     game={owner:state,maximum:total===7 ? 7 : 5,total:total===7 ? 7 : 5,hole:0,asked:0,correct:0,answers:[],busy:false,done:false,
       selected:[null,null],jokers:[{precision:true,safety:true},{precision:true,safety:true}],
       scores:[0,0],history:[],balls:[],animation:null,lastSummary:""};
+    game.order=choice==="all" ? courses.map((_,i)=>i) : choice==="classic" ? [0,1,2] : [Math.max(0,Math.min(courses.length-1,Number(choice)||0))];
     beginHole();
   }
   function beginHole() {
-    const course=courses[game.hole];
-    game.balls=[0,1].map(()=>({...course.tee,stage:0,holed:false,shots:0}));
+    const course=courses[game.order[game.hole]];
+    game.balls=[0,1].map(()=>({...course.tee,stage:0,holed:false,shots:0,route:"safe"}));
     state.team=game.hole%2;
     game.done=false;
     el("golfNextHole").hidden=true;
@@ -169,9 +200,10 @@ const Golf = (() => {
   function prepareBlock() {
     game.asked=0;game.correct=0;game.answers=[];game.busy=false;game.animation=null;game.allocating=false;game.allocation=null;
     el("golfAllocation").hidden=true;el("golfGauge").hidden=false;el("golfJokerInfo").hidden=false;
-    const course=courses[game.hole],ball=game.balls[state.team];
+    const course=currentCourse(),ball=game.balls[state.team];
     game.total=blockSize(course,ball,game.maximum);
     game.selected[state.team]=null;
+    updateRouteControls();
     game.preview=planShot(course,ball);
     game.previewPath=simulate(course,ball,game.preview.angle,game.preview.speed,{ignoreGate:true,capture:game.preview.putting,record:true}).samples;
     const factor=game.preview.putting ? "Schlagstärke" : course.kind==="windmill" ? "Timing" : "Richtung";
@@ -185,8 +217,10 @@ const Golf = (() => {
   }
   function sync() {
     if(!game || game.owner!==state) return;
-    const course=courses[game.hole],team=state.team,joker=game.selected[team];
-    el("score").textContent="Bahn "+(game.hole+1)+"/3 · "+course.name+" · Par "+course.par;
+    const course=currentCourse(),team=state.team,joker=game.selected[team];
+    el("score").textContent="Bahn "+(game.hole+1)+"/"+game.order.length+" · "+course.name+" · Par "+course.par;
+    el("golfRoute").hidden=game.done;
+    for(const id of ["golfRouteA","golfRouteB"]) el(id).disabled=game.busy || game.asked>0 || isComputerTurn();
     el("golfSeries").textContent=game.correct+"/"+game.total+" richtig · "+game.asked+"/"+game.total+" beantwortet · "+game.answers.map(value=>value ? "✓" : "×").join(" ");
     el("golfShotSummary").textContent=game.lastSummary;
     for(const [type,id,stock] of [["precision","golfPrecision","golfPrecisionStock"],["safety","golfSafety","golfSafetyStock"]]) {
@@ -208,7 +242,7 @@ const Golf = (() => {
   function chooseJoker(type) {
     return; // Minigolf is played without consumable jokers.
     if(!game || game.busy || game.done || game.asked || isComputerTurn() || !game.jokers[state.team][type]) return;
-    if(type==="safety" && !courses[game.hole].water.length) return;
+    if(type==="safety" && !currentCourse().water.length) return;
     game.selected[state.team]=game.selected[state.team]===type ? null : type;
     sync();
   }
@@ -225,7 +259,10 @@ const Golf = (() => {
   }
 
   function allocationNames(course,ball) {
-    return ball.stage===course.targets.length-1 ? ["Zielgenauigkeit","Dosierung"]
+    return course.kind==="portal" && ball.stage===0 ? ["Portalenergie (2 zum Aktivieren)","Anflugkontrolle"]
+      : course.kind==="shortcut" && course.targets.length===1 ? ["Tunnelgenauigkeit","Bremskontrolle"]
+      : course.kind==="conveyor" && ball.stage===0 ? ["Spur auf dem Förderband","Dosierung am Ausgang"]
+      : ball.stage===course.targets.length-1 ? ["Zielgenauigkeit","Dosierung"]
       : course.kind==="windmill" ? ["Timing der Durchfahrt","Schwung nach der Mühle"]
       : course.kind==="water" ? ["Spur auf der Brücke","Bremskontrolle"]
       : ["Bandenwinkel","Schwung nach der Bande"];
@@ -234,7 +271,7 @@ const Golf = (() => {
     game.allocating=true;game.busy=true;
     el("golfGauge").hidden=true;el("golfJokerInfo").hidden=true;
     game.allocation=[0,0];
-    const caps=[Math.ceil(game.total/2),Math.floor(game.total/2)];
+    const caps=pointCaps(currentCourse(),game.balls[state.team],game.total);
     // Start with a balanced, fully spent allocation; every point can be reassigned.
     for(let i=0;i<game.correct;i++) {
       const slot=game.allocation[0]/caps[0] <= (caps[1] ? game.allocation[1]/caps[1] : 1) && game.allocation[0]<caps[0] ? 0 : 1;
@@ -243,12 +280,13 @@ const Golf = (() => {
     el("next").hidden=true;el("editGameVocabulary").hidden=true;
     el("word").textContent="Schlag planen";
     el("answerKey").hidden=true;
+    if(isComputerTurn() && currentCourse().kind==="portal" && game.balls[state.team].stage===0 && game.correct>=2) game.allocation=[2,game.correct-2];
     updateAllocation();
     if(isComputerTurn()) swing();
   }
   function updateAllocation() {
     if(!game?.allocating) return;
-    const course=courses[game.hole],ball=game.balls[state.team],caps=[Math.ceil(game.total/2),Math.floor(game.total/2)];
+    const course=currentCourse(),ball=game.balls[state.team],caps=pointCaps(course,ball,game.total);
     const names=allocationNames(course,ball),spent=game.allocation[0]+game.allocation[1];
     el("golfAllocation").hidden=false;
     el("golfPoints").textContent=(game.correct-spent)+" von "+game.correct+" Punkten frei · 1 richtige Antwort = 1 Punkt";
@@ -261,7 +299,7 @@ const Golf = (() => {
     const shot=makeShot(course,ball,game.correct,game.total,null,game.allocation);
     game.previewPath=shot.flight.samples;
     game.allocationLanding=shot.flight;
-    const consequence=shot.penalty ? "Wasser: Rückkehr und ein Strafschlag."
+    const consequence=shot.flight.portalUsed ? "Portaltransport zum Sternengrün." : shot.penalty ? "Wasser: Rückkehr und ein Strafschlag."
       : shot.flight.holed ? "Der Ball wird eingelocht."
       : "Voraussichtliche Reststrecke: "+Math.round(remainingRoute(course,{...shot.position,stage:shot.stage}))+".";
     el("golfAllocationEffect").textContent=consequence+" Gelbe Linie: dein Schlag. Orange: Landepunkt.";
@@ -272,13 +310,13 @@ const Golf = (() => {
   }
   function changeAllocation(slot,delta) {
     if(!game?.allocating || isComputerTurn()) return;
-    const caps=[Math.ceil(game.total/2),Math.floor(game.total/2)],spent=game.allocation[0]+game.allocation[1];
+    const course=currentCourse(),ball=game.balls[state.team],caps=pointCaps(course,ball,game.total),spent=game.allocation[0]+game.allocation[1];
     if(game.allocation[slot]+delta<0 || game.allocation[slot]+delta>caps[slot] || spent+delta>game.correct) return;
     game.allocation[slot]+=delta;updateAllocation();
   }
 
   function swing() {
-    const team=state.team,ball=game.balls[team],course=courses[game.hole],joker=game.selected[team];
+    const team=state.team,ball=game.balls[team],course=currentCourse(),joker=game.selected[team];
     const shot=makeShot(course,ball,game.correct,game.total,joker,game.allocation);
     game.allocating=false;el("golfAllocation").hidden=true;el("golfGauge").hidden=false;el("golfJokerInfo").hidden=false;
     if(joker) game.jokers[team][joker]=false;
@@ -355,7 +393,7 @@ const Golf = (() => {
       el("editGameVocabulary").hidden=true;
       el("word").textContent="Bahn abgeschlossen";
       el("turn").textContent=state.teamNames.map((name,index)=>name+": "+game.balls[index].shots).join(" · ");
-      if(game.hole===courses.length-1) {
+      if(game.hole===game.order.length-1) {
         const tie=game.scores[0]===game.scores[1],winner=game.scores[0]<game.scores[1] ? 0 : 1;
         const message=tie ? "Unentschieden!" : state.teamNames[winner]+" gewinnt!";
         el("word").textContent=message;
@@ -380,21 +418,48 @@ const Golf = (() => {
     el("golfJokers").hidden=true;el("golfNextHole").hidden=true;
   }
   function nextHole() {
-    if(!game || !game.done || game.hole>=courses.length-1) return;
+    if(!game || !game.done || game.hole>=game.order.length-1) return;
     game.hole++;beginHole();
   }
+
+  function updateRouteControls() {
+    const course=currentCourse(),ball=game.balls[state.team];
+    el("golfCourseInfo").textContent=course.description ?? (course.kind==="bank" ? "Verteile Punkte auf Bandenwinkel und verbleibenden Schwung." : course.kind==="windmill" ? "Verteile Punkte auf Durchfahrtszeitpunkt und Schwung." : "Halte die Spur über die Brücke und bremse rechtzeitig.");
+    const selectable=(course.kind==="shortcut" || course.kind==="conveyor") && ball.stage===0;
+    el("golfRouteButtons").hidden=!selectable;
+    el("golfRouteA").textContent=course.kind==="shortcut" ? "Sicher außen herum" : "Sanftes Förderband";
+    el("golfRouteB").textContent=course.kind==="shortcut" ? "Abkürzung durch Tunnel" : "Expressband";
+    el("golfRouteA").setAttribute("aria-pressed",String(ball.route==="safe"));
+    el("golfRouteB").setAttribute("aria-pressed",String(ball.route!=="safe"));
+  }
+  function chooseRoute(alternate) {
+    if(!game || game.busy || game.asked || isComputerTurn()) return;
+    const ball=game.balls[state.team],course=currentCourse();
+    if(ball.stage!==0 || !["shortcut","conveyor"].includes(course.kind)) return;
+    ball.route=alternate ? (course.kind==="shortcut" ? "tunnel" : "express") : "safe";
+    prepareBlock();sync();
+  }
+
   function bind() {
     const options=el("golfOptions");
+    const picker=document.createElement("label");picker.textContent="Bahnen ";
+    const select=document.createElement("select");select.id="golfCourseSelect";
+    select.innerHTML='<option value="all">Durchlauf · alle sechs Bahnen</option><option value="classic">Klassiker · bisherige drei Bahnen</option>'+courses.map((c,i)=>'<option value="'+i+'">Einzelbahn · '+c.name+'</option>').join("");
+    picker.append(select);options.prepend(picker);
+    const route=document.createElement("section");route.id="golfRoute";
+    route.innerHTML='<small id="golfCourseInfo"></small><div id="golfRouteButtons" hidden><button type="button" id="golfRouteA"></button><button type="button" id="golfRouteB"></button></div>';
+    el("golfGauge").before(route);
+    el("golfRouteA").onclick=()=>chooseRoute(false);el("golfRouteB").onclick=()=>chooseRoute(true);
     const label=el("golfQuestions").parentElement;
     label.firstChild.textContent="Vokabeln beim ersten Schlag ";
-    options.querySelector("details").innerHTML='<summary>Spielregeln</summary><p>Zwei Teams spielen drei Bahnen. Der erste Schlag beginnt mit fünf oder sieben Vokabeln. Danach entscheidet die verbleibende spielbare Strecke über die Abfrage: bis 80 Streckeneinheiten eine Vokabel, bis 200 zwei, bis 350 drei, darüber fünf oder sieben. Hindernisse und nötige Umwege zählen mit. Die Anzahl steht vor jeder Serie fest.</p><p>Mehr richtige Antworten verbessern Richtung, Stärke und Timing. Alle Antworten richtig ergeben den idealen Schlag. Ein kurzer Putt mit einer Vokabel gelingt bei richtiger Antwort und verfehlt bei falscher Antwort das Loch. Es gibt keine verbrauchbaren Joker. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p>';
+    options.querySelector("details").innerHTML='<summary>Spielregeln</summary><p>Zwei Teams spielen eine ausgewählte Einzelbahn, die bisherigen drei Bahnen oder alle sechs Bahnen im Durchlauf. Der erste Schlag beginnt mit fünf oder sieben Vokabeln. Danach entscheidet die verbleibende spielbare Strecke über die Abfrage: bis 80 Streckeneinheiten eine Vokabel, bis 200 zwei, bis 350 drei, darüber fünf oder sieben. Hindernisse und nötige Umwege zählen mit. Die Anzahl steht vor jeder Serie fest.</p><p>Mehr richtige Antworten verbessern Richtung, Stärke und Timing. Alle Antworten richtig ergeben den idealen Schlag. Ein kurzer Putt mit einer Vokabel gelingt bei richtiger Antwort und verfehlt bei falscher Antwort das Loch. Es gibt keine verbrauchbaren Joker. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p>';
     el("golfJokers").style.display="none";
     const panel=document.createElement("section");
     panel.id="golfAllocation";panel.hidden=true;
     panel.innerHTML='<strong id="golfPoints"></strong>'+[0,1].map(i=>'<div id="golfRow'+i+'" class="golfPointRow"><span id="golfProperty'+i+'"></span><button type="button" id="golfMinus'+i+'" aria-label="Punkt entfernen">−</button><button type="button" id="golfPlus'+i+'" aria-label="Punkt hinzufügen">+</button></div>').join("")+'<small id="golfAllocationEffect"></small><button type="button" id="golfLaunch">Schlagen</button>';
     el("golfJokers").before(panel);
     const style=document.createElement("style");
-    style.textContent='#golfAllocation[hidden]{display:none!important}#golfAllocation{flex:none;padding:.5rem;border:1px solid #8da89b;border-radius:10px;background:#183d3b;color:#fff2cd;display:grid;gap:.3rem;font-size:.8rem}#golfAllocation .golfPointRow{display:flex;align-items:center;gap:.35rem}#golfAllocation .golfPointRow span{flex:1}#golfAllocation button{margin:0;padding:.3rem .65rem;min-height:32px}#golfAllocation small{line-height:1.3}';
+    style.textContent='#golfRoute{flex:none;font-size:.75rem;line-height:1.3;padding:.35rem .5rem;color:#d5e9de}#golfRoute[hidden],#golfRouteButtons[hidden]{display:none!important}#golfRouteButtons{display:flex;gap:.35rem;margin-top:.3rem}#golfRouteButtons button{flex:1;font-size:.75rem;margin:0;padding:.35rem;min-height:32px}#golfRouteButtons button[aria-pressed=true]{background:#ffdc8c;color:#173d3e}#golfAllocation[hidden]{display:none!important}#golfAllocation{flex:none;padding:.5rem;border:1px solid #8da89b;border-radius:10px;background:#183d3b;color:#fff2cd;display:grid;gap:.3rem;font-size:.8rem}#golfAllocation .golfPointRow{display:flex;align-items:center;gap:.35rem}#golfAllocation .golfPointRow span{flex:1}#golfAllocation button{margin:0;padding:.3rem .65rem;min-height:32px}#golfAllocation small{line-height:1.3}';
     document.head.append(style);
     [0,1].forEach(i=>{el("golfMinus"+i).onclick=()=>changeAllocation(i,-1);el("golfPlus"+i).onclick=()=>changeAllocation(i,1);});
     el("golfLaunch").onclick=()=>{if(game?.allocating && game.allocation[0]+game.allocation[1]===game.correct) swing();};
@@ -441,10 +506,11 @@ const Golf = (() => {
   }
   function draw(stage={}) {
     if(!game) return;
-    const ctx=el("golfCanvas").getContext("2d"),course=courses[game.hole],clock=stage.clock ?? 0;
+    const ctx=el("golfCanvas").getContext("2d"),course=currentCourse(),clock=stage.clock ?? 0;
+    const palette=themes[course.kind];
     ctx.clearRect(0,0,960,600);
     const background=ctx.createLinearGradient(0,0,960,600);
-    background.addColorStop(0,"#173d3e");background.addColorStop(1,"#0e292d");
+    background.addColorStop(0,palette[0]);background.addColorStop(1,"#0e292d");
     ctx.fillStyle=background;ctx.fillRect(0,0,960,600);
     // Stable vegetation texture remains stationary while the ball rolls.
     for(let i=0;i<84;i++) {
@@ -453,12 +519,12 @@ const Golf = (() => {
       ctx.beginPath();ctx.ellipse(x,y,3+(i%4),2,0,0,Math.PI*2);ctx.fill();
     }
     ctx.fillStyle="#071f2a66";rounded(ctx,63,141,838,396,31,"#071f2a66");
-    rounded(ctx,66,131,828,398,26,"#b1875b","#ecd6a3");
+    rounded(ctx,66,131,828,398,26,palette[3],"#ecd6a3");
     ctx.lineWidth=4;rounded(ctx,73,138,814,384,20,"#78533b","#dfbc83");
-    rounded(ctx,80,145,800,370,14,"#75b982");
+    rounded(ctx,80,145,800,370,14,palette[1]);
     ctx.save();ctx.beginPath();ctx.roundRect(80,145,800,370,14);ctx.clip();
     for(let x=80;x<880;x+=44) {
-      ctx.fillStyle=(x-80)%88===0 ? "#75b982" : "#6caf7d";
+      ctx.fillStyle=(x-80)%88===0 ? palette[1] : palette[2];
       ctx.fillRect(x,145,44,370);
     }
     for(let i=0;i<230;i++) {
@@ -491,6 +557,32 @@ const Golf = (() => {
       }
       ctx.fillStyle="#f0d9aa";ctx.fillRect(406,294,158,5);ctx.fillRect(406,401,158,5);
     }
+
+    if(course.kind==="shortcut") {
+      ctx.fillStyle="#d7aa7466";
+      for(let i=0;i<28;i++){ctx.beginPath();ctx.ellipse(110+i*27,180+(i*61)%300,12,5,.3,0,Math.PI*2);ctx.fill();}
+      for(const wall of course.walls){rounded(ctx,wall.x-12,wall.y,wall.w+24,wall.h,16,"#765147","#dbb287");
+        for(let y=wall.y+12;y<wall.y+wall.h;y+=30){ctx.strokeStyle="#a47a60";ctx.beginPath();ctx.moveTo(wall.x-6,y);ctx.lineTo(wall.x+wall.w+5,y+8);ctx.stroke();}}
+      rounded(ctx,439,313,77,34,6,"#251e2c","#f3c97b");
+      ctx.fillStyle="#ffe8b2";ctx.font="bold 12px sans-serif";ctx.textAlign="center";ctx.fillText("TUNNEL",477,335);
+    }
+    if(course.belt) {
+      const b=course.belt;rounded(ctx,b.x-5,b.y-6,b.w+10,b.h+12,12,"#253740","#e1b664");
+      rounded(ctx,b.x,b.y,b.w,b.h,8,"#556674");
+      ctx.save();ctx.beginPath();ctx.rect(b.x,b.y,b.w,b.h);ctx.clip();
+      for(let x=b.x-30;x<b.x+b.w+30;x+=28){const moving=x+(clock*35*(b.direction ?? 1))%28;ctx.strokeStyle="#aec6c6";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(moving,b.y+4);ctx.lineTo(moving,b.y+b.h-4);ctx.stroke();}
+      ctx.fillStyle="#ffe09b";ctx.font="bold 30px sans-serif";ctx.textAlign="center";ctx.fillText((b.direction ?? 1)>0 ? "› › › › ›" : "‹ ‹ ‹ ‹ ‹",b.x+b.w/2,b.y+50);ctx.restore();
+    }
+    if(course.portal) {
+      for(const [point,color,label] of [[course.portal.entry,"#df9cff","EINGANG · 2 PUNKTE"],[course.portal.exit,"#8eeeff","AUSGANG"]]) {
+        ctx.fillStyle=color+"22";ctx.beginPath();ctx.ellipse(point.x,point.y,42,30,0,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle=color;ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(point.x,point.y,26,19,0,0,Math.PI*2);ctx.stroke();
+        ctx.save();ctx.translate(point.x,point.y);ctx.rotate(clock);ctx.setLineDash([7,6]);ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,33,0,Math.PI*2);ctx.stroke();ctx.restore();
+        ctx.fillStyle=color;ctx.font="bold 12px sans-serif";ctx.textAlign="center";ctx.fillText(label,point.x,point.y-43);
+      }
+      for(let i=0;i<35;i++){ctx.fillStyle="#ddd9ff88";ctx.fillRect(110+(i*73)%720,165+(i*53)%320,2,2);}
+    }
+
     if((!game.busy || game.allocating) && !game.done && game.previewPath) {
       ctx.strokeStyle="#fff2a058";ctx.lineWidth=2;ctx.setLineDash([5,9]);ctx.beginPath();
       game.previewPath.forEach((point,index)=>{if(index%8===0){if(index===0)ctx.moveTo(point.x,point.y);else ctx.lineTo(point.x,point.y)}});
@@ -498,7 +590,7 @@ const Golf = (() => {
       const target=game.allocating ? game.allocationLanding : course.targets[game.balls[state.team].stage];
       ctx.strokeStyle=game.allocating ? "#ffad54" : "#fff1b9aa";ctx.beginPath();ctx.arc(target.x,target.y,17,0,Math.PI*2);ctx.stroke();
     }
-    for(const wall of course.walls) {
+    for(const wall of course.kind==="shortcut" ? [] : course.walls) {
       rounded(ctx,wall.x+5,wall.y+6,wall.w,wall.h,4,"#163b3b55");
       rounded(ctx,wall.x,wall.y,wall.w,wall.h,4,"#a7b4ab","#dbe1bf");
       ctx.fillStyle="#607e78";ctx.fillRect(wall.x+wall.w-5,wall.y+4,5,wall.h-4);
@@ -554,7 +646,7 @@ const Golf = (() => {
     }
     rounded(ctx,20,16,920,81,13,"#102b36f2","#50776e");
     ctx.textAlign="left";ctx.fillStyle="#fff2cd";ctx.font="bold 25px sans-serif";ctx.fillText(course.name,37,47,330);
-    ctx.font="16px sans-serif";ctx.fillStyle="#c1dace";ctx.fillText("Bahn "+(game.hole+1)+" / 3 · Par "+course.par,38,76);
+    ctx.font="16px sans-serif";ctx.fillStyle="#c1dace";ctx.fillText("Bahn "+(game.hole+1)+" / "+game.order.length+" · Par "+course.par,38,76);
     state.teamNames.forEach((name,index)=>{
       const x=index===0 ? 390 : 665;
       ctx.fillStyle=index===0 ? "#bcecff" : "#ffd1a6";ctx.font="bold 18px sans-serif";ctx.fillText(name,x,46,240);
@@ -564,7 +656,7 @@ const Golf = (() => {
     });
     ctx.fillStyle="#c9e2d7";ctx.font="15px sans-serif";ctx.textAlign="center";
     const caption=game.allocating ? "Verteile deine Punkte und vergleiche die Flugbahn" : game.busy ? "Schlagwertung "+game.correct+"/"+game.total+(stage.joker==="precision" ? " + Präzisionsschläger" : "")
-      : game.done ? "Bahnwertung abgeschlossen" : game.preview.putting ? "Nächster Schlag: dosierter Putt zum Loch"
+      : game.done ? "Bahnwertung abgeschlossen" : course.kind==="portal" && game.balls[state.team].stage===0 ? "Portalenergie und Anflugkontrolle getrennt planen" : course.kind==="shortcut" ? "Route: "+(game.balls[state.team].route==="tunnel" ? "enger Tunnel" : "sicherer Außenweg") : course.kind==="conveyor" ? "Förderband und Ausrollweg einplanen" : game.preview.putting ? "Nächster Schlag: dosierter Putt zum Loch"
       : course.kind==="bank" ? "Nächster Schlag: über die Bande in die freie Position"
       : course.kind==="windmill" ? "Nächster Schlag: im passenden Moment durch die Windmühle"
       : "Nächster Schlag: sicher über die Brücke";
@@ -573,3 +665,4 @@ const Golf = (() => {
   }
   return {start,close,sync,judge,turnLabel,bind,stop};
 })();
+
