@@ -55,6 +55,7 @@ const Golf = (() => {
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   const gateOpen=(time,phase)=>Math.abs(Math.sin(2*(phase+time*1.8)))>.72;
   function close() {
+    window.ArenaAudio?.stop();
     if(frameId!==null) cancelAnimationFrame(frameId);
     frameId=null;
     game=null;
@@ -113,7 +114,7 @@ const Golf = (() => {
       const factor=Math.hypot(vx,vy)>0 ? reduced/Math.hypot(vx,vy) : 0;
       vx*=factor;vy*=factor;
       travel+=distance(previous,{x,y});
-      if(options.record) samples.push({x,y,time,speed:reduced,travel});
+      if(options.record) samples.push({x,y,time,speed:reduced,travel,bounces});
       if(water || holed || portalUsed || (reduced<2 && !onBelt)) break;
     }
     return {x,y,time,bounces,water,rescued,holed,crossing,samples,portalUsed};
@@ -389,12 +390,15 @@ const Golf = (() => {
       el("golfGaugeLabel").textContent=shot.factor+" · "+(shot.quality===1 ? "Perfekte Serie · Schwerpunkt umgesetzt" : shot.needle<shot.ideal ? "Unter dem Ideal" : "Über dem Ideal");
       if(elapsed>=2150 && elapsed<2800) stage.club=(elapsed-2150)/650;
       if(elapsed>=2800) {
+        if(!animation.soundStarted){animation.soundStarted=true;window.ArenaAudio?.play(shot.effective ? "golfClub" : "wrong");}
         const time=(elapsed-2800)/1000,samples=shot.flight.samples;
         const index=Math.min(samples.length-1,Math.floor(time/step));
         const first=samples[index],second=samples[Math.min(index+1,samples.length-1)];
         const mix=clamp((time-first.time)/step,0,1);
         stage.moving={team,x:first.x+(second.x-first.x)*mix,y:first.y+(second.y-first.y)*mix,
           spin:(first.travel+(second.travel-first.travel)*mix)/radius,speed:first.speed,drop:time>shot.flight.time && (shot.flight.holed || shot.penalty) ? clamp((time-shot.flight.time)/.45,0,1) : 0};
+        if(!animation.landingSound && time>=shot.flight.time) {animation.landingSound=true;if(shot.flight.holed)window.ArenaAudio?.play("hole");else if(shot.flight.water)window.ArenaAudio?.play("splash");else if(shot.flight.portalUsed)window.ArenaAudio?.play("portal");}
+        if((first.bounces ?? 0)>(animation.soundBounces ?? 0)){animation.soundBounces=first.bounces;window.ArenaAudio?.play("bounce");}
         stage.clock=time;stage.phase=shot.phase;
         stage.club=time<.3 ? 1+time : null;
         stage.splash=shot.penalty && time>=shot.flight.time ? clamp((time-shot.flight.time)/.5,0,1) : null;
