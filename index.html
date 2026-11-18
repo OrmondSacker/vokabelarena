@@ -798,8 +798,94 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
-<script src="golf.js?v=seven-courses-point-choice-1"></script>
-<script src="fleet.js?v=stable-layout-1"></script>
+<script>
+window.ArenaAudio = (() => {
+  "use strict";
+  const key="vokabelarena.audio.1";
+  let enabled=true,volume=.3,context=null,master=null,noiseBuffer=null;
+  const voices=new Set(),lastPlayed=new Map();
+  try {const saved=JSON.parse(localStorage.getItem(key)??"null");if(saved){enabled=saved.enabled!==false;if(Number.isFinite(saved.volume)) volume=Math.max(0,Math.min(1,saved.volume));}} catch {}
+  const supported=Boolean(window.AudioContext || window.webkitAudioContext);
+  function save(){try{localStorage.setItem(key,JSON.stringify({enabled,volume}));}catch{}}
+  function stop(){for(const node of voices){try{node.stop();}catch{}}voices.clear();lastPlayed.clear();}
+  function unlock() {
+    if(!supported || !enabled) return;
+    try {
+      if(!context || context.state==="closed") {
+        context=new (window.AudioContext || window.webkitAudioContext)();
+        master=context.createGain();master.gain.value=volume*.45;
+        const limiter=context.createDynamicsCompressor();limiter.threshold.value=-12;limiter.ratio.value=8;
+        master.connect(limiter);limiter.connect(context.destination);
+        noiseBuffer=context.createBuffer(1,context.sampleRate,context.sampleRate);
+        const data=noiseBuffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
+      }
+      if(context.state!=="running") context.resume().catch(()=>{});
+    } catch {}
+  }
+  function track(node,end){voices.add(node);node.onended=()=>{voices.delete(node);node.disconnect();};node.stop(end);if(voices.size>48){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}}
+  function tone(frequency,endFrequency,duration,delay=0,type="sine",level=.25) {
+    const at=context.currentTime+delay,osc=context.createOscillator(),gain=context.createGain();
+    osc.type=type;osc.frequency.setValueAtTime(frequency,at);osc.frequency.exponentialRampToValueAtTime(Math.max(20,endFrequency),at+duration);
+    gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(level,at+.008);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    osc.connect(gain);gain.connect(master);osc.start(at);track(osc,at+duration+.03);
+  }
+  function noise(duration,delay=0,frequency=1000,level=.2) {
+    const at=context.currentTime+delay,source=context.createBufferSource(),filter=context.createBiquadFilter(),gain=context.createGain();
+    source.buffer=noiseBuffer;filter.type="lowpass";filter.frequency.value=frequency;
+    gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(level,at+.01);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    source.connect(filter);filter.connect(gain);gain.connect(master);source.start(at);track(source,at+duration+.03);
+  }
+  function melody(notes,spacing=.11,type="triangle") {notes.forEach((note,i)=>tone(note,note,.16,i*spacing,type,.2));}
+  function play(kind) {
+    if(!enabled || volume===0 || !context || context.state!=="running" || document.hidden) return;
+    const now=context.currentTime;if(now-(lastPlayed.get(kind)??-100)<.07)return;lastPlayed.set(kind,now);
+    try {
+      switch(kind) {
+        case "right":melody([520,780],.075);break;
+        case "wrong":tone(190,80,.22,0,"triangle",.24);break;
+        case "kick":noise(.07,0,850,.22);tone(130,50,.09);break;
+        case "goal":noise(.8,0,1900,.13);melody([392,523,659,784],.13);break;
+        case "infect":tone(115,48,.55,0,"sawtooth",.13);tone(122,55,.6,.04,"triangle",.18);noise(.3,.08,450,.12);break;
+        case "bossHit":tone(210,65,.17,0,"square",.12);noise(.14,0,1700,.2);break;
+        case "bossAttack":noise(.32,0,900,.24);tone(85,42,.35,0,"sawtooth",.12);break;
+        case "bonus":melody([440,554,659,880],.08);break;
+        case "launch":tone(150,330,.18,0,"triangle",.15);noise(.18,.02,1600,.15);break;
+        case "impact":noise(.4,0,900,.3);tone(95,32,.32,0,"sine",.35);break;
+        case "repair":melody([330,440,660],.09);break;
+        case "cannon":noise(.16,0,1400,.3);tone(110,35,.22,0,"triangle",.3);break;
+        case "splash":noise(.35,0,2600,.14);tone(380,90,.24,0,"sine",.17);break;
+        case "shipHit":noise(.22,0,1700,.25);tone(145,42,.25,0,"triangle",.3);break;
+        case "sunk":noise(.55,0,1100,.28);melody([220,165,110],.13);break;
+        case "golfClub":noise(.045,0,2700,.12);tone(1100,550,.055,0,"sine",.25);break;
+        case "bounce":tone(400,180,.06,0,"triangle",.14);break;
+        case "hole":tone(700,180,.12);melody([660,880,1100],.1);break;
+        case "portal":tone(180,1300,.45,0,"sine",.18);tone(220,1500,.45,.04,"sine",.15);break;
+        case "win":melody([392,523,659,784,1047],.13);break;
+        case "lose":melody([330,294,220,147],.18);break;
+      }
+    } catch {}
+  }
+  const controls=document.createElement("details");controls.id="arenaAudioControls";
+  const summary=document.createElement("summary"),panel=document.createElement("div"),toggle=document.createElement("button"),label=document.createElement("label"),slider=document.createElement("input");
+  toggle.type="button";slider.type="range";slider.min="0";slider.max="100";slider.step="5";slider.value=String(volume*100);slider.id="arenaVolume";
+  label.htmlFor=slider.id;label.textContent="Lautstärke";panel.append(toggle,label,slider);controls.append(summary,panel);
+  function render(){summary.textContent=!supported ? "Ton nicht verfügbar" : enabled && volume>0 ? "🔊 Ton an" : "🔇 Ton aus";toggle.textContent=enabled ? "Stummschalten" : "Ton einschalten";toggle.setAttribute("aria-pressed",String(enabled));toggle.disabled=!supported;slider.disabled=!supported;}
+  toggle.onclick=()=>{enabled=!enabled;if(!enabled)stop();else unlock();render();save();if(enabled)play("right");};
+  slider.oninput=()=>{volume=Number(slider.value)/100;if(master)master.gain.setValueAtTime(volume*.45,context.currentTime);if(!volume)stop();render();save();};
+  slider.onchange=()=>{unlock();play("right");};
+  document.getElementById("arenaMain").append(controls);
+  const style=document.createElement("style");style.textContent="#arenaAudioControls{position:fixed;right:12px;bottom:10px;z-index:30000;margin:0;border:1px solid #69828f;border-radius:9px;background:#162638;color:#eef6ff;font-size:.8rem;box-shadow:0 3px 14px #0005}#arenaAudioControls summary{padding:.45rem .65rem;cursor:pointer;list-style:none;font-weight:700}#arenaAudioControls>div{display:grid;gap:.5rem;padding:.6rem;width:180px}#arenaAudioControls button{font-size:.8rem;margin:0;padding:.4rem}#arenaAudioControls label{font-size:.8rem}#arenaAudioControls input{width:100%;margin:0;min-width:0}";
+  document.head.append(style);render();
+  document.addEventListener("pointerdown",unlock,{capture:true,passive:true});
+  document.addEventListener("keydown",unlock,{capture:true,passive:true});
+  document.addEventListener("click",event=>{if(event.target.closest?.("#back,#restartGame,#nextSet,#nextBoss"))stop();},{capture:true});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)stop();});
+  window.addEventListener("pagehide",stop);
+  return {play,stop,unlock};
+})();
+</script>
+<script src="golf.js?v=audio-1"></script>
+<script src="fleet.js?v=audio-1"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -909,6 +995,7 @@ function closeGameResult() {
   if (!el("game").hidden) el("back").focus();
 }
 function showGameResult(won,message) {
+  window.ArenaAudio?.stop();window.ArenaAudio?.play(won ? "win" : "lose");
   cancelComputerStep();
   closeGameResult();
   document.getElementById("fleetShotEffect")?.remove();
@@ -1055,6 +1142,7 @@ el("typedAnswer").onsubmit = event => {
 
 function judge(correct) {
   if (!state.pending) return;
+  window.ArenaAudio?.play(correct ? "right" : "wrong");
   if (!correct && state.mode === "boss" && state.protections.delete("retry")) {
     renderBossBonus();
     el("feedback").textContent = "Zweite Chance! Versuche dieselbe Frage noch einmal.";
@@ -1082,6 +1170,7 @@ function judge(correct) {
     animateBoss(true,damage);
     message = (bonus === "double" ? "Doppeltreffer! " : "Treffer! ") + "Der Boss verliert " + damage + " LP.";
     if (bonus) {
+      window.ArenaAudio?.play("bonus");
       if (bonus === "heal") {
         state.hearts++;
         message += " Heiltrank: +1 Herz.";
@@ -1151,6 +1240,7 @@ function readVocabulary() {
 }
 
 function startGame(settings) {
+  window.ArenaAudio?.stop();
   const {vocabulary,mode,computer,names,teamNames,players,zombies,rotation,goalLimit,maxRounds,count,setLimit,boss,network,golfQuestions=5,golfCourse}=settings;
   const error=el("error");
   if (mode==="fleet" && !Fleet.canStart(network)) return;
@@ -1388,6 +1478,7 @@ function advanceZombie(correct) {
   } else {
     state.survivors = state.survivors.filter(person => person !== target);
     state.attackers.push(target);
+    window.ArenaAudio?.play("infect");
   }
   state.lastInfected = correct ? null : target;
   const event = correct ? "" : " " + playerName(target) + " wird zum Zombie!";
@@ -1409,7 +1500,7 @@ function judgeTeam(correct, solution) {
   let result = "";
   let event = "";
   if (state.mode === "football") {
-    if (correct) state.ball += state.team === 0 ? 1 : -1;
+    if (correct) {window.ArenaAudio?.play("kick");state.ball += state.team === 0 ? 1 : -1;}
     if (state.ball === 0 || state.ball === 6) {
       state.goals[state.team]++;
       flashGoal();
@@ -1734,11 +1825,13 @@ function judgeCatapult(correct, solution) {
     side.rebuilt = true;
     const restored = Math.min(2,castleMaxHp - side.hp);
     side.hp += restored;
+    if(restored) window.ArenaAudio?.play("repair");
     reward = restored ? " Aufbau: +" + restored + " Burgpunkte." : " Die Burg ist bereits intakt.";
   }
   if (side.stones === 5 && !side.earnedDouble) {
     side.earnedDouble = true;
     side.double++;
+    window.ArenaAudio?.play("bonus");
     reward = " Doppelschuss verdient.";
   }
   el("feedback").textContent = "Richtig! +1 Stein." + reward;
@@ -1824,6 +1917,7 @@ el("catapultSave").onclick = () => {
   finishCatapultTurn();
 };
 el("catapultRepair").onclick = () => {
+  window.ArenaAudio?.play("repair");
   const side = state.sides[state.team];
   if (--side.stones === 0) clearStonePile(side);
   side.hp++;
@@ -1988,6 +2082,7 @@ function paintSiege(flight) {
 }
 
 function animateSiege(source,stones,doubled,damage,done) {
+  window.ArenaAudio?.play("launch");
   const count = stones * (doubled ? 2 : 1);
   const spacing = Math.min(.11,.22/Math.max(1,count-1));
   const shots = Array.from({length:count},(_,i) => ({
@@ -1999,6 +2094,7 @@ function animateSiege(source,stones,doubled,damage,done) {
   const land = () => {
     if (landed) return;
     landed = true;
+    window.ArenaAudio?.play("impact");
     state.sides[1-source].hp -= damage;
     renderCatapult(false);
   };
@@ -2603,6 +2699,7 @@ function resetBossEffect() {
   el("bossEffect").hidden = true;
 }
 function animateBoss(correct, damage) {
+  window.ArenaAudio?.play(correct ? "bossHit" : "bossAttack");
   const action = correct ? (state.hp === 0 ? "defeat" : "hit") : "attack";
   el("bossIcon").dataset.action = action;
   const effect = el("bossEffect");
@@ -2610,6 +2707,7 @@ function animateBoss(correct, damage) {
   effect.hidden = false;
 }
 function flashGoal() {
+  window.ArenaAudio?.play("goal");
   el("pitch").querySelector(".goalMessage")?.remove();
   const message = document.createElement("div");
   message.className = "goalMessage";
