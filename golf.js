@@ -21,13 +21,13 @@ const Golf = (() => {
       description:"Investiere zwei Punkte in die Portalenergie. Trifft der Ball das violette Portal, erscheint er beim blauen Portal. Die übrigen Punkte steuern den Anflug. Ohne Aktivierung bleibt der Ball vor dem Portal."},
     {name:"Die Förderwerft",par:2,kind:"conveyor",tee:{x:150,y:350},hole:{x:790,y:235},
       targets:[{x:660,y:350},{x:790,y:235}],walls:[],water:[],belt:{x:300,y:310,w:330,h:80},
-      description:"Vor der Serie sanftes Band oder Express wählen. Das Band trägt den Ball automatisch zum Ausgang. Express beschleunigt stärker: Ein ungenauer Anflug und fehlende Dosierung wirken sich anders aus. Punkte auf Spurhaltung und Ausstieg verteilen."}
+      description:"Das Band zieht den Ball automatisch nach rechts, sobald er darauf liegt. Sanft: zur Zwischenposition am Bandende, danach folgt ein Putt. Express: stärkeres Band und direkter Versuch aufs Loch. Fehlende Spurkontrolle lässt den Ball seitlich vom Band rollen; fehlende Dosierung verändert die Ausrollstrecke."}
   );
   const themes={bank:["#183c33","#4f845b","#71aa71","#a1cf86"],windmill:["#354c63","#6ca186","#83b49a","#d3d8b5"],water:["#0c4052","#5aab9b","#71bba6","#d6bd7c"],shortcut:["#472d35","#b8875b","#c59869","#e9c08b"],portal:["#171a41","#53628d","#6376a1","#afa9ef"],conveyor:["#263e4a","#688d80","#80a493","#c4ae79"]};
   function currentCourse() {
     const base=courses[game.order[game.hole]],ball=game.balls[state.team];
     if(base.kind==="shortcut" && ball?.route==="tunnel") return {...base,targets:[base.hole]};
-    if(base.kind==="conveyor") return {...base,belt:{...base.belt,direction:1,drive:ball?.route==="express" ? 360 : 200}};
+    if(base.kind==="conveyor") return {...base,targets:ball?.route==="express" ? [base.hole] : base.targets,belt:{...base.belt,direction:1,drive:ball?.route==="express" ? 360 : 200}};
     return base;
   }
   function pointCaps(course,ball,total) {
@@ -159,14 +159,17 @@ const Golf = (() => {
     const speed=plan.speed*(1+(plan.putting || course.kind==="water" ? sign : -1)*(1-second)*.55);
     const phase=plan.phase+(1-(course.kind==="windmill" ? first : quality))*.8;
     const portalActive=course.kind==="portal" && ball.stage===0 && allocation?.[0]>=2;
-    const flight=simulate(course,ball,angle,speed,{record:true,capture:plan.putting,phase,safety:joker==="safety",portalActive});
+    const flight=effective===0
+      ? {x:ball.x,y:ball.y,time:.2,bounces:0,water:false,rescued:false,holed:false,portalUsed:false,crossing:null,
+          samples:[{x:ball.x,y:ball.y,time:0,speed:0,travel:0},{x:ball.x,y:ball.y,time:.2,speed:0,travel:0}]}
+      : simulate(course,ball,angle,speed,{record:true,capture:plan.putting,phase,safety:joker==="safety",portalActive});
     const factor=plan.putting ? "Schlagstärke" : course.kind==="windmill" ? "Timing" : "Richtung";
     const ideal=plan.putting ? .3 : factor==="Timing" ? .5 : .7;
     const needle=clamp(ideal+sign*(1-quality)*.36,.035,.965);
     const penalty=flight.water && !flight.rescued ? 1 : 0;
     const position=penalty ? {x:ball.x,y:ball.y} : {x:flight.x,y:flight.y};
     let stage=ball.stage;
-    if(!flight.water && distance(position,plan.target)<65 && !plan.putting && !(course.kind==="portal" && ball.stage===0)) stage++;
+    if(effective>0 && !flight.water && distance(position,plan.target)<65 && !plan.putting && !(course.kind==="portal" && ball.stage===0)) stage++;
     if(flight.portalUsed) stage=1;
     let message=flight.holed ? "Eingelocht!" : quality===1 ? "Ideal getroffen. Der Ball rollt in die geplante Position." : "Der Ball kommt zum Liegen.";
     if(plan.putting && !flight.holed) message=sign>0 ? "Zu kräftig oder seitlich versetzt: Der Ball verfehlt das Loch." : "Zu sanft oder seitlich versetzt: Der Putt bleibt liegen.";
@@ -175,7 +178,8 @@ const Golf = (() => {
     else if(course.kind==="portal" && ball.stage===0) message=portalActive ? "Portal aufgeladen, aber der Anflug verfehlt den Eingang." : "Portal nicht aktiviert. Für den Transport müssen zwei Punkte in Portalenergie investiert werden.";
     if(penalty) message="Im Wasser. Zurück zur vorherigen Position, plus ein Strafschlag.";
     if(flight.rescued) message="Sicherheitsball ausgelöst: vor dem Wasser gestoppt, kein Strafschlag.";
-    return {effective,quality,plan,angle,speed,phase,flight,factor,ideal,needle,penalty,position,stage,message,joker,correct,total};
+    if(effective===0) message="Keine richtige Antwort: Fehlschlag. Der Ball bleibt liegen. Der Versuch zählt als Schlag.";
+    return {effective,quality,plan,angle,speed:effective===0 ? 0 : speed,phase,flight,factor,ideal,needle,penalty,position,stage,message,joker,correct,total};
   }
 
   function start(total,choice=el("golfCourseSelect").value) {
@@ -188,7 +192,7 @@ const Golf = (() => {
   }
   function beginHole() {
     const course=courses[game.order[game.hole]];
-    game.balls=[0,1].map(()=>({...course.tee,stage:0,holed:false,shots:0,route:"safe"}));
+    game.balls=[0,1].map(()=>({...course.tee,stage:0,holed:false,shots:0,pickedUp:false,route:"safe"}));
     state.team=game.hole%2;
     game.done=false;
     el("golfNextHole").hidden=true;
@@ -221,6 +225,8 @@ const Golf = (() => {
     el("score").textContent="Bahn "+(game.hole+1)+"/"+game.order.length+" · "+course.name+" · Par "+course.par;
     el("golfRoute").hidden=game.done;
     for(const id of ["golfRouteA","golfRouteB"]) el(id).disabled=game.busy || game.asked>0 || isComputerTurn();
+    el("golfRouteLock").textContent=el("golfRouteButtons").hidden ? "" : game.busy || game.asked>0 ? "Route für diesen Schlag festgelegt." : "Bis zur ersten gewerteten Antwort änderbar.";
+    el("golfRouteHeading").textContent=el("golfRouteButtons").hidden ? "Bahnaufgabe" : game.busy || game.asked>0 ? "Deine Route für diesen Schlag" : "1 · Route vor der ersten Antwort wählen";
     el("golfSeries").textContent=game.correct+"/"+game.total+" richtig · "+game.asked+"/"+game.total+" beantwortet · "+game.answers.map(value=>value ? "✓" : "×").join(" ");
     el("golfShotSummary").textContent=game.lastSummary;
     for(const [type,id,stock] of [["precision","golfPrecision","golfPrecisionStock"],["safety","golfSafety","golfSafetyStock"]]) {
@@ -296,14 +302,19 @@ const Golf = (() => {
       el("golfPlus"+i).disabled=spent>=game.correct || game.allocation[i]>=caps[i];
       el("golfRow"+i).hidden=caps[i]===0;
     });
+    el("golfAllocationHelp").textContent=course.kind==="conveyor" && ball.stage===0
+      ? "Spur: mehr Punkte halten den Anflug mittig auf dem Band. Dosierung: mehr Punkte treffen die nötige Ausrollstrecke am Ausgang. "+(ball.route==="express" ? "Express zielt direkt aufs Loch." : "Sanft zielt auf das Bandende.")
+      : course.kind==="portal" && ball.stage===0 ? "Portalenergie: genau 2 Punkte schalten den Transport frei. Anflugkontrolle: mehr Punkte treffen den Eingang genauer."
+      : "Mehr Punkte in der ersten Eigenschaft verbessern die Richtung bzw. das Timing. Die zweite verbessert die Dosierung.";
     const shot=makeShot(course,ball,game.correct,game.total,null,game.allocation);
     game.previewPath=shot.flight.samples;
     game.allocationLanding=shot.flight;
-    const consequence=shot.flight.portalUsed ? "Portaltransport zum Sternengrün." : shot.penalty ? "Wasser: Rückkehr und ein Strafschlag."
+    const consequence=game.correct===0 ? "0 Punkte: Fehlschlag, der Ball bleibt liegen. Der Schlag zählt." : shot.flight.portalUsed ? "Portaltransport zum Sternengrün." : shot.penalty ? "Wasser: Rückkehr und ein Strafschlag."
       : shot.flight.holed ? "Der Ball wird eingelocht."
       : "Voraussichtliche Reststrecke: "+Math.round(remainingRoute(course,{...shot.position,stage:shot.stage}))+".";
     el("golfAllocationEffect").textContent=consequence+" Gelbe Linie: dein Schlag. Orange: Landepunkt.";
     el("golfLaunch").disabled=spent!==game.correct;
+    el("golfLaunch").textContent=game.correct===0 ? "Fehlschlag ausführen (0 Punkte)" : "Schlag mit dieser Verteilung ausführen";
     el("golfGaugeLabel").textContent="Punkte verteilen · erst danach schlagen";
     el("turn").textContent=state.teamNames[state.team]+" plant den Schlag";
     sync();
@@ -381,7 +392,7 @@ const Golf = (() => {
     const ball=game.balls[team];
     Object.assign(ball,shot.position,{stage:shot.stage,holed:shot.flight.holed});
     ball.shots=Math.min(8,ball.shots+1+shot.penalty);
-    if(ball.shots>=8 && !ball.holed){ball.holed=true;shot.message+=" Nach acht Schlägen wird der Ball aufgenommen.";}
+    if(ball.shots>=8 && !ball.holed){ball.holed=true;ball.pickedUp=true;shot.message+=" Schlaglimit erreicht: Ball aufgenommen, nicht eingelocht.";}
     const bonus=shot.joker==="precision" ? " · Präzision "+shot.correct+"→"+shot.effective : shot.joker==="safety" ? " · Sicherheitsball "+(shot.flight.rescued ? "hat geschützt" : "ohne Wasserberührung verbraucht") : "";
     game.lastSummary=state.teamNames[team]+": "+shot.correct+"/"+shot.total+" richtig"+bonus+" · "+shot.flight.bounces+" Abpraller · "+shot.message;
     game.animation=null;game.busy=false;
@@ -426,9 +437,20 @@ const Golf = (() => {
     const course=currentCourse(),ball=game.balls[state.team];
     el("golfCourseInfo").textContent=course.description ?? (course.kind==="bank" ? "Verteile Punkte auf Bandenwinkel und verbleibenden Schwung." : course.kind==="windmill" ? "Verteile Punkte auf Durchfahrtszeitpunkt und Schwung." : "Halte die Spur über die Brücke und bremse rechtzeitig.");
     const selectable=(course.kind==="shortcut" || course.kind==="conveyor") && ball.stage===0;
+    el("golfRouteHeading").textContent=selectable ? "1 · Route vor der ersten Antwort wählen" : "Bahnaufgabe";
+    el("golfRouteLock").textContent=selectable ? (game.asked || game.busy ? "Route für diesen Schlag festgelegt." : "Auswahl ist bis zur ersten gewerteten Antwort änderbar.") : "";
     el("golfRouteButtons").hidden=!selectable;
-    el("golfRouteA").textContent=course.kind==="shortcut" ? "Sicher außen herum" : "Sanftes Förderband";
-    el("golfRouteB").textContent=course.kind==="shortcut" ? "Abkürzung durch Tunnel" : "Expressband";
+    const tunnel=course.kind==="shortcut";
+    const titles=tunnel ? ["Sicher außen herum","Abkürzung durch Tunnel"] : ["Sanft · Zwischenposition","Express · direkt aufs Loch"];
+    const descriptions=tunnel
+      ? ["Unter dem Felsen entlang. Bei perfekten Schlägen drei Etappen bis ins Loch.","Direkt durch die enge Öffnung. Perfekt: ein Schlag. Fehlender Winkel: Abpraller."]
+      : ["Band schiebt sanft nach rechts. Ziel ist das Bandende; ein weiterer Putt bleibt nötig.","Stärkerer Antrieb und Ziel direkt am Loch. Perfekt: ein Schlag. Weniger Kontrolle: seitlich abrollen oder vorbeischießen."];
+    ["A","B"].forEach((key,i)=>{
+      el("golfRouteTitle"+key).textContent=titles[i];
+      el("golfRouteText"+key).textContent=descriptions[i];
+      const selected=(i===0)===(ball.route==="safe");
+      el("golfRouteBadge"+key).textContent=selected ? "✓ AUSGEWÄHLT" : "AUSWÄHLEN";
+    });
     el("golfRouteA").setAttribute("aria-pressed",String(ball.route==="safe"));
     el("golfRouteB").setAttribute("aria-pressed",String(ball.route!=="safe"));
   }
@@ -447,19 +469,21 @@ const Golf = (() => {
     select.innerHTML='<option value="all">Durchlauf · alle sechs Bahnen</option><option value="classic">Klassiker · bisherige drei Bahnen</option>'+courses.map((c,i)=>'<option value="'+i+'">Einzelbahn · '+c.name+'</option>').join("");
     picker.append(select);options.prepend(picker);
     const route=document.createElement("section");route.id="golfRoute";
-    route.innerHTML='<small id="golfCourseInfo"></small><div id="golfRouteButtons" hidden><button type="button" id="golfRouteA"></button><button type="button" id="golfRouteB"></button></div>';
-    el("playPanel").append(route);
+    route.innerHTML='<strong id="golfRouteHeading"></strong><div id="golfRouteButtons" hidden>'+["A","B"].map(key=>'<button type="button" id="golfRoute'+key+'"><span id="golfRouteBadge'+key+'"></span><strong id="golfRouteTitle'+key+'"></strong><small id="golfRouteText'+key+'"></small></button>').join("")+'</div><small id="golfRouteLock"></small><details id="golfCourseHelp"><summary>So funktioniert diese Bahn</summary><p id="golfCourseInfo"></p></details>';
+    el("turn").before(route);
     el("golfRouteA").onclick=()=>chooseRoute(false);el("golfRouteB").onclick=()=>chooseRoute(true);
     const label=el("golfQuestions").parentElement;
     label.firstChild.textContent="Vokabeln beim ersten Schlag ";
-    options.querySelector("details").innerHTML='<summary>Spielregeln</summary><p>Zwei Teams spielen eine ausgewählte Einzelbahn, die bisherigen drei Bahnen oder alle sechs Bahnen im Durchlauf. Der erste Schlag beginnt mit fünf oder sieben Vokabeln. Danach entscheidet die verbleibende spielbare Strecke über die Abfrage: bis 80 Streckeneinheiten eine Vokabel, bis 200 zwei, bis 350 drei, darüber fünf oder sieben. Hindernisse und nötige Umwege zählen mit. Die Anzahl steht vor jeder Serie fest.</p><p>Mehr richtige Antworten verbessern Richtung, Stärke und Timing. Alle Antworten richtig ergeben den idealen Schlag. Ein kurzer Putt mit einer Vokabel gelingt bei richtiger Antwort und verfehlt bei falscher Antwort das Loch. Es gibt keine verbrauchbaren Joker. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p>';
+    options.querySelector("details").innerHTML='<summary>Spielregeln</summary><p>Zwei Teams spielen eine ausgewählte Einzelbahn, die bisherigen drei Bahnen oder alle sechs Bahnen im Durchlauf. Der erste Schlag beginnt mit fünf oder sieben Vokabeln. Danach entscheidet die verbleibende spielbare Strecke über die Abfrage: bis 80 Streckeneinheiten eine Vokabel, bis 200 zwei, bis 350 drei, darüber fünf oder sieben. Hindernisse und nötige Umwege zählen mit. Die Anzahl steht vor jeder Serie fest.</p><p>Mehr richtige Antworten verbessern Richtung, Stärke und Timing. Alle Antworten richtig ergeben den idealen Schlag. Ohne richtige Antwort bleibt der Ball liegen; der Versuch zählt trotzdem als Schlag. Ein kurzer Putt mit einer Vokabel gelingt bei richtiger Antwort und verfehlt bei falscher Antwort das Loch. Es gibt keine verbrauchbaren Joker. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p>';
     el("golfJokers").style.display="none";
     const panel=document.createElement("section");
     panel.id="golfAllocation";panel.hidden=true;
-    panel.innerHTML='<strong id="golfPoints"></strong>'+[0,1].map(i=>'<div id="golfRow'+i+'" class="golfPointRow"><span id="golfProperty'+i+'"></span><button type="button" id="golfMinus'+i+'" aria-label="Punkt entfernen">−</button><button type="button" id="golfPlus'+i+'" aria-label="Punkt hinzufügen">+</button></div>').join("")+'<small id="golfAllocationEffect"></small><button type="button" id="golfLaunch">Schlagen</button>';
+    panel.innerHTML='<strong id="golfPoints"></strong>'+[0,1].map(i=>'<div id="golfRow'+i+'" class="golfPointRow"><span id="golfProperty'+i+'"></span><button type="button" id="golfMinus'+i+'" aria-label="Punkt entfernen">−</button><button type="button" id="golfPlus'+i+'" aria-label="Punkt hinzufügen">+</button></div>').join("")+'<small id="golfAllocationHelp"></small><small id="golfAllocationEffect"></small><button type="button" id="golfLaunch">Schlagen</button>';
     el("golfJokers").before(panel);
     const style=document.createElement("style");
     style.textContent='#game:not([data-mode=golf]) #golfRoute{display:none!important}#golfRoute{flex:none;font-size:.75rem;line-height:1.3;padding:.35rem .5rem;color:#d5e9de}#golfRoute[hidden],#golfRouteButtons[hidden]{display:none!important}#golfRouteButtons{display:flex;gap:.35rem;margin-top:.3rem}#golfRouteButtons button{flex:1;font-size:.75rem;margin:0;padding:.35rem;min-height:32px}#golfRouteButtons button[aria-pressed=true]{background:#ffdc8c;color:#173d3e}#golfAllocation[hidden]{display:none!important}#golfAllocation{flex:none;padding:.5rem;border:1px solid #8da89b;border-radius:10px;background:#183d3b;color:#fff2cd;display:grid;gap:.3rem;font-size:.8rem}#golfAllocation .golfPointRow{display:flex;align-items:center;gap:.35rem}#golfAllocation .golfPointRow span{flex:1}#golfAllocation button{margin:0;padding:.3rem .65rem;min-height:32px}#golfAllocation small{line-height:1.3}';
+    style.textContent+="#golfRouteButtons button[aria-pressed=true] small{color:#243444}";
+    style.textContent+="#golfCourseSelect{min-height:48px;border:2px solid #f1cf79;background:#1b3551;font-weight:700}#golfOptions>label:first-child{padding:.65rem;border:1px solid #a68d51;border-radius:10px;background:#1b2d43}#golfRoute{order:-1;display:grid;gap:.4rem;margin:0 0 .45rem;padding:.65rem;border:2px solid #e2bf70;border-radius:12px;background:#1b3043;color:#f5edd5;font-size:.85rem;line-height:1.3;flex:none}#golfRouteHeading{font-size:.95rem;color:#ffe09b}#golfRouteButtons{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}#golfRouteButtons button{display:grid;align-content:start;gap:.25rem;min-height:114px;margin:0;padding:.5rem;text-align:left;border:2px solid #8395b5;background:#273d5c;color:#fff;font-size:.8rem}#golfRouteButtons button strong{font-size:.9rem}#golfRouteButtons button small{line-height:1.3}#golfRouteButtons button span{font-size:.65rem;letter-spacing:.05em;font-weight:800}#golfRouteButtons button[aria-pressed=true]{border-color:#ffe09b;background:#f5d486;color:#182a39;box-shadow:0 0 0 2px #ffe09b33}#golfRouteButtons button:disabled{opacity:.85}#golfRouteLock{font-size:.7rem}#golfCourseHelp{font-size:.75rem}#golfCourseHelp p{margin:.4rem 0;max-height:5rem;overflow:auto}#golfAllocationHelp{color:#cce8e3;max-height:3.8em;overflow:auto}#golfRoute:has(#golfRouteButtons[hidden]){border-color:#577481;padding:.4rem}#golfRouteButtons[hidden],#golfRoute[hidden]{display:none!important}";
     document.head.append(style);
     [0,1].forEach(i=>{el("golfMinus"+i).onclick=()=>changeAllocation(i,-1);el("golfPlus"+i).onclick=()=>changeAllocation(i,1);});
     el("golfLaunch").onclick=()=>{if(game?.allocating && game.allocation[0]+game.allocation[1]===game.correct) swing();};
@@ -651,7 +675,7 @@ const Golf = (() => {
       const x=index===0 ? 390 : 665;
       ctx.fillStyle=index===0 ? "#bcecff" : "#ffd1a6";ctx.font="bold 18px sans-serif";ctx.fillText(name,x,46,240);
       ctx.fillStyle="#d5e9de";ctx.font="16px sans-serif";
-      ctx.fillText(game.balls[index].shots+" Schläge · gesamt "+(game.scores[index]+(game.done ? 0 : game.balls[index].shots)),x,73,240);
+      ctx.fillText(game.balls[index].shots+(game.balls[index].pickedUp ? " · aufgenommen" : " Schläge")+" · gesamt "+(game.scores[index]+(game.done ? 0 : game.balls[index].shots)),x,73,240);
       if(state.team===index && !game.done){ctx.fillStyle="#f6dc91";ctx.beginPath();ctx.arc(x-12,40,4,0,Math.PI*2);ctx.fill();}
     });
     ctx.fillStyle="#c9e2d7";ctx.font="15px sans-serif";ctx.textAlign="center";
