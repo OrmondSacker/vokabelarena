@@ -121,13 +121,17 @@ const Golf = (() => {
     const remaining=remainingRoute(course,ball);
     return remaining<=80 ? 1 : remaining<=200 ? 2 : remaining<=350 ? 3 : maximum;
   }
-  function makeShot(course,ball,correct,total,joker) {
+  function makeShot(course,ball,correct,total,joker,allocation=null) {
     const effective=Math.min(total,correct+Number(joker==="precision"));
     const quality=effective/total,error=1-quality,sign=ball.shots%2===0 ? 1 : -1;
     const plan=planShot(course,ball);
-    const angle=plan.angle+sign*error*.3;
-    const speed=plan.speed*(1+(plan.putting ? sign : -1)*error*.55);
-    const phase=plan.phase+(1-quality)*.8;
+    const caps=[Math.ceil(total/2),Math.floor(total/2)];
+    const first=allocation ? allocation[0]/caps[0] : quality;
+    const second=allocation ? (caps[1] ? allocation[1]/caps[1] : 1) : quality;
+    const direction=course.kind==="windmill" && !plan.putting ? quality : first;
+    const angle=plan.angle+sign*(1-direction)*.3;
+    const speed=plan.speed*(1+(plan.putting || course.kind==="water" ? sign : -1)*(1-second)*.55);
+    const phase=plan.phase+(1-(course.kind==="windmill" ? first : quality))*.8;
     const flight=simulate(course,ball,angle,speed,{record:true,capture:plan.putting,phase,safety:joker==="safety"});
     const factor=plan.putting ? "Schlagstärke" : course.kind==="windmill" ? "Timing" : "Richtung";
     const ideal=plan.putting ? .3 : factor==="Timing" ? .5 : .7;
@@ -163,7 +167,8 @@ const Golf = (() => {
     question();
   }
   function prepareBlock() {
-    game.asked=0;game.correct=0;game.answers=[];game.busy=false;game.animation=null;
+    game.asked=0;game.correct=0;game.answers=[];game.busy=false;game.animation=null;game.allocating=false;game.allocation=null;
+    el("golfAllocation").hidden=true;el("golfGauge").hidden=false;el("golfJokerInfo").hidden=false;
     const course=courses[game.hole],ball=game.balls[state.team];
     game.total=blockSize(course,ball,game.maximum);
     game.selected[state.team]=null;
@@ -194,7 +199,7 @@ const Golf = (() => {
       el("golfGauge").dataset.joker=joker ?? "";
       el("golfJokerInfo").textContent=joker==="precision" ? "Ausgewählt: +1 richtige Antwort für den nächsten Schlag. Wird erst beim Schlag verbraucht."
         : joker==="safety" ? "Ausgewählt: Der Ball stoppt vor dem Wasser. Kein Strafschlag. Wird beim Schlag verbraucht."
-        : game.asked ? "Die Jokerwahl ist für diese Serie abgeschlossen." : "Vor der ersten Antwort optional einen Joker auswählen.";
+        : "Jede richtige Antwort gibt einen Punkt. Nach der Serie verteilst du die Punkte auf zwei Schlageigenschaften.";
     }
     el("golfJokers").hidden=true;
     el("golfCanvas").setAttribute("aria-label",course.name+". "+state.teamNames.map((name,index)=>name+": "+game.balls[index].shots+" Schläge").join(". "));
@@ -216,11 +221,66 @@ const Golf = (() => {
     if(game.asked<game.total) {
       el("next").hidden=false;el("next").focus();queueComputerQuestion();return;
     }
-    swing();
+    beginAllocation();
   }
+
+  function allocationNames(course,ball) {
+    return ball.stage===course.targets.length-1 ? ["Zielgenauigkeit","Dosierung"]
+      : course.kind==="windmill" ? ["Timing der Durchfahrt","Schwung nach der Mühle"]
+      : course.kind==="water" ? ["Spur auf der Brücke","Bremskontrolle"]
+      : ["Bandenwinkel","Schwung nach der Bande"];
+  }
+  function beginAllocation() {
+    game.allocating=true;game.busy=true;
+    el("golfGauge").hidden=true;el("golfJokerInfo").hidden=true;
+    game.allocation=[0,0];
+    const caps=[Math.ceil(game.total/2),Math.floor(game.total/2)];
+    // Start with a balanced, fully spent allocation; every point can be reassigned.
+    for(let i=0;i<game.correct;i++) {
+      const slot=game.allocation[0]/caps[0] <= (caps[1] ? game.allocation[1]/caps[1] : 1) && game.allocation[0]<caps[0] ? 0 : 1;
+      game.allocation[slot]++;
+    }
+    el("next").hidden=true;el("editGameVocabulary").hidden=true;
+    el("word").textContent="Schlag planen";
+    el("answerKey").hidden=true;
+    updateAllocation();
+    if(isComputerTurn()) swing();
+  }
+  function updateAllocation() {
+    if(!game?.allocating) return;
+    const course=courses[game.hole],ball=game.balls[state.team],caps=[Math.ceil(game.total/2),Math.floor(game.total/2)];
+    const names=allocationNames(course,ball),spent=game.allocation[0]+game.allocation[1];
+    el("golfAllocation").hidden=false;
+    el("golfPoints").textContent=(game.correct-spent)+" von "+game.correct+" Punkten frei · 1 richtige Antwort = 1 Punkt";
+    names.forEach((name,i)=>{
+      el("golfProperty"+i).textContent=name+" · "+game.allocation[i]+"/"+caps[i];
+      el("golfMinus"+i).disabled=game.allocation[i]===0;
+      el("golfPlus"+i).disabled=spent>=game.correct || game.allocation[i]>=caps[i];
+      el("golfRow"+i).hidden=caps[i]===0;
+    });
+    const shot=makeShot(course,ball,game.correct,game.total,null,game.allocation);
+    game.previewPath=shot.flight.samples;
+    game.allocationLanding=shot.flight;
+    const consequence=shot.penalty ? "Wasser: Rückkehr und ein Strafschlag."
+      : shot.flight.holed ? "Der Ball wird eingelocht."
+      : "Voraussichtliche Reststrecke: "+Math.round(remainingRoute(course,{...shot.position,stage:shot.stage}))+".";
+    el("golfAllocationEffect").textContent=consequence+" Gelbe Linie: dein Schlag. Orange: Landepunkt.";
+    el("golfLaunch").disabled=spent!==game.correct;
+    el("golfGaugeLabel").textContent="Punkte verteilen · erst danach schlagen";
+    el("turn").textContent=state.teamNames[state.team]+" plant den Schlag";
+    sync();
+  }
+  function changeAllocation(slot,delta) {
+    if(!game?.allocating || isComputerTurn()) return;
+    const caps=[Math.ceil(game.total/2),Math.floor(game.total/2)],spent=game.allocation[0]+game.allocation[1];
+    if(game.allocation[slot]+delta<0 || game.allocation[slot]+delta>caps[slot] || spent+delta>game.correct) return;
+    game.allocation[slot]+=delta;updateAllocation();
+  }
+
   function swing() {
     const team=state.team,ball=game.balls[team],course=courses[game.hole],joker=game.selected[team];
-    const shot=makeShot(course,ball,game.correct,game.total,joker);
+    const shot=makeShot(course,ball,game.correct,game.total,joker,game.allocation);
+    game.allocating=false;el("golfAllocation").hidden=true;el("golfGauge").hidden=false;el("golfJokerInfo").hidden=false;
     if(joker) game.jokers[team][joker]=false;
     game.selected[team]=null;game.busy=true;
     game.animation={team,shot,start:null,ball:{...ball}};
@@ -315,7 +375,8 @@ const Golf = (() => {
     if(frameId!==null) cancelAnimationFrame(frameId);
     frameId=null;
     if(!game) return;
-    game.busy=false;game.done=true;game.animation=null;
+    game.busy=false;game.done=true;game.animation=null;game.allocating=false;
+    el("golfAllocation").hidden=true;
     el("golfJokers").hidden=true;el("golfNextHole").hidden=true;
   }
   function nextHole() {
@@ -328,6 +389,16 @@ const Golf = (() => {
     label.firstChild.textContent="Vokabeln beim ersten Schlag ";
     options.querySelector("details").innerHTML='<summary>Spielregeln</summary><p>Zwei Teams spielen drei Bahnen. Der erste Schlag beginnt mit fünf oder sieben Vokabeln. Danach entscheidet die verbleibende spielbare Strecke über die Abfrage: bis 80 Streckeneinheiten eine Vokabel, bis 200 zwei, bis 350 drei, darüber fünf oder sieben. Hindernisse und nötige Umwege zählen mit. Die Anzahl steht vor jeder Serie fest.</p><p>Mehr richtige Antworten verbessern Richtung, Stärke und Timing. Alle Antworten richtig ergeben den idealen Schlag. Ein kurzer Putt mit einer Vokabel gelingt bei richtiger Antwort und verfehlt bei falscher Antwort das Loch. Es gibt keine verbrauchbaren Joker. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p>';
     el("golfJokers").style.display="none";
+    const panel=document.createElement("section");
+    panel.id="golfAllocation";panel.hidden=true;
+    panel.innerHTML='<strong id="golfPoints"></strong>'+[0,1].map(i=>'<div id="golfRow'+i+'" class="golfPointRow"><span id="golfProperty'+i+'"></span><button type="button" id="golfMinus'+i+'" aria-label="Punkt entfernen">−</button><button type="button" id="golfPlus'+i+'" aria-label="Punkt hinzufügen">+</button></div>').join("")+'<small id="golfAllocationEffect"></small><button type="button" id="golfLaunch">Schlagen</button>';
+    el("golfJokers").before(panel);
+    const style=document.createElement("style");
+    style.textContent='#golfAllocation[hidden]{display:none!important}#golfAllocation{flex:none;padding:.5rem;border:1px solid #8da89b;border-radius:10px;background:#183d3b;color:#fff2cd;display:grid;gap:.3rem;font-size:.8rem}#golfAllocation .golfPointRow{display:flex;align-items:center;gap:.35rem}#golfAllocation .golfPointRow span{flex:1}#golfAllocation button{margin:0;padding:.3rem .65rem;min-height:32px}#golfAllocation small{line-height:1.3}';
+    document.head.append(style);
+    [0,1].forEach(i=>{el("golfMinus"+i).onclick=()=>changeAllocation(i,-1);el("golfPlus"+i).onclick=()=>changeAllocation(i,1);});
+    el("golfLaunch").onclick=()=>{if(game?.allocating && game.allocation[0]+game.allocation[1]===game.correct) swing();};
+    options.querySelector("details").innerHTML+='<p>Jede richtige Antwort gibt einen Punkt für diesen Schlag. Nach der Serie verteilst du alle Punkte mit Minus und Plus. Die beiden Eigenschaften und ihre Höchstwerte hängen von Bahn und Serienlänge ab. Die Vorschau zeigt den resultierenden Weg und Landepunkt. Erst mit „Schlagen“ startet die Animation. Punkte werden bei jedem Schlag neu verdient. Der Computer verteilt seine Punkte automatisch.</p>';
 
     el("golfPrecision").onclick=()=>chooseJoker("precision");
     el("golfSafety").onclick=()=>chooseJoker("safety");
@@ -420,12 +491,12 @@ const Golf = (() => {
       }
       ctx.fillStyle="#f0d9aa";ctx.fillRect(406,294,158,5);ctx.fillRect(406,401,158,5);
     }
-    if(!game.busy && !game.done && game.previewPath) {
+    if((!game.busy || game.allocating) && !game.done && game.previewPath) {
       ctx.strokeStyle="#fff2a058";ctx.lineWidth=2;ctx.setLineDash([5,9]);ctx.beginPath();
       game.previewPath.forEach((point,index)=>{if(index%8===0){if(index===0)ctx.moveTo(point.x,point.y);else ctx.lineTo(point.x,point.y)}});
       ctx.stroke();ctx.setLineDash([]);
-      const target=course.targets[game.balls[state.team].stage];
-      ctx.strokeStyle="#fff1b9aa";ctx.beginPath();ctx.arc(target.x,target.y,17,0,Math.PI*2);ctx.stroke();
+      const target=game.allocating ? game.allocationLanding : course.targets[game.balls[state.team].stage];
+      ctx.strokeStyle=game.allocating ? "#ffad54" : "#fff1b9aa";ctx.beginPath();ctx.arc(target.x,target.y,17,0,Math.PI*2);ctx.stroke();
     }
     for(const wall of course.walls) {
       rounded(ctx,wall.x+5,wall.y+6,wall.w,wall.h,4,"#163b3b55");
@@ -492,7 +563,7 @@ const Golf = (() => {
       if(state.team===index && !game.done){ctx.fillStyle="#f6dc91";ctx.beginPath();ctx.arc(x-12,40,4,0,Math.PI*2);ctx.fill();}
     });
     ctx.fillStyle="#c9e2d7";ctx.font="15px sans-serif";ctx.textAlign="center";
-    const caption=game.busy ? "Schlagwertung "+game.correct+"/"+game.total+(stage.joker==="precision" ? " + Präzisionsschläger" : "")
+    const caption=game.allocating ? "Verteile deine Punkte und vergleiche die Flugbahn" : game.busy ? "Schlagwertung "+game.correct+"/"+game.total+(stage.joker==="precision" ? " + Präzisionsschläger" : "")
       : game.done ? "Bahnwertung abgeschlossen" : game.preview.putting ? "Nächster Schlag: dosierter Putt zum Loch"
       : course.kind==="bank" ? "Nächster Schlag: über die Bande in die freie Position"
       : course.kind==="windmill" ? "Nächster Schlag: im passenden Moment durch die Windmühle"
