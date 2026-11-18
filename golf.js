@@ -448,7 +448,7 @@ const Golf = (() => {
     picker.append(select);options.prepend(picker);
     const route=document.createElement("section");route.id="golfRoute";
     route.innerHTML='<small id="golfCourseInfo"></small><div id="golfRouteButtons" hidden><button type="button" id="golfRouteA"></button><button type="button" id="golfRouteB"></button></div>';
-    el("golfGauge").before(route);
+    el("playPanel").append(route);
     el("golfRouteA").onclick=()=>chooseRoute(false);el("golfRouteB").onclick=()=>chooseRoute(true);
     const label=el("golfQuestions").parentElement;
     label.firstChild.textContent="Vokabeln beim ersten Schlag ";
@@ -459,7 +459,7 @@ const Golf = (() => {
     panel.innerHTML='<strong id="golfPoints"></strong>'+[0,1].map(i=>'<div id="golfRow'+i+'" class="golfPointRow"><span id="golfProperty'+i+'"></span><button type="button" id="golfMinus'+i+'" aria-label="Punkt entfernen">−</button><button type="button" id="golfPlus'+i+'" aria-label="Punkt hinzufügen">+</button></div>').join("")+'<small id="golfAllocationEffect"></small><button type="button" id="golfLaunch">Schlagen</button>';
     el("golfJokers").before(panel);
     const style=document.createElement("style");
-    style.textContent='#golfRoute{flex:none;font-size:.75rem;line-height:1.3;padding:.35rem .5rem;color:#d5e9de}#golfRoute[hidden],#golfRouteButtons[hidden]{display:none!important}#golfRouteButtons{display:flex;gap:.35rem;margin-top:.3rem}#golfRouteButtons button{flex:1;font-size:.75rem;margin:0;padding:.35rem;min-height:32px}#golfRouteButtons button[aria-pressed=true]{background:#ffdc8c;color:#173d3e}#golfAllocation[hidden]{display:none!important}#golfAllocation{flex:none;padding:.5rem;border:1px solid #8da89b;border-radius:10px;background:#183d3b;color:#fff2cd;display:grid;gap:.3rem;font-size:.8rem}#golfAllocation .golfPointRow{display:flex;align-items:center;gap:.35rem}#golfAllocation .golfPointRow span{flex:1}#golfAllocation button{margin:0;padding:.3rem .65rem;min-height:32px}#golfAllocation small{line-height:1.3}';
+    style.textContent='#game:not([data-mode=golf]) #golfRoute{display:none!important}#golfRoute{flex:none;font-size:.75rem;line-height:1.3;padding:.35rem .5rem;color:#d5e9de}#golfRoute[hidden],#golfRouteButtons[hidden]{display:none!important}#golfRouteButtons{display:flex;gap:.35rem;margin-top:.3rem}#golfRouteButtons button{flex:1;font-size:.75rem;margin:0;padding:.35rem;min-height:32px}#golfRouteButtons button[aria-pressed=true]{background:#ffdc8c;color:#173d3e}#golfAllocation[hidden]{display:none!important}#golfAllocation{flex:none;padding:.5rem;border:1px solid #8da89b;border-radius:10px;background:#183d3b;color:#fff2cd;display:grid;gap:.3rem;font-size:.8rem}#golfAllocation .golfPointRow{display:flex;align-items:center;gap:.35rem}#golfAllocation .golfPointRow span{flex:1}#golfAllocation button{margin:0;padding:.3rem .65rem;min-height:32px}#golfAllocation small{line-height:1.3}';
     document.head.append(style);
     [0,1].forEach(i=>{el("golfMinus"+i).onclick=()=>changeAllocation(i,-1);el("golfPlus"+i).onclick=()=>changeAllocation(i,1);});
     el("golfLaunch").onclick=()=>{if(game?.allocating && game.allocation[0]+game.allocation[1]===game.correct) swing();};
