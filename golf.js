@@ -108,12 +108,25 @@ const Golf = (() => {
     const phase=Math.PI/4-1.8*(best.flight.crossing ?? 1);
     return {...best,target,putting,phase};
   }
+  function remainingRoute(course,ball) {
+    // Follow the playable waypoints so a nearby hole behind a wall is not a short putt.
+    let remaining=0,previous=ball;
+    for(const target of course.targets.slice(ball.stage)) {
+      remaining+=distance(previous,target);previous=target;
+    }
+    return remaining;
+  }
+  function blockSize(course,ball,maximum) {
+    if(ball.shots===0) return maximum;
+    const remaining=remainingRoute(course,ball);
+    return remaining<=80 ? 1 : remaining<=200 ? 2 : remaining<=350 ? 3 : maximum;
+  }
   function makeShot(course,ball,correct,total,joker) {
     const effective=Math.min(total,correct+Number(joker==="precision"));
-    const quality=effective/total,error=(1-quality)**2,sign=ball.shots%2===0 ? 1 : -1;
+    const quality=effective/total,error=1-quality,sign=ball.shots%2===0 ? 1 : -1;
     const plan=planShot(course,ball);
     const angle=plan.angle+sign*error*.3;
-    const speed=plan.speed*(1+sign*error*.55);
+    const speed=plan.speed*(1+(plan.putting ? sign : -1)*error*.55);
     const phase=plan.phase+(1-quality)*.8;
     const flight=simulate(course,ball,angle,speed,{record:true,capture:plan.putting,phase,safety:joker==="safety"});
     const factor=plan.putting ? "Schlagstärke" : course.kind==="windmill" ? "Timing" : "Richtung";
@@ -133,7 +146,7 @@ const Golf = (() => {
 
   function start(total) {
     close();
-    game={owner:state,total:total===7 ? 7 : 5,hole:0,asked:0,correct:0,answers:[],busy:false,done:false,
+    game={owner:state,maximum:total===7 ? 7 : 5,total:total===7 ? 7 : 5,hole:0,asked:0,correct:0,answers:[],busy:false,done:false,
       selected:[null,null],jokers:[{precision:true,safety:true},{precision:true,safety:true}],
       scores:[0,0],history:[],balls:[],animation:null,lastSummary:""};
     beginHole();
@@ -152,14 +165,12 @@ const Golf = (() => {
   function prepareBlock() {
     game.asked=0;game.correct=0;game.answers=[];game.busy=false;game.animation=null;
     const course=courses[game.hole],ball=game.balls[state.team];
-    if(isComputerTurn()) {
-      if(course.kind==="water" && ball.stage===1 && game.jokers[1].safety) game.selected[1]="safety";
-      else if(ball.stage===course.targets.length-1 && game.jokers[1].precision) game.selected[1]="precision";
-    }
+    game.total=blockSize(course,ball,game.maximum);
+    game.selected[state.team]=null;
     game.preview=planShot(course,ball);
     game.previewPath=simulate(course,ball,game.preview.angle,game.preview.speed,{ignoreGate:true,capture:game.preview.putting,record:true}).samples;
     const factor=game.preview.putting ? "Schlagstärke" : course.kind==="windmill" ? "Timing" : "Richtung";
-    el("golfGaugeLabel").textContent=factor+" · Zeiger und Schlag folgen nach "+game.total+" Antworten";
+    el("golfGaugeLabel").textContent=factor+" · "+game.total+" Vokabel"+(game.total===1 ? "" : "n")+" bis zum Schlag · Reststrecke "+Math.round(remainingRoute(course,ball));
     el("golfGauge").dataset.joker=game.selected[state.team] ?? "";
     el("golfNeedle").style.left="50%";
     el("golfIdealZone").style.left=(game.preview.putting ? 30 : factor==="Timing" ? 50 : 70)+"%";
@@ -185,11 +196,12 @@ const Golf = (() => {
         : joker==="safety" ? "Ausgewählt: Der Ball stoppt vor dem Wasser. Kein Strafschlag. Wird beim Schlag verbraucht."
         : game.asked ? "Die Jokerwahl ist für diese Serie abgeschlossen." : "Vor der ersten Antwort optional einen Joker auswählen.";
     }
-    el("golfJokers").hidden=game.done;
+    el("golfJokers").hidden=true;
     el("golfCanvas").setAttribute("aria-label",course.name+". "+state.teamNames.map((name,index)=>name+": "+game.balls[index].shots+" Schläge").join(". "));
     ensureAnimation();
   }
   function chooseJoker(type) {
+    return; // Minigolf is played without consumable jokers.
     if(!game || game.busy || game.done || game.asked || isComputerTurn() || !game.jokers[state.team][type]) return;
     if(type==="safety" && !courses[game.hole].water.length) return;
     game.selected[state.team]=game.selected[state.team]===type ? null : type;
@@ -311,6 +323,12 @@ const Golf = (() => {
     game.hole++;beginHole();
   }
   function bind() {
+    const options=el("golfOptions");
+    const label=el("golfQuestions").parentElement;
+    label.firstChild.textContent="Vokabeln beim ersten Schlag ";
+    options.querySelector("details").innerHTML='<summary>Spielregeln</summary><p>Zwei Teams spielen drei Bahnen. Der erste Schlag beginnt mit fünf oder sieben Vokabeln. Danach entscheidet die verbleibende spielbare Strecke über die Abfrage: bis 80 Streckeneinheiten eine Vokabel, bis 200 zwei, bis 350 drei, darüber fünf oder sieben. Hindernisse und nötige Umwege zählen mit. Die Anzahl steht vor jeder Serie fest.</p><p>Mehr richtige Antworten verbessern Richtung, Stärke und Timing. Alle Antworten richtig ergeben den idealen Schlag. Ein kurzer Putt mit einer Vokabel gelingt bei richtiger Antwort und verfehlt bei falscher Antwort das Loch. Es gibt keine verbrauchbaren Joker. Jeder Schlag zählt, Wasser kostet einen zusätzlichen Schlag. Nach acht Schlägen wird der Ball aufgenommen. Die niedrigere Gesamtschlagzahl gewinnt.</p>';
+    el("golfJokers").style.display="none";
+
     el("golfPrecision").onclick=()=>chooseJoker("precision");
     el("golfSafety").onclick=()=>chooseJoker("safety");
     el("golfNextHole").onclick=nextHole;
@@ -479,7 +497,8 @@ const Golf = (() => {
       : course.kind==="bank" ? "Nächster Schlag: über die Bande in die freie Position"
       : course.kind==="windmill" ? "Nächster Schlag: im passenden Moment durch die Windmühle"
       : "Nächster Schlag: sicher über die Brücke";
-    ctx.fillText(caption,480,570,700);
+    ctx.fillText(caption,480,563,700);
+    if(!game.busy && !game.done) {ctx.font="14px sans-serif";ctx.fillText("Reststrecke "+Math.round(remainingRoute(course,game.balls[state.team]))+" · "+game.total+" Vokabel"+(game.total===1 ? "" : "n")+" für diesen Schlag",480,586,740);}
   }
   return {start,close,sync,judge,turnLabel,bind,stop};
 })();
