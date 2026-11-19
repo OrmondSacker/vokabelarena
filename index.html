@@ -626,6 +626,22 @@ button.gameTile .fleetCover{
 #golfSeries{min-height:0;block-size:2.5em}
 @media(max-width:799px){#game[data-mode=golf]:not([hidden]){grid-template-rows:2.6rem minmax(330px,57%) minmax(0,1fr)}}
 #golfCanvas{height:auto;flex:0 0 auto;aspect-ratio:8/5;min-height:0}
+
+/* Setup navigation: one task per view, visible keyboard focus and touch targets. */
+#arenaMain:has(#gameStep:not([hidden]) #gameSettings:not([hidden])) .masthead{display:none}
+#gameSettings{border-top:0;margin-top:0;padding-top:0}
+#settingsHeading{font-size:clamp(1.4rem,4vw,1.8rem);margin:12px 0}
+#gameSettings h2,#gameHeading,#vocabHeading{scroll-margin-top:16px}
+#backToGameTiles{margin:0 0 12px}
+.settingsSummary{padding:12px 14px;border:1px solid #405675;border-radius:12px;color:#dbe7fa;background:#142137;overflow-wrap:anywhere}
+#setup :is(button,select,input:not([type="checkbox"]):not([type="radio"])){min-height:44px;box-sizing:border-box}
+#setup :is(button,select,input,textarea,summary,a):focus-visible{outline:3px solid #a5efff;outline-offset:3px}
+#setup :is(h2,#error):focus{outline:2px solid #a5efff;outline-offset:5px;border-radius:4px}
+#gameSettings .options>*{min-width:0;max-width:100%}
+#setup select{max-width:100%}
+#setup #error{scroll-margin-block:20px;padding:12px;border:1px solid #ffb4a5;border-radius:10px}
+@media(max-width:560px){#gameSettings .options{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}#gameSettings .options label{width:100%}#gameSettings input:not([type="checkbox"]):not([type="radio"]),#gameSettings select{width:100%}#start{width:100%;margin:16px 0 0}}
+
 </style>
 <main id="arenaMain">
 <header class="masthead"><div class="brandFrame">
@@ -692,7 +708,10 @@ sich erinnern;remember</textarea></label>
 <button type="button" id="editSetupVocabulary" class="secondary">Vokabelauswahl ändern</button>
 <h2 id="gameHeading" tabindex="-1">Spiel auswählen</h2>
 <div id="gameTiles" class="gameTiles" role="group" aria-labelledby="gameHeading"></div>
-<div class="gameSettings"><h3>Spieleinstellungen</h3>
+<div id="gameSettings" class="gameSettings" hidden aria-labelledby="settingsHeading">
+<button type="button" id="backToGameTiles" class="secondary">← Anderes Spiel wählen</button>
+<h2 id="settingsHeading" tabindex="-1">Spieleinstellungen</h2>
+<p id="settingsSummary" class="settingsSummary"></p>
 <div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option><option value="fleet">Schiffe versenken</option><option value="golf">Minigolf</option></select></label>
 <label id="bossChoice" hidden>Boss <select id="bossSelect"><option value="random">Zufällig</option><option value="series">Bossserie · alle drei Bosse</option><option value="dragon">Glutdrache</option><option value="golem">Runengolem</option><option value="ghost">Nebelgeist</option></select></label><label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 
@@ -739,7 +758,7 @@ sich erinnern;remember</textarea></label>
 <button type="button" class="secondary" id="classNone">Auswahl aufheben</button>
 <p id="classCount" aria-live="polite"></p><div id="classPlayers"></div>
 </fieldset><p id="classStatus" role="status"></p><div id="manualPlayers"><label>Spielende, nummeriert <input id="players" type="number" min="2" max="40" value="8"></label><label>Spielernamen <small>· optional, ein Name pro Zeile in der Reihenfolge der Spielernummern</small><textarea id="names" rows="3" placeholder="Alex&#10;Sam&#10;Mika"></textarea></label></div><label>Start-Zombies <input id="zombies" type="number" min="0" value="2"></label><label>Runden bis zur Rettung <input id="rounds" type="number" min="1" max="100" value="4"></label></div><button id="start">Spiel starten</button></div></div>
-<p id="error" role="alert" hidden></p>
+<p id="error" role="alert" tabindex="-1" hidden></p>
 </form>
 </section>
 <section id="fleetGuest" hidden></section>
@@ -1389,6 +1408,7 @@ el("config").addEventListener("submit",event=>{
     else el("chooseGame").click();
     return;
   }
+  if (el("gameSettings").hidden) return;
   const vocabulary=readVocabulary();
   if (!vocabulary) {showSetupStep(false,true);return;}
   const mode=el("mode").value;
@@ -1702,10 +1722,48 @@ const gameTiles = gameCatalog.map(game => {
   tile.onclick = () => {
     el("mode").value = game.id;
     setupMode();
+    showGameSettings();
   };
+  tile.setAttribute("aria-controls","gameSettings");
   el("gameTiles").append(tile);
   return tile;
 });
+
+function focusSetupTarget(target) {
+  target.focus({preventScroll:true});
+  target.scrollIntoView({block:"start",behavior:"instant"});
+  document.fonts?.ready.then(() => {
+    if (document.activeElement === target && target.getClientRects().length) target.scrollIntoView({block:"start",behavior:"instant"});
+  });
+}
+function showGameSettings() {
+  el("gameHeading").hidden = true;
+  el("gameTiles").hidden = true;
+  el("gameSettings").hidden = false;
+  el("error").hidden = true;
+  const game = gameCatalog.find(game => game.id === el("mode").value);
+  el("settingsHeading").textContent = game.title + " · Einstellungen";
+  el("start").textContent = game.title + " starten";
+  const vocabulary = readVocabulary();
+  if (vocabulary) {
+    const source = el("vocabSource").selectedOptions[0].textContent;
+    const answers = vocabulary.typed ? "Eintippen" : "Mündliche Abfrage";
+    const direction = vocabulary.verbs ? "Verbformen" : el("direction").selectedOptions[0].textContent;
+    el("settingsSummary").textContent = vocabulary.cards.length + " Einträge · " + source + " · " + direction + " · " + answers;
+  }
+  focusSetupTarget(el("settingsHeading"));
+}
+function showGameTiles(restoreFocus = false) {
+  el("gameSettings").hidden = true;
+  el("gameHeading").hidden = false;
+  el("gameTiles").hidden = false;
+  el("error").hidden = true;
+  focusSetupTarget(restoreFocus ? gameTiles.find((tile,index) => gameCatalog[index].id === el("mode").value) : el("gameHeading"));
+}
+el("backToGameTiles").onclick = () => showGameTiles(true);
+new MutationObserver(() => {
+  if (!el("error").hidden && !el("setup").hidden) focusSetupTarget(el("error"));
+}).observe(el("error"),{attributes:true,attributeFilter:["hidden"],childList:true});
 
 function showSetupStep(games, preserveError = false) {
   el("vocabStep").hidden = games;
@@ -1714,7 +1772,9 @@ function showSetupStep(games, preserveError = false) {
   el("applyVocabulary").hidden = !editingVocabulary;
   el("cancelVocabulary").hidden = !editingVocabulary;
   if (!preserveError) el("error").hidden = true;
-  el(games ? "gameHeading" : "vocabHeading").focus();
+  if (games) showGameTiles();
+  else focusSetupTarget(el("vocabHeading"));
+  if (preserveError && !el("error").hidden) focusSetupTarget(el("error"));
 }
 
 el("chooseGame").onclick = () => {
