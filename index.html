@@ -798,12 +798,13 @@ sich erinnern;remember</textarea></label>
 </section>
 </main>
 <script src="qrcode.js" defer></script>
+<script src="audio-voices.js?v=voices-1"></script>
 <script>
 window.ArenaAudio = (() => {
   "use strict";
   const key="vokabelarena.audio.1";
   let enabled=true,volume=.3,context=null,master=null,noiseBuffer=null;
-  const voices=new Set(),lastPlayed=new Map(),variants=new Map();
+  const voices=new Set(),lastPlayed=new Map(),variants=new Map(),recordings=new Map();
   const random=(min,max)=>min+Math.random()*(max-min);
   function variation(kind){const next=(variants.get(kind)??-1)+1;variants.set(kind,next);return next%3;}
   try {const saved=JSON.parse(localStorage.getItem(key)??"null");if(saved){enabled=saved.enabled!==false;if(Number.isFinite(saved.volume)) volume=Math.max(0,Math.min(1,saved.volume));}} catch {}
@@ -846,7 +847,23 @@ window.ArenaAudio = (() => {
     const vibrato=context.createOscillator(),depth=context.createGain();vibrato.frequency.value=random(15,27);depth.gain.value=roughness;vibrato.connect(depth);depth.connect(osc.frequency);
     body.connect(master);osc.start(at);vibrato.start(at);track(osc,at+duration+.03);track(vibrato,at+duration+.03);
   }
+  function recorded(kind,index=0,rate=1,level=.65) {
+    const pack=window.ArenaVoiceSamples,asset=kind==="cheer" ? pack?.cheer : pack?.zombies?.[index];
+    if(!asset) return false;
+    let buffer=recordings.get(asset);
+    if(!buffer) {
+      const bytes=Uint8Array.from(atob(asset.pcm),character=>character.charCodeAt(0)),view=new DataView(bytes.buffer);
+      buffer=context.createBuffer(1,bytes.length/2,asset.rate);
+      const data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=view.getInt16(i*2,true)/32768;
+      recordings.set(asset,buffer);
+    }
+    const source=context.createBufferSource(),gain=context.createGain(),at=context.currentTime;
+    source.buffer=buffer;source.playbackRate.value=rate;gain.gain.value=level;source.connect(gain);gain.connect(master);
+    source.start(at);track(source,at+buffer.duration/rate+.03);
+    return true;
+  }
   function crowd() {
+    if(recorded("cheer",0,1,.7)) return;
     // Layered vowel-like voices, applause and an occasional whistle.
     noise(1.8,0,1250,.15,"bandpass",1850);noise(1.65,.08,3200,.085,"highpass",1800);
     for(let i=0;i<5;i++){const pitch=random(135,275);vocal(pitch,pitch*random(1.1,1.45),random(.85,1.45),i*.075,.035,[650,1200,2400],2);}
@@ -855,10 +872,23 @@ window.ArenaAudio = (() => {
   }
   function monster(profile="dragon",hurt=false) {
     const variant=variation("monster-"+profile),duration=hurt ? .32 : .8+variant*.1;
-    if(profile==="golem"){noise(duration,0,520,.2,"lowpass",140);vocal(hurt ? 83 : 54,38,duration,0,.15,[220,540,1200],8);tone(65,30,.3,0,"triangle",.23);}
+    if(profile==="golem"){
+      // Stone friction and rubble: deliberately no throat-like voice.
+      noise(hurt ? .22 : .55,0,1100,.19,"bandpass",260);
+      tone(hurt ? 76 : 48,28,hurt ? .19 : .38,0,"sine",.24);
+      for(let i=0;i<(hurt ? 3 : 6);i++)noise(random(.04,.085),i*.075,random(1100,2400),.15,"bandpass",550);
+    }
     else if(profile==="ghost"){noise(duration,0,1800,.09,"bandpass",600);vocal(hurt ? 340 : 480,hurt ? 220 : 210,duration,0,.065,[850,1600,2700],7);tone(600,260,duration,.025,"sine",.035);}
-    else if(profile==="zombie"){vocal(85+variant*9,45,duration,0,.15,[270,780,1600],7);noise(duration*.7,.06,620,.09,"bandpass",320);}
-    else {vocal(hurt ? 115 : 68,42,duration,0,.15,[330,820,1800],10);vocal(102,53,duration*.8,.035,.055,[480,1150,2250],6);noise(duration*.8,.08,1200,.13,"lowpass",260);}
+    else if(profile==="zombie"){
+      if(recorded("zombie",variant,[.88,.92,.85][variant],.7)) return;
+      vocal(108,72,1.35,0,.2,[330,1100,2300],2);noise(.35,1,900,.055,"bandpass",400);
+    }
+    else {
+      // A higher, rasping roar followed by a broad fire hiss.
+      vocal(hurt ? 185 : 125,hurt ? 90 : 58,duration,0,.17,[720,1650,3100],15);
+      noise(duration*.7,.04,2600,.16,"bandpass",550);
+      if(!hurt) noise(.65,duration*.45,3200,.16,"highpass",900);
+    }
   }
   function melody(notes,spacing=.11,type="triangle") {notes.forEach((note,i)=>tone(note,note,.16,i*spacing,type,.2));}
   function play(kind,profile) {
@@ -902,8 +932,10 @@ window.ArenaAudio = (() => {
   toggle.onclick=()=>{enabled=!enabled;if(!enabled)stop();else unlock();render();save();if(enabled)play("right");};
   slider.oninput=()=>{volume=Number(slider.value)/100;if(master)master.gain.setValueAtTime(volume*.45,context.currentTime);if(!volume)stop();render();save();};
   slider.onchange=()=>{unlock();play("right");};
+  const credits=document.createElement("details");credits.innerHTML='<summary>Audioquellen</summary><small>CC0-Aufnahmen, bearbeitet:<br><a href="https://opengameart.org/content/cheers-0" target="_blank" rel="noopener">Cheers · AuraVoice / Nocturnal_Vanguard</a><br><a href="https://opengameart.org/content/zombie-moans-01-by-emopreben" target="_blank" rel="noopener">Zombie Moans 01 · EmoPreben</a></small>';panel.append(credits);
   document.getElementById("arenaMain").append(controls);
   const style=document.createElement("style");style.textContent="#arenaAudioControls{position:fixed;right:12px;bottom:10px;z-index:30000;margin:0;border:1px solid #69828f;border-radius:9px;background:#162638;color:#eef6ff;font-size:.8rem;box-shadow:0 3px 14px #0005}#arenaAudioControls summary{padding:.45rem .65rem;cursor:pointer;list-style:none;font-weight:700}#arenaAudioControls>div{display:grid;gap:.5rem;padding:.6rem;width:180px}#arenaAudioControls button{font-size:.8rem;margin:0;padding:.4rem}#arenaAudioControls label{font-size:.8rem}#arenaAudioControls input{width:100%;margin:0;min-width:0}";
+  style.textContent+="#arenaAudioControls small{font-size:.7rem;line-height:1.3}#arenaAudioControls a{color:#bfe4ff}";
   document.head.append(style);render();
   document.addEventListener("pointerdown",unlock,{capture:true,passive:true});
   document.addEventListener("keydown",unlock,{capture:true,passive:true});
