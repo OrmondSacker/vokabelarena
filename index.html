@@ -803,7 +803,9 @@ window.ArenaAudio = (() => {
   "use strict";
   const key="vokabelarena.audio.1";
   let enabled=true,volume=.3,context=null,master=null,noiseBuffer=null;
-  const voices=new Set(),lastPlayed=new Map();
+  const voices=new Set(),lastPlayed=new Map(),variants=new Map();
+  const random=(min,max)=>min+Math.random()*(max-min);
+  function variation(kind){const next=(variants.get(kind)??-1)+1;variants.set(kind,next);return next%3;}
   try {const saved=JSON.parse(localStorage.getItem(key)??"null");if(saved){enabled=saved.enabled!==false;if(Number.isFinite(saved.volume)) volume=Math.max(0,Math.min(1,saved.volume));}} catch {}
   const supported=Boolean(window.AudioContext || window.webkitAudioContext);
   function save(){try{localStorage.setItem(key,JSON.stringify({enabled,volume}));}catch{}}
@@ -822,54 +824,81 @@ window.ArenaAudio = (() => {
       if(context.state!=="running") context.resume().catch(()=>{});
     } catch {}
   }
-  function track(node,end){voices.add(node);node.onended=()=>{voices.delete(node);node.disconnect();};node.stop(end);if(voices.size>48){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}}
+  function track(node,end){voices.add(node);node.onended=()=>{voices.delete(node);node.disconnect();};node.stop(end);if(voices.size>72){const oldest=voices.values().next().value;try{oldest.stop();}catch{}voices.delete(oldest);}}
   function tone(frequency,endFrequency,duration,delay=0,type="sine",level=.25) {
     const at=context.currentTime+delay,osc=context.createOscillator(),gain=context.createGain();
     osc.type=type;osc.frequency.setValueAtTime(frequency,at);osc.frequency.exponentialRampToValueAtTime(Math.max(20,endFrequency),at+duration);
     gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(level,at+.008);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
     osc.connect(gain);gain.connect(master);osc.start(at);track(osc,at+duration+.03);
   }
-  function noise(duration,delay=0,frequency=1000,level=.2) {
+  function noise(duration,delay=0,frequency=1000,level=.2,band="lowpass",endFrequency=frequency) {
     const at=context.currentTime+delay,source=context.createBufferSource(),filter=context.createBiquadFilter(),gain=context.createGain();
-    source.buffer=noiseBuffer;filter.type="lowpass";filter.frequency.value=frequency;
-    gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(level,at+.01);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
-    source.connect(filter);filter.connect(gain);gain.connect(master);source.start(at);track(source,at+duration+.03);
+    source.buffer=noiseBuffer;source.loop=true;filter.type=band;filter.Q.value=band==="bandpass" ? .8 : .7;
+    filter.frequency.setValueAtTime(frequency,at);filter.frequency.exponentialRampToValueAtTime(Math.max(40,endFrequency),at+duration);
+    gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(level,at+Math.min(.035,duration*.15));gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    source.connect(filter);filter.connect(gain);gain.connect(master);source.start(at,random(0,.8));track(source,at+duration+.03);
+  }
+  function vocal(pitch,endPitch,duration,delay=0,level=.1,formants=[450,1100,2300],roughness=4) {
+    const at=context.currentTime+delay,osc=context.createOscillator(),body=context.createGain();
+    osc.type="sawtooth";osc.frequency.setValueAtTime(pitch,at);osc.frequency.exponentialRampToValueAtTime(endPitch,at+duration);
+    body.gain.setValueAtTime(.0001,at);body.gain.exponentialRampToValueAtTime(level,at+.045);body.gain.setValueAtTime(level*.8,at+duration*.6);body.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    formants.forEach((frequency,i)=>{const filter=context.createBiquadFilter(),mix=context.createGain();filter.type="bandpass";filter.Q.value=4+i;filter.frequency.setValueAtTime(frequency,at);filter.frequency.linearRampToValueAtTime(frequency*random(.8,1.15),at+duration);mix.gain.value=[1,.65,.3][i];osc.connect(filter);filter.connect(mix);mix.connect(body);});
+    const vibrato=context.createOscillator(),depth=context.createGain();vibrato.frequency.value=random(15,27);depth.gain.value=roughness;vibrato.connect(depth);depth.connect(osc.frequency);
+    body.connect(master);osc.start(at);vibrato.start(at);track(osc,at+duration+.03);track(vibrato,at+duration+.03);
+  }
+  function crowd() {
+    // Layered vowel-like voices, applause and an occasional whistle.
+    noise(1.8,0,1250,.15,"bandpass",1850);noise(1.65,.08,3200,.085,"highpass",1800);
+    for(let i=0;i<5;i++){const pitch=random(135,275);vocal(pitch,pitch*random(1.1,1.45),random(.85,1.45),i*.075,.035,[650,1200,2400],2);}
+    for(let i=0;i<9;i++)noise(.065,.12+i*.12+random(0,.035),random(1800,3200),.09,"bandpass");
+    if(Math.random()>.3){tone(1650,1950,.22,.45,"sine",.035);tone(1900,1720,.16,.72,"sine",.03);}
+  }
+  function monster(profile="dragon",hurt=false) {
+    const variant=variation("monster-"+profile),duration=hurt ? .32 : .8+variant*.1;
+    if(profile==="golem"){noise(duration,0,520,.2,"lowpass",140);vocal(hurt ? 83 : 54,38,duration,0,.15,[220,540,1200],8);tone(65,30,.3,0,"triangle",.23);}
+    else if(profile==="ghost"){noise(duration,0,1800,.09,"bandpass",600);vocal(hurt ? 340 : 480,hurt ? 220 : 210,duration,0,.065,[850,1600,2700],7);tone(600,260,duration,.025,"sine",.035);}
+    else if(profile==="zombie"){vocal(85+variant*9,45,duration,0,.15,[270,780,1600],7);noise(duration*.7,.06,620,.09,"bandpass",320);}
+    else {vocal(hurt ? 115 : 68,42,duration,0,.15,[330,820,1800],10);vocal(102,53,duration*.8,.035,.055,[480,1150,2250],6);noise(duration*.8,.08,1200,.13,"lowpass",260);}
   }
   function melody(notes,spacing=.11,type="triangle") {notes.forEach((note,i)=>tone(note,note,.16,i*spacing,type,.2));}
-  function play(kind) {
+  function play(kind,profile) {
     if(!enabled || volume===0 || !context || context.state!=="running" || document.hidden) return;
     const now=context.currentTime;if(now-(lastPlayed.get(kind)??-100)<.07)return;lastPlayed.set(kind,now);
+    const v=variation(kind),pitch=[.94,1.02,1.08][v];
     try {
       switch(kind) {
-        case "right":melody([520,780],.075);break;
-        case "wrong":tone(190,80,.22,0,"triangle",.24);break;
-        case "kick":noise(.07,0,850,.22);tone(130,50,.09);break;
-        case "goal":noise(.8,0,1900,.13);melody([392,523,659,784],.13);break;
-        case "infect":tone(115,48,.55,0,"sawtooth",.13);tone(122,55,.6,.04,"triangle",.18);noise(.3,.08,450,.12);break;
-        case "bossHit":tone(210,65,.17,0,"square",.12);noise(.14,0,1700,.2);break;
-        case "bossAttack":noise(.32,0,900,.24);tone(85,42,.35,0,"sawtooth",.12);break;
-        case "bonus":melody([440,554,659,880],.08);break;
-        case "launch":tone(150,330,.18,0,"triangle",.15);noise(.18,.02,1600,.15);break;
-        case "impact":noise(.4,0,900,.3);tone(95,32,.32,0,"sine",.35);break;
-        case "repair":melody([330,440,660],.09);break;
-        case "cannon":noise(.16,0,1400,.3);tone(110,35,.22,0,"triangle",.3);break;
-        case "splash":noise(.35,0,2600,.14);tone(380,90,.24,0,"sine",.17);break;
-        case "shipHit":noise(.22,0,1700,.25);tone(145,42,.25,0,"triangle",.3);break;
-        case "sunk":noise(.55,0,1100,.28);melody([220,165,110],.13);break;
-        case "golfClub":noise(.045,0,2700,.12);tone(1100,550,.055,0,"sine",.25);break;
-        case "bounce":tone(400,180,.06,0,"triangle",.14);break;
-        case "hole":tone(700,180,.12);melody([660,880,1100],.1);break;
-        case "portal":tone(180,1300,.45,0,"sine",.18);tone(220,1500,.45,.04,"sine",.15);break;
-        case "win":melody([392,523,659,784,1047],.13);break;
-        case "lose":melody([330,294,220,147],.18);break;
+        case "right":melody([[494,659],[523,784],[587,740]][v],.07,v===1 ? "sine" : "triangle");break;
+        case "wrong":tone(165*pitch,82,.19,0,"triangle",.17);noise(.055,0,420,.045);break;
+        case "kick":
+        case "pass":tone(125*pitch,48,.085,0,"sine",.36);noise(.05,0,1150,.2);noise(.055,.015,2600,.06,"highpass");break;
+        case "shot":noise(.13,0,1800,.12,"bandpass",750);tone(165*pitch,42,.12,.025,"sine",.42);noise(.07,.025,1450,.28);break;
+        case "goal":crowd();break;
+        case "infect":monster("zombie");break;
+        case "bossHit":monster(profile,true);noise(.1,0,1700,.15);break;
+        case "bossAttack":monster(profile);if(profile==="dragon")noise(.55,.12,2500,.14,"lowpass",450);break;
+        case "bonus":melody([[440,554,659,880],[523,659,784,1047],[392,494,587,784]][v],.075);break;
+        case "launch":tone(120*pitch,260,.18,0,"sawtooth",.045);noise(.07,.08,1300,.14);noise(.3,.12,1500,.1,"bandpass",400);break;
+        case "impact":noise(.48,0,800,.28,"lowpass",150);tone(88*pitch,29,.36,0,"sine",.36);for(let i=0;i<3;i++)noise(.07,.09+i*.075,1600,.1);break;
+        case "repair":for(let i=0;i<3;i++){tone(240*pitch,110,.055,i*.09,"triangle",.15);noise(.04,i*.09,900,.09);}tone(780,1100,.15,.25,"sine",.1);break;
+        case "cannon":noise(.2,0,1700,.3,"lowpass",240);tone(82*pitch,28,.28,0,"sine",.4);noise(.25,.045,600,.12);break;
+        case "splash":noise(.45,0,2400,.19,"bandpass",550);for(let i=0;i<5;i++)tone(random(350,800),random(120,240),.1,.05+i*.055,"sine",.08);break;
+        case "shipHit":noise(.3,0,1600,.27,"lowpass",300);tone(125*pitch,37,.28,0,"triangle",.28);tone(430,300,.18,.03,"sine",.08);break;
+        case "sunk":noise(.65,0,900,.23,"lowpass",180);tone(95,32,.48,0,"sine",.27);for(let i=0;i<4;i++)tone(280+i*70,75,.17,.22+i*.08,"sine",.1);break;
+        case "golfClub":noise(.13,0,1900,.075,"bandpass",800);noise(.025,.065,3500,.16,"highpass");tone(850*pitch,340,.045,.065,"sine",.22);break;
+        case "bounce":tone(320*pitch,140,.055,0,"triangle",.17);noise(.02,0,1200,.08);break;
+        case "hole":tone(420*pitch,170,.1,0,"triangle",.2);noise(.055,.04,800,.09);melody([[659,880],[784,1047],[740,988]][v],.09);break;
+        case "portal":vocal(160,640,.48,0,.045,[700,1400,2600],3);tone(220,1450,.5,0,"sine",.09);noise(.4,.04,2200,.07,"bandpass",1200);break;
+        case "win":melody([392,523,659,784,1047],.13);tone(523,523,.45,.4,"sine",.07);break;
+        case "lose":melody([[330,294,220,147],[349,294,196,131],[294,262,196,147]][v],.18);break;
       }
     } catch {}
   }
   const controls=document.createElement("details");controls.id="arenaAudioControls";
   const summary=document.createElement("summary"),panel=document.createElement("div"),toggle=document.createElement("button"),label=document.createElement("label"),slider=document.createElement("input");
   toggle.type="button";slider.type="range";slider.min="0";slider.max="100";slider.step="5";slider.value=String(volume*100);slider.id="arenaVolume";
-  label.htmlFor=slider.id;label.textContent="Lautstärke";panel.append(toggle,label,slider);controls.append(summary,panel);
-  function render(){summary.textContent=!supported ? "Ton nicht verfügbar" : enabled && volume>0 ? "🔊 Ton an" : "🔇 Ton aus";toggle.textContent=enabled ? "Stummschalten" : "Ton einschalten";toggle.setAttribute("aria-pressed",String(enabled));toggle.disabled=!supported;slider.disabled=!supported;}
+  label.htmlFor=slider.id;label.textContent="Lautstärke";
+  const previewSelect=document.createElement("select"),preview=document.createElement("button");preview.type="button";preview.textContent="Probehören";previewSelect.setAttribute("aria-label","Geräusch zum Probehören");previewSelect.innerHTML='<option value="goal">Stadionjubel</option><option value="pass">Pass</option><option value="shot">Torschuss</option><option value="zombie">Zombie</option><option value="dragon">Drache</option><option value="golem">Golem</option><option value="ghost">Geist</option>';preview.onclick=()=>{unlock();stop();const choice=previewSelect.value;play(["dragon","golem","ghost"].includes(choice) ? "bossAttack" : choice==="zombie" ? "infect" : choice,choice);};panel.append(toggle,label,slider,previewSelect,preview);controls.append(summary,panel);
+  function render(){summary.textContent=!supported ? "Ton nicht verfügbar" : enabled && volume>0 ? "🔊 Ton an" : "🔇 Ton aus";toggle.textContent=enabled ? "Stummschalten" : "Ton einschalten";toggle.setAttribute("aria-pressed",String(enabled));toggle.disabled=!supported;slider.disabled=!supported;preview.disabled=!supported || !enabled || volume===0;}
   toggle.onclick=()=>{enabled=!enabled;if(!enabled)stop();else unlock();render();save();if(enabled)play("right");};
   slider.oninput=()=>{volume=Number(slider.value)/100;if(master)master.gain.setValueAtTime(volume*.45,context.currentTime);if(!volume)stop();render();save();};
   slider.onchange=()=>{unlock();play("right");};
@@ -996,6 +1025,7 @@ function closeGameResult() {
 }
 function showGameResult(won,message) {
   window.ArenaAudio?.stop();window.ArenaAudio?.play(won ? "win" : "lose");
+  if(state?.mode==="football")window.ArenaAudio?.play("goal");
   cancelComputerStep();
   closeGameResult();
   document.getElementById("fleetShotEffect")?.remove();
@@ -1500,7 +1530,7 @@ function judgeTeam(correct, solution) {
   let result = "";
   let event = "";
   if (state.mode === "football") {
-    if (correct) {window.ArenaAudio?.play("kick");state.ball += state.team === 0 ? 1 : -1;}
+    if (correct) {const nextBall=state.ball+(state.team===0 ? 1 : -1);window.ArenaAudio?.play(nextBall===0 || nextBall===6 ? "shot" : "pass");state.ball=nextBall;}
     if (state.ball === 0 || state.ball === 6) {
       state.goals[state.team]++;
       flashGoal();
@@ -2699,7 +2729,7 @@ function resetBossEffect() {
   el("bossEffect").hidden = true;
 }
 function animateBoss(correct, damage) {
-  window.ArenaAudio?.play(correct ? "bossHit" : "bossAttack");
+  window.ArenaAudio?.play(correct ? "bossHit" : "bossAttack",state.boss);
   const action = correct ? (state.hp === 0 ? "defeat" : "hit") : "attack";
   el("bossIcon").dataset.action = action;
   const effect = el("bossEffect");
