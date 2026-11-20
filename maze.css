@@ -17,3 +17,15 @@
 .mazeCover{position:relative;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#ffe6ab88,transparent 28%),repeating-linear-gradient(0deg,transparent 0 19px,#1d334d 19px 26px),repeating-linear-gradient(90deg,#496b85 0 22px,#10263b 22px 30px)!important;isolation:isolate}.mazeCover::before{content:'◆';position:absolute;inset:18% 20%;display:grid;place-items:center;font-size:5rem;color:#ffdda0;text-shadow:0 4px #9f5b38,0 0 35px #ffc275;background:radial-gradient(ellipse,#0c1c30,transparent 65%);transform:rotate(-10deg)}.mazeCover::after{content:'WÖRTERLABYRINTH';position:absolute;left:0;right:0;bottom:12%;text-align:center;font:900 clamp(.8rem,1.4vw,1.2rem) system-ui;letter-spacing:.08em;color:#fff0c2;text-shadow:2px 3px #10213c}
 @media(max-width:760px){.mazeLayout{grid-template-columns:minmax(0,1fr)}#mazeCanvas{max-height:34dvh}#mazePanel{max-height:48dvh;padding:12px}.mazeToolbar h2{width:100%}.mazeToolbar button{font-size:.65rem}#mazeHUD{gap:4px}#mazeHUD span{font-size:.65rem;padding:5px}.mazeLetter{width:22px;height:30px}#mazeGame{padding:8px}.mazeMap{padding:4px}#mazeMapDescription{display:none}}
 @media(prefers-reduced-motion:reduce){#mazeGame *{scroll-behavior:auto!important}}
+@media(min-height:560px){
+ #mazeGame:not([hidden]){height:calc(100dvh - 20px);display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto auto;overflow:hidden}
+ .mazeLayout{min-height:0}.mazeMap{min-height:0;position:relative}
+ #mazeCanvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:calc(100% - 18px);max-height:calc(100% - 38px);width:auto;height:auto}
+ #mazeMapDescription{position:absolute;bottom:7px;left:8px;right:8px;text-align:center}
+ #mazePanel{max-height:none;min-height:0;height:100%}
+}
+@media(max-width:760px) and (min-height:560px){
+ #mazeGame:not([hidden]){height:calc(100dvh - 20px)}
+ .mazeLayout{grid-template-rows:minmax(0,.85fr) minmax(0,1.15fr)}
+ #mazeCanvas{max-height:calc(100% - 12px)}
+}
