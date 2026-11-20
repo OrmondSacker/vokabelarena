@@ -1,0 +1,10 @@
+{
+  "name": "vokabelarena-tests",
+  "private": true,
+  "scripts": {
+    "test": "node maze.test.cjs"
+  },
+  "dependencies": {
+    "linkedom": "0.18.15"
+  }
+}
