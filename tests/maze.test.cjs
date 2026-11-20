@@ -4,6 +4,7 @@ const {document,window}=parseHTML(html);
 const storage=new Map();const noop=()=>{};
 function option(text,value){const n=document.createElement('option');n.textContent=text;n.setAttribute('value',value??text);return n;}
 Object.defineProperties(window.HTMLSelectElement.prototype,{value:{configurable:true,get(){return this.querySelector('option[selected]')?.getAttribute('value')??this.querySelector('option[selected]')?.textContent??this.querySelector('option')?.getAttribute('value')??this.querySelector('option')?.textContent??''},set(value){let found=false;for(const n of this.querySelectorAll('option')){if(n.getAttribute('value')===String(value)||!n.hasAttribute('value')&&n.textContent===String(value)){n.setAttribute('selected','');found=true}else n.removeAttribute('selected')}if(!found)this.setAttribute('data-empty','true');else this.removeAttribute('data-empty');}},selectedOptions:{get(){return [...this.querySelectorAll('option[selected]')].length?[...this.querySelectorAll('option[selected]')]:[this.querySelector('option')].filter(Boolean)}}});
+window.HTMLSelectElement.prototype.add=function(n){this.append(n)};
 const ctx2d=new Proxy({measureText:t=>({width:String(t).length*8}),createLinearGradient:()=>({addColorStop:noop}),createRadialGradient:()=>({addColorStop:noop}),getImageData:()=>({data:new Uint8ClampedArray(100)})},{get:(o,k)=>o[k]??noop,set:(o,k,v)=>(o[k]=v,true)});
 window.HTMLCanvasElement.prototype.getContext=()=>ctx2d;
 window.HTMLElement.prototype.getBoundingClientRect=()=>({x:0,y:0,width:600,height:500,top:0,left:0,bottom:500,right:600});window.HTMLElement.prototype.scrollIntoView=noop;window.HTMLElement.prototype.focus=noop;
@@ -55,4 +56,8 @@ for(const kind of ['gap','order','correct','choice']){api.start(vocabulary,{...c
 api.start({...vocabulary,cards:[['ein Foto machen','take a beautiful photo']]},{...cfg,adventure:false});g=api.inspect();g.position=g.cells.find(c=>c.event==='puzzle').id;g.cells[g.position].riddleKind='wordle';api.openPuzzle();assert.equal(g.active.kind,'letters');assert(g.active.tokens.every(t=>!t.text.includes(' ')));
 // Submitted setup reaches the dedicated maze scene, not a legacy game.
 api.back();run('gameTiles[6].click()');document.getElementById('config').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));assert(!document.getElementById('mazeGame').hidden);assert(document.getElementById('game').hidden);
+// Optional list topics survive saving, loading and backup merges.
+run("el('deckTitle').value='QA Animals';el('deckTheme').value='Animals';el('pairs').value='Katze;cat';el('deckSave').click()");
+assert.equal(run("deckRecords.find(r=>r.title==='QA Animals').theme"),'Animals');
+assert.equal(run("mergeArenaRecords([], [{title:'QA',text:'Katze;cat',theme:'Animals'}], 'text')[0].theme"),'Animals');
 console.log(JSON.stringify({mapsVerified:maps,topics:gb.length,puzzles:5,queue:'unique first pass, missed-only retries, completion',economy:'paid hint and skip passed',save:'active puzzle resumed',keys:'all sources and victory passed',oldGameMenus:6}));
