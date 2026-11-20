@@ -4,6 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vokabelarena</title>
 <link rel="stylesheet" href="golf-art.css?v=1">
+<link rel="stylesheet" href="maze.css?v=1">
 <link rel="stylesheet" href="result-art.css?v=1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=DM+Sans:wght@400;600;700&amp;display=swap">
 <style>
@@ -712,7 +713,7 @@ sich erinnern;remember</textarea></label>
 <button type="button" id="backToGameTiles" class="secondary">← Anderes Spiel wählen</button>
 <h2 id="settingsHeading" tabindex="-1">Spieleinstellungen</h2>
 <p id="settingsSummary" class="settingsSummary"></p>
-<div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option><option value="fleet">Schiffe versenken</option><option value="golf">Minigolf</option></select></label>
+<div class="options"><label hidden>Spiel <select id="mode"><option value="football">Fußball</option><option value="zombie">Zombieangriff</option><option value="boss">Bosskampf</option><option value="catapult">Katapultduell</option><option value="fleet">Schiffe versenken</option><option value="golf">Minigolf</option><option value="maze">Wörterlabyrinth</option></select></label>
 <label id="bossChoice" hidden>Boss <select id="bossSelect"><option value="random">Zufällig</option><option value="series">Bossserie · alle drei Bosse</option><option value="dragon">Glutdrache</option><option value="golem">Runengolem</option><option value="ghost">Nebelgeist</option></select></label><label id="bossOptions" hidden>Personen <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
 
 </div>
@@ -967,6 +968,7 @@ window.ArenaAudio = (() => {
 </script>
 <script src="golf.js?v=audio-1"></script>
 <script src="fleet.js?v=audio-1"></script>
+<script src="maze.js?v=2"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -1409,7 +1411,7 @@ el("config").addEventListener("submit",event=>{
     else el("chooseGame").click();
     return;
   }
-  if (el("gameSettings").hidden) return;
+  if (el("gameSettings").hidden || el("mode").value==="maze") return;
   const vocabulary=readVocabulary();
   if (!vocabulary) {showSetupStep(false,true);return;}
   const mode=el("mode").value;
@@ -1695,7 +1697,8 @@ const gameCatalog = [
   {id:"boss", title:"Bosskampf", description:"Ein Boss oder die ganze Bossserie.", position:"0% 100%"},
   {id:"catapult", title:"Katapultduell", description:"Steine sammeln und Burgen verteidigen.", position:"100% 100%"},
   {id:"fleet", title:"Schiffe versenken", description:"Zwei Flotten, Hinweise und Salven auf 10 × 10 Feldern."},
-  {id:"golf", title:"Minigolf", description:"Vokabelserien bestimmen deinen Schlag.", position:"50% 50%"}
+  {id:"golf", title:"Minigolf", description:"Vokabelserien bestimmen deinen Schlag.", position:"50% 50%"},
+  {id:"maze", title:"Wörterlabyrinth", description:"Drei Schlüssel, fünf Worträtsel und verborgene Wege."}
 ];
 
 let editingVocabulary = false;
@@ -1752,6 +1755,7 @@ function showGameSettings() {
     const direction = vocabulary.verbs ? "Verbformen" : el("direction").selectedOptions[0].textContent;
     el("settingsSummary").textContent = vocabulary.cards.length + " Einträge · " + source + " · " + direction + " · " + answers;
   }
+  if (game.id==="maze") Maze.setup();
   focusSetupTarget(el("settingsHeading"));
 }
 function showGameTiles(restoreFocus = false) {
@@ -2277,6 +2281,7 @@ function setupMode() {
   el("zombieOptions").hidden = mode !== "zombie";
   el("players").disabled = mode !== "zombie" || el("classLoad").value !== "";
   for (const id of ["zombies", "rounds"]) el(id).disabled = mode !== "zombie";
+  Maze.setup();
 }
 el("mode").onchange = setupMode;
 el("computerEnabled").onchange = setupMode;
@@ -3082,6 +3087,7 @@ el("importArenaData").onchange = async event => {
 };
 
 Golf.bind();
+Maze.bind();
 Fleet.openGuest();
 if (new URLSearchParams(location.hash.slice(1)).has("fleetHost")) {
   el("mode").value = "fleet";
