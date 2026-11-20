@@ -13,7 +13,7 @@ const addresses = Object.values(os.networkInterfaces()).flat()
   .filter(entry => entry.family === "IPv4" && !entry.internal).map(entry => entry.address);
 const publicAddress = process.env.FLEET_ADDRESS || addresses[0] || "127.0.0.1";
 const rooms = new Map();
-const files = new Map([["/","index.html"],["/index.html","index.html"],["/fleet.js","fleet.js"],["/qrcode.js","qrcode.js"],["/result-art.css","result-art.css"],["/golf.js","golf.js"],["/golf-art.css","golf-art.css"],["/audio-voices.js","audio-voices.js"]]);
+const files = new Map([["/","index.html"],["/index.html","index.html"],["/fleet.js","fleet.js"],["/qrcode.js","qrcode.js"],["/result-art.css","result-art.css"],["/golf.js","golf.js"],["/golf-art.css","golf-art.css"],["/audio-voices.js","audio-voices.js"],["/maze.js","maze.js"],["/maze.css","maze.css"]]);
 const idleLimit = 4 * 60 * 60 * 1000;
 const moderatorUrl = "http://127.0.0.1:"+port+"/moderation";
 
