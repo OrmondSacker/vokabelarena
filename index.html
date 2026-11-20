@@ -666,6 +666,7 @@ button.gameTile .fleetCover{
 <details id="deckManager">
 <summary>Vokabellisten verwalten</summary>
 <label>Listenname <input id="deckTitle" maxlength="120" placeholder="Buch XYZ – Lektion 1"></label>
+<label>Listenthema (optional, für Worträtsel) <input id="deckTheme" maxlength="100" placeholder="z. B. Shopping"></label>
 <button type="button" id="deckSave">Aktuelles Vokabelfeld speichern</button>
 <label>Gespeicherte Listen <select id="deckEdit"><option value="">Liste auswählen</option></select></label>
 <button type="button" class="secondary" id="deckLoad" disabled>Ins Vokabelfeld laden</button>
@@ -968,7 +969,7 @@ window.ArenaAudio = (() => {
 </script>
 <script src="golf.js?v=audio-1"></script>
 <script src="fleet.js?v=audio-1"></script>
-<script src="maze.js?v=3"></script>
+<script src="maze.js?v=4"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -2663,6 +2664,7 @@ el("deckLoad").onclick = () => {
   if (!record) return;
   el("pairs").value = record.text;
   el("deckTitle").value = record.title;
+  el("deckTheme").value = typeof record.theme==="string" ? record.theme : "";
   el("vocabSource").value = "custom";
   setupMode();
   el("pairs").focus();
@@ -2679,7 +2681,7 @@ el("deckSave").onclick = () => {
   const existing = deckRecords.findIndex(record => record.title.toLowerCase() === title.toLowerCase());
   if (existing >= 0 && !confirm("Die Liste „"+deckRecords[existing].title+"“ ersetzen?")) return;
   const next = [...deckRecords];
-  next[existing < 0 ? next.length : existing] = {title,text:input};
+  next[existing < 0 ? next.length : existing] = {title,text:input,theme:el("deckTheme").value.trim()};
   try {
     localStorage.setItem(deckStorageKey,JSON.stringify(next));
   } catch {
@@ -2962,10 +2964,10 @@ el("deckImport").onchange = async event => {
       if (typeof entry?.title !== "string" || typeof entry.text !== "string") throw Error("invalid list");
       const title = entry.title.trim(), text = entry.text.trim(), cards = parsePairs(text);
       if (!title || title.length > 120 || !cards.length || cards.some(pair => pair.length !== 2 || pair.some(part => !part))) throw Error("invalid pairs");
-      return {title,text};
+      return {title,text,theme:typeof entry.theme==="string" ? entry.theme.slice(0,100) : ""};
     });
     const updated = [...deckRecords];
-    for (const {title,text} of incoming) {
+    for (const {title,text,theme} of incoming) {
       let name = title;
       let counter = 2;
       let match = updated.find(record => record.title.toLowerCase() === name.toLowerCase());
@@ -2975,7 +2977,7 @@ el("deckImport").onchange = async event => {
         name = title.slice(0,120-suffix.length)+suffix;
         match = updated.find(record => record.title.toLowerCase() === name.toLowerCase());
       }
-      if (!match) updated.push({title:name,text});
+      if (!match) updated.push({title:name,text,theme});
     }
     localStorage.setItem(deckStorageKey,JSON.stringify(updated));
     const count = updated.length-deckRecords.length;
@@ -2999,7 +3001,7 @@ function mergeArenaRecords(existing, incoming, field) {
     while (true) {
       const match = merged.find(entry => entry.title.toLowerCase() === name.toLowerCase());
       if (!match) {
-        merged.push({title:name,[field]:record[field]});
+        merged.push({title:name,[field]:record[field],...(field==="text" && typeof record.theme==="string" ? {theme:record.theme.slice(0,100)} : {})});
         break;
       }
       if (JSON.stringify(match[field]) === JSON.stringify(record[field])) break;
