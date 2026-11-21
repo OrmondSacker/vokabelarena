@@ -359,39 +359,63 @@ const Maze = (() => {
     rect(art.light,2,54,58,1);
     rect(art.dark,2,58,58,2);
 
-    if(art.motif==='torch'){
-      rect('#392537',13,13,7,12);
-      rect('#77443a',14,14,5,7);
-      rect('#d0683c',14,11,5,7);
-      rect('#f6a851',15,10,3,6);
-      rect('#ffe5a0',16,12,2,3);
-      rect('#e7974329',11,17,12,7);
-      rect('#db9d5220',9,24,16,4);
-      rect(art.trim,44,6,5,3);
-      rect(art.light,47,8,1,5);
-    } else if(art.motif==='vine'){
-      rect('#294130',10,4,4,23);
-      rect('#4a633a',11,5,2,21);
-      rect('#839551',13,10,7,3);
-      rect('#586d37',16,12,4,4);
-      rect('#9aa95d',8,17,4,3);
-      rect('#758e4c',13,21,5,4);
-      rect('#e0ba70',45,6,6,6);
-      rect('#62513c',47,8,2,2);
-      rect('#789454',48,49,7,4);
-      rect('#aac37b',50,48,3,3);
-    } else {
-      rect('#271d38',10,5,23,16);
-      rect('#a37174',10,5,23,2);
-      for(let i=0;i<6;i++){
-        const book=['#af696a','#e1bc76','#6fa9a7','#9874ae','#c38f7b','#858fb4'][i];
-        rect(book,12+i*3,9+i%3,2,10-i%3);
-        rect('#ffebbd88',12+i*3,13,2,1);
-      }
-      rect('#bc8683',10,19,23,2);
-      rect('#65426a',41,7,10,10);
-      rect('#c6afeb',44,9,4,6);
-      rect('#e2d4fa',45,8,2,8);
+    paintFurnishings(rect,art,room);
+  }
+  // Each room keeps its furnishings across redraws and saved expeditions.
+  const roomFurnishings = {
+    torch: {
+      colors:['#201c30','#633848','#a85859','#e1aa72','#70869d','#bdc6ca'],
+      layouts:[
+        ['..66..','.6556.','665566','.6556.','.6556.','..11..','.1111.'], // Armor
+        ['.4444.','433334','432234','432234','432234','.2332.','..22..'], // Banner
+        ['.4444.','433334','432234','433334','.4444.','..44..','.1111.'], // Reliquary
+        ['..55..','.5665.','556655','551155','551155','551155','111111'], // Arch
+        ['......','..44..','.434..','.4324.','443344','.4444.','.1111.'], // Brazier
+        ['.4554.','455554','411114','455554','411114','411114','111111']  // Weapon rack
+      ]
+    },
+    vine: {
+      colors:['#1e312d','#456344','#79a35e','#c1a768','#967545','#ead58c'],
+      layouts:[
+        ['...3..','.3.3..','.333..','..33.3','.23332','..222.','.1111.'], // Fern
+        ['.4444.','444444','464464','444444','446644','.5555.','555555'], // Carved idol
+        ['..66..','.6446.','644446','644446','.5555.','..55..','.1111.'], // Offering bowl
+        ['.3333.','334433','341143','341143','341143','351153','555555'], // Overgrown gate
+        ['..33..','.3443.','345543','345543','.3443.','..22..','.1111.'], // Blossom
+        ['..33..','.3333.','335533','.3553.','..55..','.5555.','111111']  // Roots
+      ]
+    },
+    books: {
+      colors:['#251c36','#77516d','#ae6d83','#e1b579','#689bb7','#b6e0e4'],
+      layouts:[
+        ['222222','234552','234552','222222','253432','253432','222222'], // Bookcase
+        ['..66..','.6556.','655556','.6556.','..22..','..22..','.2222.'], // Orb
+        ['.4444.','463364','463364','444444','..22..','..22..','.1111.'], // Open book
+        ['..55..','.5665.','566665','561165','561165','561165','222222'], // Portal
+        ['...4..','..46..','..44..','.3443.','..22..','..22..','.1111.'], // Lamp
+        ['.3333.','333333','..444.','.44444','.2222.','222222','111111']  // Book stack
+      ]
+    }
+  };
+  function paintFurnishings(rect,art,room) {
+    const {colors,layouts}=roomFurnishings[art.motif];
+    const eventLayout={vault:2,hiddenKey:2,fragment:2,treasure:2,sideKey:2,exit:3,rest:4,switch:5};
+    const variant=eventLayout[room.event] ?? [0,1,5][(room.id*7+Math.floor(room.id/3))%3];
+    const layout=layouts[variant];
+    const left=room.id%2===0?10:40;
+    const top=8+(room.id%3)*2;
+    rect('#0005',left-1,top+13,14,3);
+    layout.forEach((row,y)=>Array.from(row).forEach((shade,x)=>{
+      if(shade!=='.')rect(colors[Number(shade)-1],left+x*2,top+y*2,2,2);
+    }));
+    // Floor accents remain below the furniture and clear of the room icon.
+    const floorColor=colors[variant===4?2:1];
+    const floorX=left===10?43:10;
+    rect(floorColor,floorX,38,9,12);
+    rect(colors[0],floorX+1,40,7,8);
+    if(variant===2||variant===3){
+      rect(colors[3],floorX+4,41,1,6);
+      rect(colors[3],floorX+2,43,5,2);
     }
   }
   const mapSprites = {
