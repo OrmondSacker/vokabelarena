@@ -135,12 +135,29 @@ const Maze = (() => {
     roomArrival={title:'Erkundete Kammer',detail:'Der Weg ist frei.',kind:'explore'};
     if(room.event==='exit'){announceRoom('Ausgangsportal',g.keys.length===3?'Das Portal ist geöffnet.':'Schlüssel: '+g.keys.length+'/3','exit');if(g.keys.length===3){finish(true);return;}}
     else if(!room.done&&room.event==='treasure'){room.done=true;const found=3+(g.seed+id)%4;earn(found);announceRoom('Schatzkammer','+'+found+' Coins gefunden','treasure');sound('bonus');}
-    else if(!room.done&&room.event==='rest'){room.done=true;const healed=g.config.adventure&&g.lives<g.maxLives;g.lives=Math.min(g.maxLives,g.lives+1);g.inventory.hint++;announceRoom('Rastplatz',healed?'+1 Leben · +1 Hinweis':'+1 Hinweis gefunden','rest');sound('repair');}
+    else if(!room.done&&room.event==='rest'){visitRestRoom(room);}
     else if(!room.done&&room.event==='switch'){room.done=true;g.switchOn=true;g.extras.filter(e=>e.kind==='switch').forEach(e=>e.open=true);announceRoom('Schalterkammer','Eine Abkürzung wurde geöffnet','switch');sound('repair');}
     else if(!room.done&&room.event==='sideKey'){room.done=true;g.sideKey=true;announceRoom('Blaue Schlüsseltruhe','Schlüssel für eine Abkürzung gefunden','treasure');sound('bonus');}
     else if(!room.done&&['puzzle','vault','hiddenKey','fragment'].includes(room.event)){openPuzzle();return;}
     if(roomArrival.kind==='explore')announceRoom(id===0?'Eingang':'Erkundete Kammer',passage||'Der Weg ist frei.','explore');
     save();render();
+  }
+  function visitRestRoom(room){
+    const foundHint=!room.restHintTaken;
+    if(foundHint){
+      room.restHintTaken=true;
+      g.inventory.hint++;
+    }
+    if(g.config.adventure&&g.lives===g.maxLives){
+      announceRoom('Rastplatz',foundHint?'+1 Hinweis · Herz bleibt im Raum':'Herz bleibt im Raum · Leben voll','rest');
+      if(foundHint)sound('bonus');
+      return;
+    }
+    room.done=true;
+    g.lives=Math.min(g.maxLives,g.lives+1);
+    const detail=g.config.adventure?(foundHint?'+1 Leben · +1 Hinweis':'+1 Leben'):'+1 Hinweis gefunden';
+    announceRoom('Rastplatz',detail,'rest');
+    sound('repair');
   }
   function announceRoom(title,detail,kind){
     roomArrival={title,detail,kind};
