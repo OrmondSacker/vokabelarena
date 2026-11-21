@@ -361,61 +361,129 @@ const Maze = (() => {
 
     paintFurnishings(rect,art,room);
   }
-  // Each room keeps its furnishings across redraws and saved expeditions.
-  const roomFurnishings = {
-    torch: {
-      colors:['#201c30','#633848','#a85859','#e1aa72','#70869d','#bdc6ca'],
-      layouts:[
-        ['..66..','.6556.','665566','.6556.','.6556.','..11..','.1111.'], // Armor
-        ['.4444.','433334','432234','432234','432234','.2332.','..22..'], // Banner
-        ['.4444.','433334','432234','433334','.4444.','..44..','.1111.'], // Reliquary
-        ['..55..','.5665.','556655','551155','551155','551155','111111'], // Arch
-        ['......','..44..','.434..','.4324.','443344','.4444.','.1111.'], // Brazier
-        ['.4554.','455554','411114','455554','411114','411114','111111']  // Weapon rack
-      ]
-    },
-    vine: {
-      colors:['#1e312d','#456344','#79a35e','#c1a768','#967545','#ead58c'],
-      layouts:[
-        ['...3..','.3.3..','.333..','..33.3','.23332','..222.','.1111.'], // Fern
-        ['.4444.','444444','464464','444444','446644','.5555.','555555'], // Carved idol
-        ['..66..','.6446.','644446','644446','.5555.','..55..','.1111.'], // Offering bowl
-        ['.3333.','334433','341143','341143','341143','351153','555555'], // Overgrown gate
-        ['..33..','.3443.','345543','345543','.3443.','..22..','.1111.'], // Blossom
-        ['..33..','.3333.','335533','.3553.','..55..','.5555.','111111']  // Roots
-      ]
-    },
-    books: {
-      colors:['#251c36','#77516d','#ae6d83','#e1b579','#689bb7','#b6e0e4'],
-      layouts:[
-        ['222222','234552','234552','222222','253432','253432','222222'], // Bookcase
-        ['..66..','.6556.','655556','.6556.','..22..','..22..','.2222.'], // Orb
-        ['.4444.','463364','463364','444444','..22..','..22..','.1111.'], // Open book
-        ['..55..','.5665.','566665','561165','561165','561165','222222'], // Portal
-        ['...4..','..46..','..44..','.3443.','..22..','..22..','.1111.'], // Lamp
-        ['.3333.','333333','..444.','.44444','.2222.','222222','111111']  // Book stack
-      ]
-    }
-  };
   function paintFurnishings(rect,art,room) {
-    const {colors,layouts}=roomFurnishings[art.motif];
-    const eventLayout={vault:2,hiddenKey:2,fragment:2,treasure:2,sideKey:2,exit:3,rest:4,switch:5};
-    const variant=eventLayout[room.event] ?? [0,1,5][(room.id*7+Math.floor(room.id/3))%3];
-    const layout=layouts[variant];
-    const left=room.id%2===0?10:40;
-    const top=8+(room.id%3)*2;
-    rect('#0005',left-1,top+13,14,3);
-    layout.forEach((row,y)=>Array.from(row).forEach((shade,x)=>{
-      if(shade!=='.')rect(colors[Number(shade)-1],left+x*2,top+y*2,2,2);
-    }));
-    // Floor accents remain below the furniture and clear of the room icon.
-    const floorColor=colors[variant===4?2:1];
-    const floorX=left===10?43:10;
-    rect(floorColor,floorX,38,9,12);
-    rect(colors[0],floorX+1,40,7,8);
-    if(variant===2||variant===3){
-      rect(colors[3],floorX+4,41,1,6);
-      rect(colors[3],floorX+2,43,5,2);
+    const scene={exit:'gate',rest:'rest',treasure:'treasure',sideKey:'treasure',switch:'switch',
+      vault:'altar',hiddenKey:'altar',fragment:'altar'}[room.event]
+      ?? ['study','court','altar'][Math.floor(room.id / 2)%3];
+    const castle=art.motif==='torch', jungle=art.motif==='vine';
+    const brass=jungle?'#d9cc8e':'#eac693';
+    const shadow='#100e20';
+    const cloth=castle?'#804052':jungle?'#507752':'#65518a';
+    const wood=castle?'#7e4f43':jungle?'#746640':'#865b64';
+    const light=castle?'#ffc779':jungle?'#d4ed91':'#b5daf6';
+    const ink=jungle?'#2b4936':'#34243c';
+
+    // A floor runner or patterned paving frames the main furnishing.
+    rect(shadow,20,23,24,29);
+    rect(cloth,21,22,22,29);
+    rect(brass,22,23,20,1);
+    rect(brass,22,49,20,1);
+    rect(ink,23,25,18,22);
+    for(let y=27;y<47;y+=6){
+      rect(cloth,24,y,16,1);
+      rect(brass,26,y+2,2,1);
+      rect(brass,36,y+2,2,1);
+    }
+
+    const lamp=(x,y)=>{
+      rect('#0005',x-2,y+11,10,3);
+      rect(wood,x+2,y+5,3,8);
+      rect(wood,x,y+12,7,2);
+      rect(light+'24',x-3,y-3,13,12);
+      rect(light+'35',x-1,y-1,9,8);
+      rect(light,x+1,y,5,5);
+      rect('#fff2ca',x+3,y-1,2,4);
+    };
+    const shelf=(x,y)=>{
+      rect(shadow,x,y,14,21);
+      rect(wood,x+1,y+1,12,18);
+      rect(ink,x+2,y+3,10,6);
+      rect(ink,x+2,y+11,10,6);
+      for(let i=0;i<4;i++){
+        const color=['#ce756c','#dbb375','#71a9a2','#ae90ce'][i];
+        rect(color,x+2+i*2,y+4-i%2,2,5+i%2);
+        rect(color,x+8-i*2,y+12-i%2,2,5+i%2);
+      }
+      rect(brass,x+1,y+1,12,1);
+      rect(wood,x,y+19,14,2);
+    };
+    const leaves=(x,y)=>{
+      rect('#344936',x+3,y+9,9,6);
+      rect('#789052',x+6,y+2,3,10);
+      rect('#668951',x+1,y+4,7,3);
+      rect('#92ac63',x+9,y+4,5,3);
+      rect('#b0c779',x+7,y+1,2,3);
+      rect('#739451',x+2,y+8,5,3);
+      rect('#a88a53',x+4,y+12,7,3);
+    };
+    const banner=(x,y)=>{
+      rect(shadow,x,y,12,17);
+      rect(brass,x,y,12,2);
+      rect(cloth,x+2,y+2,8,13);
+      rect(cloth,x+4,y+15,4,2);
+      rect(brass,x+5,y+5,2,7);
+      rect(brass,x+3,y+7,6,2);
+    };
+
+    const prop=castle?banner:jungle?leaves:shelf;
+    prop(8,9);
+    if(scene==='court'||scene==='gate')prop(43,9);
+    else lamp(47,10);
+
+    if(scene==='gate'){
+      rect(shadow,21,10,22,25);
+      rect(art.face,24,7,16,4);
+      rect(art.light,27,6,10,2);
+      rect(art.face,22,11,5,22);
+      rect(art.face,37,11,5,22);
+      rect(art.light,23,12,2,20);
+      rect(art.light,38,12,2,20);
+      rect(light+'55',27,12,10,20);
+      for(let y=14;y<31;y+=4)rect(light,28+(y%3),y,6,1);
+      rect(brass,20,33,24,2);
+    }else if(scene==='rest'){
+      rect(shadow,20,17,24,17);
+      rect(art.light,21,17,22,3);
+      rect(art.face,22,20,20,11);
+      rect(ink,25,21,14,9);
+      rect(cloth,26,25,12,4);
+      rect(light,28,22,8,5);
+      rect('#fff2ca',31,20,3,6);
+      rect(art.light,20,31,24,2);
+    }else if(scene==='treasure'){
+      rect(shadow,21,16,22,17);
+      rect(wood,23,17,18,13);
+      rect(brass,23,17,18,2);
+      rect(brass,23,23,18,2);
+      rect(brass,25,18,2,12);
+      rect(brass,37,18,2,12);
+      rect(light,30,22,4,5);
+      rect(shadow,31,24,2,2);
+    }else{
+      rect(shadow,20,17,24,16);
+      rect(wood,22,21,20,9);
+      rect(brass,21,19,22,3);
+      rect(ink,24,23,16,4);
+      if(scene==='switch'){
+        rect(art.light,28,15,12,4);
+        rect(light,35,10,3,8);
+        rect(brass,34,9,5,3);
+      }else if(scene==='altar'){
+        rect(ink,26,10,12,9);
+        rect(light,29,10,6,8);
+        rect('#fff2ca',31,11,2,5);
+      }else if(jungle){
+        rect(art.face,27,10,10,9);
+        rect(brass,27,10,10,2);
+        rect(ink,28,14,2,2);
+        rect(ink,34,14,2,2);
+        rect(light,31,16,2,2);
+      }else{
+        rect('#f5deb0',25,13,14,6);
+        rect('#957661',31,13,2,6);
+        rect(wood,26,15,4,1);
+        rect(wood,34,16,4,1);
+      }
     }
   }
   const mapSprites = {
@@ -485,13 +553,14 @@ const Maze = (() => {
       const icon=room.done?'done':icons[room.event];
       if (!icon) continue;
       const [x,y]=xy(room.id);
-      paint('#1014249c',x+20,y+23,24,25);
-      sprite(icon,x+22,y+25,3,room.event==='sideKey');
+      paint('#100f22',x+40,y+41,15,14);
+      paint(art.light,x+40,y+41,15,1);
+      sprite(icon,x+41,y+43,2,room.event==='sideKey');
     }
     const [x,y]=xy(position);
     paint(theme.accent,x+3,y+3,56,2);
-    paint('#0008',x+17,y+46,31,5);
-    sprite('hero',x+16,y+17,4);
+    paint('#0008',x+17,y+50,22,4);
+    sprite('hero',x+18,y+31,3);
     $('mazeMapDescription').textContent = 'Position: Zeile '+(Math.floor(position/size)+1)+', Spalte '+(position%size+1)+'. '+cells[position].edges.map(id=>roomLabel(cells[id])).join(', ')+'.';
     fitMap();
   }
