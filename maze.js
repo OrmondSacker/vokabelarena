@@ -256,7 +256,7 @@ const Maze = (() => {
   }
   function roomLabel(room){if(room.id===0)return'Eingang';const kind=types[g?.active&&g.position===room.id&&g.panel==='puzzle'?g.active.kind:nextKind(room)]||'Sprachrätsel';if(room.event==='exit')return'Ausgangsportal';if(room.event==='vault')return'Schlüsselkammer · '+kind;if(room.event==='hiddenKey')return'Versiegelte Kammer · '+kind;if(room.event==='fragment')return'Fragmentkammer · '+kind;if(room.event==='treasure')return'Schatzraum';if(room.event==='rest')return'Rastplatz';if(room.event==='switch')return'Schalterraum';if(room.event==='sideKey')return'Blaue Schlüsseltruhe';return kind;}
   function renderPuzzle(){const a=g.active;if(!a)return;const panel=$('mazePanel');panel.replaceChildren();panel.append(node('p',roomLabel(g.cells[g.position]),'mazeEyebrow'),node('h3',types[a.kind]));
-    if(a.finished){if(a.kind==='wordle'&&a.guesses.length)renderWordle(panel,a,false);const label=a.outcome==='correct'?'Gelöst!':a.outcome==='skipped'?'Rätsel übersprungen':'Rätsel nicht geschafft';panel.append(node('h4',label),node('p',a.entries.map(e=>e.prompt+' → '+e.answer).join(' · '),'mazeSolution'));if(a.outcome==='wrong')panel.append(node('p',g.config.adventure?'Ein Leben verloren.':'Ihr könnt ohne Lebensverlust weiterspielen.'));if(a.feedback)panel.append(node('p',a.feedback));panel.append(button(g.lives<=0&&g.config.adventure?'Ergebnis ansehen':'Weiter erkunden',continueAfterPuzzle,'mazePrimary'));return;}
+    if(a.finished){if(a.kind==='wordle'&&a.guesses.length)renderWordle(panel,a,false);const label=a.outcome==='correct'?'Gelöst!':a.outcome==='skipped'?'Rätsel übersprungen':'Rätsel nicht geschafft';panel.append(node('h4',label),node('p',a.entries.map(e=>e.prompt+' → '+e.answer).join(' · '),'mazeSolution'));if(a.outcome==='wrong')panel.append(node('p',g.config.adventure?'Ein Leben verloren.':'Ihr könnt ohne Lebensverlust weiterspielen.'));if(a.feedback)panel.append(node('p',a.feedback));panel.append(button(g.lives<=0&&g.config.adventure?'Ergebnis ansehen':'Weiter erkunden',continueAfterPuzzle,'mazePrimary'),node('p','Auch mit Enter oder Klick auf eine freie Fläche.','mazeSmall'));return;}
     const e=a.entries[0],turn=node('p',g.names.length?g.names[g.person]+' löst dieses Rätsel':'Löst das Rätsel gemeinsam.','mazeTurn');panel.append(turn);
     let prompt=e.prompt;if(a.kind==='wordle')prompt=(e.theme?'Thema: '+e.theme:'Kein Thema hinterlegt')+' · '+letters(a.answer).length+' Buchstaben';
     if(a.kind!=='match')panel.append(node('p',prompt,'mazePrompt'));
@@ -507,6 +507,29 @@ const Maze = (() => {
   function exportSave(){save();if(!g)return;const link=node('a');const url=URL.createObjectURL(new Blob([JSON.stringify(g)],{type:'application/json'}));link.href=url;link.download='Woerterlabyrinth-Spielstand.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function editVocabulary(){editing=true;$('mazeGame').hidden=true;$('setup').hidden=false;showSetupStep(false);$('chooseGame').hidden=true;$('mazeApplyVocabulary').hidden=false;$('mazeCancelVocabulary').hidden=false;}
   function leaveEdit(apply){if(apply){const v=readVocabulary();if(!v)return;if(v.selectionKey===g.vocabulary.selectionKey||['grammar','builtin'].includes(g.config.source)){g.vocabulary=v;editing=false;$('mazeApplyVocabulary').hidden=true;$('mazeCancelVocabulary').hidden=true;show();save();render();return;}const items=buildPool(v,g.config);if(!items.length)return;if(g.active&&!g.active.finished&&!confirm('Beim Ändern der Auswahl wird das aktuelle Rätsel neu begonnen. Übernehmen?'))return;g.vocabulary=v;g.learning=freshLearning(items);g.difficult=[];g.active=null;g.panel='explore';say('Vokabelauswahl angepasst. Der Fortschritt im Labyrinth bleibt erhalten.');}editing=false;$('mazeApplyVocabulary').hidden=true;$('mazeCancelVocabulary').hidden=true;show();save();render();}
+  const mazeControls='button, a, input, textarea, select, label, summary, [contenteditable], [role="button"]';
+  function canContinueMaze(){
+    return g?.panel==='puzzle' && g.active?.finished;
+  }
+  function continueOnBackgroundClick(event){
+    if(!canContinueMaze() || event.defaultPrevented || event.target.closest(mazeControls) || document.getSelection()?.toString())return;
+    continueAfterPuzzle();
+  }
+  function handleMazeKey(event){
+    if($('mazeGame')?.hidden!==false || !g || event.defaultPrevented || event.isComposing ||
+       event.altKey || event.ctrlKey || event.metaKey || event.target.closest?.(mazeControls))return;
+    if(event.key==='Enter' && canContinueMaze()){
+      event.preventDefault();
+      if(!event.repeat)continueAfterPuzzle();
+      return;
+    }
+    if(g.panel!=='explore')return;
+    const delta={ArrowUp:-g.size,ArrowDown:g.size,ArrowLeft:-1,ArrowRight:1}[event.key];
+    if(delta==null)return;
+    event.preventDefault();
+    if(event.key==='ArrowLeft'&&g.position%g.size===0 || event.key==='ArrowRight'&&g.position%g.size===g.size-1)return;
+    move(g.position+delta);
+  }
   function bind(){
     const options=node('fieldset');options.id='mazeOptions';options.hidden=true;options.innerHTML=`<legend>Wörterlabyrinth</legend>
       <div class="options"><label>Themenwelt <select id="mazeWorld"><option value="castle">Burgruine</option><option value="jungle">Dschungeltempel</option><option value="library">Magische Bibliothek</option></select></label><label>Größe <select id="mazeSize"><option value="5">Klein · 25 Räume</option><option value="7" selected>Mittel · 49 Räume</option><option value="9">Groß · 81 Räume</option></select></label><label>Spielweise <select id="mazeDifficulty"><option value="relaxed">Entspannt · ohne Niederlage</option><option value="adventure">Abenteuer · 5 Leben</option></select></label></div>
@@ -523,7 +546,8 @@ const Maze = (() => {
     $('game').after(section);new ResizeObserver(fitMap).observe($('mazeCanvas').parentElement);$('mazeBack').onclick=back;$('mazeSave').onclick=()=>{save();say(storageWarning||'Expedition gespeichert.');};$('mazeExport').onclick=exportSave;$('mazeVocabulary').onclick=editVocabulary;
     $('mazeFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('arenaMain').requestFullscreen();}catch{say('Vollbild ist hier nicht verfügbar.');}};
     $('mazeCanvas').onclick=ev=>{if(!g)return;const box=ev.currentTarget.getBoundingClientRect(),x=(ev.clientX-box.left)*ev.currentTarget.width/box.width,y=(ev.clientY-box.top)*ev.currentTarget.height/box.height;const col=Math.floor((x-mapInset)/mapCell),row=Math.floor((y-mapInset)/mapCell);if(col>=0&&col<g.size&&row>=0&&row<g.size)move(row*g.size+col);};
-    document.addEventListener('keydown',ev=>{if(!$('mazeGame')||$('mazeGame').hidden||!g||g.panel!=='explore'||ev.altKey||ev.ctrlKey||ev.metaKey||/INPUT|TEXTAREA|SELECT|BUTTON/.test(ev.target.tagName))return;const delta={ArrowUp:-g.size,ArrowDown:g.size,ArrowLeft:-1,ArrowRight:1}[ev.key];if(delta==null)return;ev.preventDefault();if(ev.key==='ArrowLeft'&&g.position%g.size===0||ev.key==='ArrowRight'&&g.position%g.size===g.size-1)return;move(g.position+delta);});
+    section.addEventListener('click', continueOnBackgroundClick);
+    document.addEventListener('keydown', handleMazeKey);
     const apply=button('Übernehmen und ins Labyrinth zurückkehren',()=>leaveEdit(true));apply.id='mazeApplyVocabulary';apply.hidden=true;const cancel=button('Zurück ins Labyrinth',()=>leaveEdit(false));cancel.id='mazeCancelVocabulary';cancel.hidden=true;$('chooseGame').after(apply,cancel);
     $('config').addEventListener('submit',ev=>{if(editing){ev.preventDefault();ev.stopImmediatePropagation();leaveEdit(true);return;}if($('vocabStep').hidden&&$('mode').value==='maze'&&!$('gameSettings').hidden){ev.preventDefault();ev.stopImmediatePropagation();const cfg=config();const v=['grammar','builtin'].includes(cfg.source)?{cards:[],verbs:false,direction:$('direction').value,typed:false,selectionKey:'maze-'+cfg.source}:readVocabulary();if(v)start(v,cfg);}},true);
     const tile=gameTiles[gameCatalog.findIndex(c=>c.id==='maze')];
