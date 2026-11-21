@@ -52,8 +52,20 @@ const Maze = (() => {
     const distance=Array(cells.length).fill(-1),q=[0];distance[0]=0;for(let i=0;i<q.length;i++)for(const n of cells[q[i]].edges)if(distance[n]<0){distance[n]=distance[q[i]]+1;q.push(n);}
     const ranked=cells.map(c=>c.id).filter(id=>id!==0).sort((a,b)=>distance[b]-distance[a]);
     const exit=ranked.shift();cells[exit].event='exit';
-    const free=[...ranked].sort(()=>rng()-.5);const take=event=>{const id=free.shift();cells[id].event=event;return id;};
-    take('vault');take('hiddenKey');take('fragment');take('fragment');take('fragment');take('sideKey');const switchCell=take('switch');
+    const free=[...ranked];
+    for(let i=free.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[free[i],free[j]]=[free[j],free[i]];}
+    const take=event=>{const id=free.shift();cells[id].event=event;return id;};
+    // Spread the required rooms along the route from the entry to the farthest room.
+    const milestones = [['vault', .48], ['hiddenKey', .76], ['fragment', .24], ['fragment', .55], ['fragment', .88]];
+    for (const [event, progress] of milestones) {
+      const target = distance[exit] * progress;
+      let nearest = 0;
+      for (let i = 1; i < free.length; i++) {
+        if (Math.abs(distance[free[i]] - target) < Math.abs(distance[free[nearest]] - target)) nearest = i;
+      }
+      cells[free.splice(nearest, 1)[0]].event = event;
+    }
+    take('sideKey');const switchCell=take('switch');
     const extras=[];
     for(const kind of ['key','switch','secret']){const options=[];for(const c of cells)for(const n of neighbors(c.id))if(c.id<n&&!c.edges.includes(n)&&!extras.some(e=>e.a===c.id&&e.b===n))options.push({a:c.id,b:n});if(options.length){const edge=options[Math.floor(rng()*options.length)];extras.push({...edge,kind,open:false});}}
     if(!extras.some(e=>e.kind==='switch'))cells[switchCell].event='treasure';
@@ -103,7 +115,7 @@ const Maze = (() => {
   function readSave(){try{const s=JSON.parse(localStorage.getItem(SAVE));return validSave(s)?s:null;}catch{return null;}}
   function save(){if(!g)return;try{g.savedAt=Date.now();localStorage.setItem(SAVE,JSON.stringify(g));storageWarning='';}catch{storageWarning='Speichern fehlgeschlagen. Bitte Spielstand als Datei sichern.';}if($('mazeSaveStatus'))$('mazeSaveStatus').textContent=storageWarning||'Automatisch in diesem Browser gespeichert.';}
   function resume(){const s=readSave();if(!s){$('mazeResumeStatus').textContent='Kein lesbarer Spielstand vorhanden.';return;}g=s;show();render();say('Expedition fortgesetzt. '+(g.notice||''));}
-  function show(){window.ArenaAudio?.stop();if(typeof cancelComputerStep==='function')cancelComputerStep();if(typeof Fleet!=='undefined')Fleet.close();if(typeof Golf!=='undefined')Golf.close();$('setup').hidden=true;$('game').hidden=true;$('mazeGame').hidden=false;$('mazeTitle').textContent='Wörterlabyrinth · '+titles[g.config.world];}
+  function show(){window.ArenaAudio?.stop();if(typeof cancelComputerStep==='function')cancelComputerStep();if(typeof Fleet!=='undefined')Fleet.close();if(typeof Golf!=='undefined')Golf.close();$('setup').hidden=true;$('game').hidden=true;$('mazeGame').hidden=false;$('mazeGame').dataset.world=g.config.world;$('mazeTitle').textContent='Wörterlabyrinth · '+titles[g.config.world];}
   function back(){save();$('mazeGame').hidden=true;$('setup').hidden=false;showSetupStep(true);setupMode();updateSetup();}
   function reveal(){g.cells[g.position].visited=true;g.cells[g.position].seen=true;for(const id of g.cells[g.position].edges)g.cells[id].seen=true;for(const e of g.extras)if(e.a===g.position||e.b===g.position)g.cells[e.a===g.position?e.b:e.a].seen=true;}
   function edge(a,b){return g.extras.find(e=>(e.a===a&&e.b===b)||(e.b===a&&e.a===b));}
@@ -204,7 +216,7 @@ const Maze = (() => {
   }
   function roomLabel(room){if(room.id===0)return'Eingang';const kind=types[g?.active&&g.position===room.id&&g.panel==='puzzle'?g.active.kind:nextKind(room)]||'Sprachrätsel';if(room.event==='exit')return'Ausgangsportal';if(room.event==='vault')return'Schlüsselkammer · '+kind;if(room.event==='hiddenKey')return'Versiegelte Kammer · '+kind;if(room.event==='fragment')return'Fragmentkammer · '+kind;if(room.event==='treasure')return'Schatzraum';if(room.event==='rest')return'Rastplatz';if(room.event==='switch')return'Schalterraum';if(room.event==='sideKey')return'Blaue Schlüsseltruhe';return kind;}
   function renderPuzzle(){const a=g.active;if(!a)return;const panel=$('mazePanel');panel.replaceChildren();panel.append(node('p',roomLabel(g.cells[g.position]),'mazeEyebrow'),node('h3',types[a.kind]));
-    if(a.finished){const label=a.outcome==='correct'?'Gelöst!':a.outcome==='skipped'?'Rätsel übersprungen':'Rätsel nicht geschafft';panel.append(node('h4',label),node('p',a.entries.map(e=>e.prompt+' → '+e.answer).join(' · '),'mazeSolution'));if(a.outcome==='wrong')panel.append(node('p',g.config.adventure?'Ein Leben verloren.':'Ihr könnt ohne Lebensverlust weiterspielen.'));if(a.feedback)panel.append(node('p',a.feedback));panel.append(button(g.lives<=0&&g.config.adventure?'Ergebnis ansehen':'Weiter erkunden',continueAfterPuzzle,'mazePrimary'));return;}
+    if(a.finished){if(a.kind==='wordle'&&a.guesses.length)renderWordle(panel,a,false);const label=a.outcome==='correct'?'Gelöst!':a.outcome==='skipped'?'Rätsel übersprungen':'Rätsel nicht geschafft';panel.append(node('h4',label),node('p',a.entries.map(e=>e.prompt+' → '+e.answer).join(' · '),'mazeSolution'));if(a.outcome==='wrong')panel.append(node('p',g.config.adventure?'Ein Leben verloren.':'Ihr könnt ohne Lebensverlust weiterspielen.'));if(a.feedback)panel.append(node('p',a.feedback));panel.append(button(g.lives<=0&&g.config.adventure?'Ergebnis ansehen':'Weiter erkunden',continueAfterPuzzle,'mazePrimary'));return;}
     const e=a.entries[0],turn=node('p',g.names.length?g.names[g.person]+' löst dieses Rätsel':'Löst das Rätsel gemeinsam.','mazeTurn');panel.append(turn);
     let prompt=e.prompt;if(a.kind==='wordle')prompt=(e.theme?'Thema: '+e.theme:'Kein Thema hinterlegt')+' · '+letters(a.answer).length+' Buchstaben';
     if(a.kind!=='match')panel.append(node('p',prompt,'mazePrompt'));
@@ -224,25 +236,177 @@ const Maze = (() => {
     for(const id of a.chosen){const token=a.tokens.find(t=>t.id===id);chosen.append(button(token.text===' '?'␣':token.text,()=>{a.chosen=a.chosen.filter(n=>n!==id);save();renderPuzzle();}));}if(!a.chosen.length)chosen.append(node('span','Bausteine hier zusammensetzen'));
     panel.append(chosen);const bank=node('div',null,'mazeTokens');for(const t of a.tokens){const b=button(t.text===' '?'␣':t.text,()=>{a.chosen.push(t.id);save();renderPuzzle();});b.disabled=a.chosen.includes(t.id);b.draggable=!b.disabled;b.ondragstart=ev=>ev.dataTransfer.setData('text/plain',String(t.id));bank.append(b);}panel.append(bank,button('Zurücksetzen',()=>{a.chosen=[];save();renderPuzzle();}),button('Zusammensetzung prüfen',()=>attempt(a.chosen.map(id=>a.tokens.find(t=>t.id===id).text).join(sentence?' ':sep)),'mazePrimary'));}
   function renderHangman(panel,a){const mask=Array.from(a.answer).map(c=>!(/\p{L}/u.test(c))||a.guessed.includes(c.toLowerCase())?c:'_');panel.append(node('p',mask.join(' '),'mazeSecret'),node('p','Runen: '+'◆'.repeat(Math.max(0,a.tries-a.wrong))+'◇'.repeat(a.wrong),'mazeRunes'));const keys=node('div',null,'mazeKeyboard');for(const c of Array.from('abcdefghijklmnopqrstuvwxyzäöüß')){const b=button(c.toUpperCase(),()=>guessLetter(c));b.disabled=a.guessed.includes(c);keys.append(b);}panel.append(keys);answerForm(panel,'Ganzes Wort versuchen');}
-  function renderWordle(panel,a){const grid=node('div',null,'mazeWordle');for(const row of a.guesses){const r=node('div');row.guess.forEach((c,i)=>r.append(node('span',c.toUpperCase(),'mazeLetter score'+row.result[i])));grid.append(r);}if(!a.guesses.length)grid.append(node('p','Jeder Versuch zeigt passende Buchstaben und Positionen.'));panel.append(grid,node('p','Grün = richtige Stelle · Gold = andere Stelle · Grau = nicht enthalten','mazeLegend'));answerForm(panel,'Wort versuchen');}
+  function renderWordle(panel, puzzle, interactive = true) {
+    const length = letters(puzzle.answer).length;
+    const grid = node('div', null, 'mazeWordle');
+    grid.style.setProperty('--word-length', length);
+    grid.setAttribute('role', 'group');
+    grid.setAttribute('aria-label', 'Wordle-Spielbrett');
+    const activeTiles = [];
+    for (let turn = 0; turn < puzzle.tries; turn++) {
+      const guess = puzzle.guesses[turn];
+      const row = node('div', null, 'mazeWordleRow');
+      const active = interactive && turn === puzzle.guesses.length;
+      row.classList.toggle('active', active);
+      const outcomes = ['fehlt', 'falsche Stelle', 'richtige Stelle'];
+      row.setAttribute('aria-label', guess
+        ? `Versuch ${turn + 1}: ${guess.guess.map((letter, i) => letter + ' ' + outcomes[guess.result[i]]).join(', ')}`
+        : `Versuch ${turn + 1}`);
+      for (let col = 0; col < length; col++) {
+        const tile = node('span', guess?.guess[col]?.toLocaleUpperCase('de') ?? '', 'mazeLetter');
+        tile.setAttribute('aria-hidden', 'true');
+        if (guess) tile.classList.add('score' + guess.result[col]);
+        if (active) activeTiles.push(tile);
+        row.append(tile);
+      }
+      grid.append(row);
+    }
+    panel.append(grid, node('p', 'Grün = richtige Stelle · Gold = andere Stelle · Grau = nicht enthalten', 'mazeLegend'));
+    if (!interactive) return;
+    answerForm(panel, 'Wort eingeben');
+    const input = $('mazeAnswer');
+    input.addEventListener('input', () => {
+      const typed = letters(input.value);
+      activeTiles.forEach((tile, col) => {
+        tile.textContent = typed[col]?.toLocaleUpperCase('de') ?? '';
+      });
+    });
+  }
   function renderMatch(panel,a){panel.append(node('p','Wähle links einen Begriff und rechts seine passende Übersetzung.','mazePrompt'));const grid=node('div',null,'mazeMatch'),left=node('div'),right=node('div');for(const e of a.entries){const b=button(e.prompt,()=>{a.left=e.id;renderPuzzle();},'mazePath');b.disabled=a.matched.includes(e.id);b.setAttribute('aria-pressed',String(a.left===e.id));left.append(b);}for(const id of a.rightOrder){const e=a.entries.find(e=>e.id===id),b=button(e.answer,()=>matchPair(id),'mazePath');b.disabled=a.matched.includes(id);right.append(b);}grid.append(left,right);panel.append(grid);}
   function renderLearning(){const p=$('mazePanel');p.append(node('h3','Alle Aufgaben einmal richtig gelöst!'),node('p','Möchtest du aufhören oder die Auswahl zurücksetzen und im selben Labyrinth weiterspielen?'),button('Zurücksetzen und weiterspielen',()=>{g.learning=freshLearning(g.learning.items);g.panel='explore';save();render();},'mazePrimary'),button('Lerndurchgang beenden',()=>finish(false,true)));}
   function renderEnd(){const p=$('mazePanel'),stars=g.won?Math.max(1,3-Math.floor((g.stats.failed+g.stats.skips+g.stats.hints/3)/4)):0;if(!g.learningEnd){const art=node('div',null,'gameResultArt '+(g.won?'win':'lose'));art.setAttribute('role','img');art.setAttribute('aria-label',g.won?'You Win':'Game Over');p.append(art);}p.append(node('p',g.learningEnd?'LERNDURCHGANG BEENDET':g.won?'YOU WIN':'GAME OVER','mazeEyebrow'),node('h3',g.learningEnd?'Gut geübt!':g.won?'Dem Labyrinth entkommen!':'Die Expedition endet hier.'),node('p','★'.repeat(stars)+'☆'.repeat(3-stars),'mazeStars'),node('p',`${g.stats.puzzles} Rätsel · ${g.stats.failed} gescheitert · ${g.stats.hints} Hilfen · ${g.stats.skips} übersprungen`),node('p',`${g.learning.mastered.length}/${g.learning.items.length} Aufgaben richtig gelöst · ${g.stats.coinsEarned} Coins verdient`));const difficult=node('details');difficult.append(node('summary','Schwierige Wörter und Aufgaben'));for(const id of g.difficult){const e=g.learning.items[id];difficult.append(node('p',e.prompt+' → '+e.answer));}p.append(difficult,button('Mit denselben Einstellungen neu starten',()=>{const vocabulary=g.vocabulary,cfg=g.config;start(vocabulary,cfg);},'mazePrimary'),button('Zur Spielauswahl',back));}
-  function drawMap(){if(!g)return;const canvas=$('mazeCanvas'),ctx=canvas.getContext('2d');if(!ctx)return;const size=g.size,cell=64,offset=20;canvas.width=size*cell+offset*2;canvas.height=size*cell+offset*2;ctx.imageSmoothingEnabled=false;const theme=palette[g.config.world];ctx.fillStyle=theme.fog;ctx.fillRect(0,0,canvas.width,canvas.height);
-    const xy=id=>({x:offset+(id%size)*cell,y:offset+Math.floor(id/size)*cell});
-    for(const c of g.cells){const{x,y}=xy(c.id);if(!c.seen){ctx.fillStyle=(c.id%3===0?'#ffffff04':'#ffffff02');ctx.fillRect(x+5,y+5,54,54);continue;}ctx.fillStyle=theme.wall;ctx.fillRect(x+1,y+1,62,62);ctx.fillStyle=c.visited?theme.floor:theme.tile;ctx.globalAlpha=c.visited?1:.65;ctx.fillRect(x+7,y+7,50,50);ctx.globalAlpha=1;ctx.strokeStyle=theme.edge;ctx.lineWidth=2;ctx.strokeRect(x+7,y+7,50,50);
-      for(const n of c.edges){const next=g.cells[n];if(!next.seen)continue;const p=xy(n);ctx.fillStyle=c.visited?theme.floor:theme.tile;if(n===c.id+1)ctx.fillRect(x+55,y+22,18,20);if(n===c.id+size)ctx.fillRect(x+22,y+55,20,18);}
-      ctx.fillStyle=theme.edge;ctx.globalAlpha=.24;for(let j=0;j<3;j++){ctx.fillRect(x+12+(c.id*11+j*13)%36,y+13+(c.id*7+j*17)%35,5,2);}ctx.globalAlpha=1;
-      if(g.config.world==='jungle'){ctx.fillStyle='#66a85b';ctx.fillRect(x+6,y+8,3,15);ctx.fillRect(x+8,y+8,9,3);ctx.fillStyle='#b5c67a';if(c.id%3===0)ctx.fillRect(x+48,y+47,4,4);}
-      if(g.config.world==='library'){ctx.fillStyle='#211b35';ctx.fillRect(x+10,y+9,30,7);for(let j=0;j<5;j++){ctx.fillStyle=['#bd6e78','#e8c178','#799bc5','#9d83c9','#77bca4'][j];ctx.fillRect(x+12+j*5,y+9,3,6);}}
-      if(g.config.world==='castle'){ctx.fillStyle='#8390a0';ctx.fillRect(x+7,y+7,11,4);ctx.fillRect(x+46,y+51,11,5);}
-      if(g.trail?.includes(c.id)){ctx.fillStyle='#a7efff';ctx.beginPath();ctx.arc(x+32,y+52,3,0,Math.PI*2);ctx.fill();}
-      if(!c.done&&c.id!==g.position){const icons={vault:'◆',hiddenKey:'◆',fragment:'◇',treasure:'▣',rest:'♥',switch:'↟',sideKey:'◆',puzzle:'?',exit:'◎'};ctx.font='bold 26px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=c.event==='sideKey'?'#8ad7ff':theme.accent;ctx.fillText(icons[c.event]||'',x+32,y+34);}
-      if(c.done&&c.id!==g.position){ctx.fillStyle='#9cdbba';ctx.font='17px monospace';ctx.textAlign='center';ctx.fillText('·',x+32,y+35);}
+  const mapCell = 64, mapInset = 20;
+  const mapArt = {
+    castle: {stone:'#344765', light:'#708aa0', floor:['#394c65','#425772','#4a6079'], trim:'#9daeb5', motif:'torch'},
+    jungle: {stone:'#274b3a', light:'#66865a', floor:['#405341','#4c6145','#56684b'], trim:'#96b367', motif:'vine'},
+    library: {stone:'#423256', light:'#835f8e', floor:['#453658','#533f66','#5d486d'], trim:'#c79bbe', motif:'books'}
+  };
+  const mapSprites = {
+    key: ['.gg...','gyyg..','gyyg..','.ggyyy','...y.y','......'],
+    shard: ['..b...','.bwb..','bwwbb.','bbbbb.','.bbb..','..b...'],
+    chest: ['.gggg.','gyyyyg','gggggg','ggrrgg','grrrrg','gggggg'],
+    heart: ['.rr.rr.','rrrrrrr','rwrwrrr','.rrrrr.','..rrr..','...r...'],
+    switch: ['....ww','....by','...b..','..b...','.bbb..','bbbbbb'],
+    puzzle: ['.yyyy.','yy..yy','...yy.','..yy..','......','..yy..'],
+    exit: ['.bbbb.','bbwwbb','bw..wb','bw..wb','bw..wb','bbbbbb'],
+    done: ['.....b','....bb','b..bb.','bbbb..','.bb...','......'],
+    hero: ['..gggg..','.gggggg.','.gwwwwg.','..wwbw..','.rrrrrr.','.brrr.b.','..bbbb..','..g..g..']
+  };
+  function drawMap() {
+    if (!g) return;
+    const canvas = $('mazeCanvas'), ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const {size, cells, position} = g;
+    const world = g.config.world, theme = palette[world], art = mapArt[world];
+    canvas.width = canvas.height = size * mapCell + mapInset * 2;
+    ctx.imageSmoothingEnabled = false;
+    const paint = (color,x,y,w,h) => { ctx.fillStyle = color; ctx.fillRect(x,y,w,h); };
+    const xy = id => [mapInset + id % size * mapCell, mapInset + Math.floor(id / size) * mapCell];
+    const colors = {g:'#855138', y:'#ffe094', w:'#fff0d2', b:'#82d8db', r:'#ed777d'};
+    const sprite = (name,x,y,scale,blue=false) => {
+      mapSprites[name].forEach((row,j) => [...row].forEach((pixel,i) => {
+        if (pixel !== '.') paint(blue && pixel === 'y' ? colors.b : colors[pixel],x+i*scale,y+j*scale,scale,scale);
+      }));
+    };
+    paint(theme.fog,0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = art.stone;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(7,7,canvas.width-14,canvas.height-14);
+    for (const room of cells) {
+      const [x,y] = xy(room.id);
+      for (let i=0;i<4;i++) paint('#ffffff0d',x+8+(room.id*13+i*19)%48,y+8+(room.id*7+i*23)%48,2,2);
+      if (!room.seen) continue;
+      paint('#060a12',x+4,y+8,59,55);
+      paint(art.stone,x+2,y+2,58,57);
+      paint(art.light,x+4,y+4,54,3);
+      for (let row=0;row<4;row++) {
+        for (let col=0;col<4;col++) {
+          const shade=(room.id*7+row*5+col*11)%art.floor.length;
+          paint(art.floor[shade],x+8+col*12,y+10+row*11,11,10);
+        }
+      }
+      paint('#0004',x+8,y+53,47,4);
     }
-    for(const e of g.extras){if(!g.cells[e.a].seen||!g.cells[e.b].seen)continue;const a=xy(e.a),b=xy(e.b),x=(a.x+b.x)/2+32,y=(a.y+b.y)/2+32;ctx.strokeStyle=e.kind==='key'?'#8ad7ff':e.kind==='secret'?'#d4a0ff':'#ffcf75';ctx.lineWidth=e.open?8:3;ctx.setLineDash(e.open?[]:[3,3]);ctx.beginPath();ctx.moveTo(x-(a.x!==b.x?8:0),y-(a.y!==b.y?8:0));ctx.lineTo(x+(a.x!==b.x?8:0),y+(a.y!==b.y?8:0));ctx.stroke();ctx.setLineDash([]);}
-    const p=xy(g.position);ctx.fillStyle='#0006';ctx.beginPath();ctx.ellipse(p.x+33,p.y+49,14,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2d5a4';ctx.fillRect(p.x+24,p.y+18,16,14);ctx.fillStyle='#372936';ctx.fillRect(p.x+22,p.y+15,20,6);ctx.fillStyle='#69c5d1';ctx.fillRect(p.x+23,p.y+32,18,14);ctx.fillStyle='#e66f71';ctx.fillRect(p.x+21,p.y+30,23,5);ctx.fillRect(p.x+40,p.y+32,7,10);ctx.fillStyle='#182638';ctx.fillRect(p.x+24,p.y+46,6,7);ctx.fillRect(p.x+34,p.y+46,6,7);ctx.fillRect(p.x+35,p.y+23,3,3);ctx.strokeStyle='#fff4';ctx.lineWidth=2;ctx.strokeRect(p.x+4,p.y+4,56,56);
-    const list=$('mazeMapDescription');list.textContent='Position: Zeile '+(Math.floor(g.position/size)+1)+', Spalte '+(g.position%size+1)+'. '+g.cells[g.position].edges.map(id=>roomLabel(g.cells[id])).join(', ')+'.';fitMap();
+    for (const room of cells) {
+      if (!room.seen) continue;
+      const [x,y] = xy(room.id);
+      for (const to of room.edges) {
+        if (to <= room.id || !cells[to].seen) continue;
+        const across = to === room.id+1;
+        const cx=x+(across?54:22), cy=y+(across?23:53);
+        paint(art.stone,cx,cy,20,across?18:21);
+        paint(art.floor[1],cx+(across?0:3),cy+(across?3:0),across?20:14,across?12:21);
+      }
+      if (art.motif === 'torch') {
+        paint('#302037',x+12,y+13,8,15);
+        paint('#f49145',x+13,y+11,6,9);
+        paint('#ffe59a',x+15,y+12,2,5);
+      } else if (art.motif === 'vine') {
+        paint('#799853',x+9,y+11,12,3);
+        paint('#538049',x+11,y+14,3,14);
+        paint('#a9bd6a',x+14,y+18,5,3);
+      } else {
+        paint('#2a1e40',x+9,y+10,21,12);
+        for(let i=0;i<5;i++) paint(['#e09a87','#e3c16c','#75b2b2'][i%3],x+11+i*3,y+12+i%2,2,7-i%2);
+        paint('#916979',x+9,y+20,21,2);
+      }
+      if (!room.visited) paint('#080f1d30',x+8,y+9,47,47);
+      if (g.trail?.includes(room.id)) paint('#a7efff',x+29,y+50,6,3);
+    }
+    for (const gate of g.extras) {
+      if (!cells[gate.a].seen || !cells[gate.b].seen) continue;
+      const [ax,ay]=xy(gate.a), [bx,by]=xy(gate.b);
+      const x=(ax+bx)/2+30, y=(ay+by)/2+30, across=ax!==bx;
+      const color={key:'#82d8ff',secret:'#d4a0ff',switch:'#ffcf75'}[gate.kind];
+      const blocks=gate.open?5:3, step=gate.open?4:7;
+      for(let i=0;i<blocks;i++) paint(color,x+(across?-8+i*step:0),y+(across?0:-8+i*step),4,4);
+    }
+    const icons={vault:'key',hiddenKey:'key',fragment:'shard',treasure:'chest',rest:'heart',switch:'switch',sideKey:'key',puzzle:'puzzle',exit:'exit'};
+    for (const room of cells) {
+      if (!room.seen || room.id===position) continue;
+      const icon=room.done?'done':icons[room.event];
+      if (!icon) continue;
+      const [x,y]=xy(room.id);
+      paint('#1014249c',x+20,y+23,24,25);
+      sprite(icon,x+22,y+25,3,room.event==='sideKey');
+    }
+    const [x,y]=xy(position);
+    paint(theme.accent,x+3,y+3,56,2);
+    paint('#0008',x+17,y+46,31,5);
+    sprite('hero',x+16,y+17,4);
+    $('mazeMapDescription').textContent = 'Position: Zeile '+(Math.floor(position/size)+1)+', Spalte '+(position%size+1)+'. '+cells[position].edges.map(id=>roomLabel(cells[id])).join(', ')+'.';
+    fitMap();
+  }
+  function drawCover(canvas) {
+    const ctx=canvas.getContext('2d');
+    if (!ctx) return;
+    const fill=(color,x,y,w,h)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
+    fill('#141c2d',0,0,128,72);
+    for(let row=0;row<8;row++) {
+      for(let col=-1;col<9;col++) {
+        const x=col*16+row%2*8, y=row*8;
+        const tone=['#26324b','#2e3e57','#344762'][(row*7+col+12)%3];
+        fill(tone,x,y,15,7);
+        fill('#4b5e78',x,y,15,1);
+      }
+    }
+    fill('#111929',42,23,44,49);
+    fill('#111929',49,14,30,13);
+    fill('#111929',56,9,16,8);
+    fill('#204553',49,25,30,40);
+    fill('#276976',54,23,20,39);
+    fill('#70b3ae',60,28,8,26);
+    for(const x of [28,96]) {
+      fill('#684036',x,30,4,13);
+      fill('#fa9a52',x-2,23,8,10);
+      fill('#ffe99a',x,21,4,9);
+    }
+    fill('#566b82',0,58,128,2);
+    fill('#26334c',0,60,128,12);
+    const ink={g:'#84573c',w:'#ffdfaf',b:'#65c3c8',r:'#e56c77'};
+    mapSprites.hero.forEach((row,y)=>[...row].forEach((pixel,x)=>{
+      if(ink[pixel])fill(ink[pixel],52+x*3,36+y*3,3,3);
+    }));
   }
   function fitMap(){const canvas=$('mazeCanvas');if(!canvas||$('mazeGame').hidden)return;if(!window.matchMedia('(min-height:560px)').matches){canvas.style.width='';canvas.style.height='';return;}const box=canvas.parentElement.getBoundingClientRect(),side=Math.floor(Math.min(box.width-20,box.height-40));if(side>0){canvas.style.width=side+'px';canvas.style.height=side+'px';}}
   function updateSetup(){if(!$('mazeOptions'))return;if($('deckTheme'))$('deckTheme').closest('label').hidden=$('vocabSource').value!=='custom';$('mazeOptions').hidden=$('mode').value!=='maze';const source=$('mazeSource').value;if($('mode').value==='maze'&&['custom','mixed'].includes(source)){const ids=[...document.querySelectorAll('#deckOptions input:checked')].map(n=>Number(n.value)),selection=JSON.stringify([$('vocabSource').value,ids,$('deckTitle').value,$('deckTheme').value]);if(selection!==themeSelection){const themes=$('vocabSource').value==='saved'?ids.map(id=>deckRecords[id]?.theme).filter(t=>typeof t==='string'&&t.trim()):[$('deckTheme').value].filter(Boolean);$('mazeListTheme').value=[...new Set(themes)].join(' / ').slice(0,100);themeSelection=selection;}}if($('mode').value==='maze')$('pairs').required=$('vocabSource').value==='custom'&&!['builtin','grammar'].includes(source);$('mazeBuiltins').hidden=!['builtin','mixed'].includes(source);$('mazeGrammar').hidden=!['grammar','mixed'].includes(source);$('mazeThemeWrap').hidden=!['custom','mixed'].includes(source);const select=$('mazeClass'),old=select.value;select.replaceChildren(new Option('Gemeinsam / Einzelperson',''),...classRecords.map((r,i)=>new Option(r.title,String(i))));select.value=old;$('mazeResume').disabled=!readSave();if($('mode').value==='maze'&&['builtin','grammar'].includes(source)){const count=buildPool({cards:[],direction:$('direction').value},config()).length;$('settingsSummary').textContent=count+' Aufgaben · '+(source==='grammar'?'Grammar':'Eingebaute Sammlungen')+' · '+$('mazeDifficulty').selectedOptions[0].textContent;$('error').hidden=true;}}
@@ -264,11 +428,19 @@ const Maze = (() => {
     const section=node('section');section.id='mazeGame';section.hidden=true;section.innerHTML=`<div class="mazeToolbar"><h2 id="mazeTitle">Wörterlabyrinth</h2><button type="button" id="mazeFullscreen" class="secondary">Vollbild</button><button type="button" id="mazeVocabulary" class="secondary">Vokabelauswahl ändern</button><button type="button" id="mazeSave" class="secondary">Speichern</button><button type="button" id="mazeExport" class="secondary">Spielstand exportieren</button><button type="button" id="mazeBack" class="secondary">Spielauswahl</button></div><div id="mazeHUD" aria-label="Vorräte"></div><p id="mazeTurn" class="mazeTurn"></p><div class="mazeLayout"><div class="mazeMap"><canvas id="mazeCanvas" tabindex="0" aria-label="Labyrinthkarte. Bewegung mit Pfeiltasten." aria-describedby="mazeMapDescription"></canvas><p id="mazeMapDescription" class="mazeSmall"></p></div><div id="mazePanel" aria-live="polite"></div></div><p id="mazeNotice" role="status"></p><small id="mazeSaveStatus"></small>`;
     $('game').after(section);new ResizeObserver(fitMap).observe($('mazeCanvas').parentElement);$('mazeBack').onclick=back;$('mazeSave').onclick=()=>{save();say(storageWarning||'Expedition gespeichert.');};$('mazeExport').onclick=exportSave;$('mazeVocabulary').onclick=editVocabulary;
     $('mazeFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('arenaMain').requestFullscreen();}catch{say('Vollbild ist hier nicht verfügbar.');}};
-    $('mazeCanvas').onclick=ev=>{if(!g)return;const box=ev.currentTarget.getBoundingClientRect(),x=(ev.clientX-box.left)*ev.currentTarget.width/box.width,y=(ev.clientY-box.top)*ev.currentTarget.height/box.height;const col=Math.floor((x-20)/64),row=Math.floor((y-20)/64);if(col>=0&&col<g.size&&row>=0&&row<g.size)move(row*g.size+col);};
+    $('mazeCanvas').onclick=ev=>{if(!g)return;const box=ev.currentTarget.getBoundingClientRect(),x=(ev.clientX-box.left)*ev.currentTarget.width/box.width,y=(ev.clientY-box.top)*ev.currentTarget.height/box.height;const col=Math.floor((x-mapInset)/mapCell),row=Math.floor((y-mapInset)/mapCell);if(col>=0&&col<g.size&&row>=0&&row<g.size)move(row*g.size+col);};
     document.addEventListener('keydown',ev=>{if(!$('mazeGame')||$('mazeGame').hidden||!g||g.panel!=='explore'||ev.altKey||ev.ctrlKey||ev.metaKey||/INPUT|TEXTAREA|SELECT|BUTTON/.test(ev.target.tagName))return;const delta={ArrowUp:-g.size,ArrowDown:g.size,ArrowLeft:-1,ArrowRight:1}[ev.key];if(delta==null)return;ev.preventDefault();if(ev.key==='ArrowLeft'&&g.position%g.size===0||ev.key==='ArrowRight'&&g.position%g.size===g.size-1)return;move(g.position+delta);});
     const apply=button('Übernehmen und ins Labyrinth zurückkehren',()=>leaveEdit(true));apply.id='mazeApplyVocabulary';apply.hidden=true;const cancel=button('Zurück ins Labyrinth',()=>leaveEdit(false));cancel.id='mazeCancelVocabulary';cancel.hidden=true;$('chooseGame').after(apply,cancel);
     $('config').addEventListener('submit',ev=>{if(editing){ev.preventDefault();ev.stopImmediatePropagation();leaveEdit(true);return;}if($('vocabStep').hidden&&$('mode').value==='maze'&&!$('gameSettings').hidden){ev.preventDefault();ev.stopImmediatePropagation();const cfg=config();const v=['grammar','builtin'].includes(cfg.source)?{cards:[],verbs:false,direction:$('direction').value,typed:false,selectionKey:'maze-'+cfg.source}:readVocabulary();if(v)start(v,cfg);}},true);
-    const tile=gameTiles[gameCatalog.findIndex(c=>c.id==='maze')];tile.querySelector('.gameCover').className='gameCover mazeCover';tile.querySelector('.gameCover').replaceChildren();
+    const tile=gameTiles[gameCatalog.findIndex(c=>c.id==='maze')];
+    const cover=tile.querySelector('.gameCover');
+    cover.className='gameCover mazeCover';
+    const scene=node('canvas',null,'mazeCoverScene');
+    scene.width=128;
+    scene.height=72;
+    scene.setAttribute('aria-hidden','true');
+    cover.replaceChildren(scene);
+    drawCover(scene);
     updateSetup();
   }
   return{bind,setup:updateSetup};
