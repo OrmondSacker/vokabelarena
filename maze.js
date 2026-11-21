@@ -39,6 +39,7 @@ const Maze = (() => {
   const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
   const button=(text,fn,cls='secondary')=>{const n=node('button',text,cls);n.type='button';n.onclick=fn;return n;};
   let g=null,editing=false,storageWarning='',artFrame=0,themeSelection='';
+  let roomArrival = null;
   function sound(kind){window.ArenaAudio?.play(kind);}
   function say(text){if(g)g.notice=text;const n=$('mazeNotice');if(n)n.textContent=text;}
   function seeded(seed){let n=seed>>>0;return()=>{n=(Math.imul(n,1664525)+1013904223)>>>0;return n/4294967296;};}
@@ -115,7 +116,7 @@ const Maze = (() => {
   function readSave(){try{const s=JSON.parse(localStorage.getItem(SAVE));return validSave(s)?s:null;}catch{return null;}}
   function save(){if(!g)return;try{g.savedAt=Date.now();localStorage.setItem(SAVE,JSON.stringify(g));storageWarning='';}catch{storageWarning='Speichern fehlgeschlagen. Bitte Spielstand als Datei sichern.';}if($('mazeSaveStatus'))$('mazeSaveStatus').textContent=storageWarning||'Automatisch in diesem Browser gespeichert.';}
   function resume(){const s=readSave();if(!s){$('mazeResumeStatus').textContent='Kein lesbarer Spielstand vorhanden.';return;}g=s;show();render();say('Expedition fortgesetzt. '+(g.notice||''));}
-  function show(){window.ArenaAudio?.stop();if(typeof cancelComputerStep==='function')cancelComputerStep();if(typeof Fleet!=='undefined')Fleet.close();if(typeof Golf!=='undefined')Golf.close();$('setup').hidden=true;$('game').hidden=true;$('mazeGame').hidden=false;$('mazeGame').dataset.world=g.config.world;$('mazeTitle').textContent='Wörterlabyrinth · '+titles[g.config.world];}
+  function show(){roomArrival=null;window.ArenaAudio?.stop();if(typeof cancelComputerStep==='function')cancelComputerStep();if(typeof Fleet!=='undefined')Fleet.close();if(typeof Golf!=='undefined')Golf.close();$('setup').hidden=true;$('game').hidden=true;$('mazeGame').hidden=false;$('mazeGame').dataset.world=g.config.world;$('mazeTitle').textContent='Wörterlabyrinth · '+titles[g.config.world];}
   function back(){save();$('mazeGame').hidden=true;$('setup').hidden=false;showSetupStep(true);setupMode();updateSetup();}
   function reveal(){g.cells[g.position].visited=true;g.cells[g.position].seen=true;for(const id of g.cells[g.position].edges)g.cells[id].seen=true;for(const e of g.extras)if(e.a===g.position||e.b===g.position)g.cells[e.a===g.position?e.b:e.a].seen=true;}
   function edge(a,b){return g.extras.find(e=>(e.a===a&&e.b===b)||(e.b===a&&e.a===b));}
@@ -123,24 +124,43 @@ const Maze = (() => {
   function move(id){
     if(!g||g.ended||g.panel!=='explore'||!Number.isInteger(id)||!g.cells[id])return;
     const extra=edge(g.position,id);
+    let passage='';
     if(extra&&!extra.open){
       if(extra.kind==='key'&&!g.sideKey){say('Diese Abkürzung braucht den blauen Schlüssel. Der reguläre Weg bleibt offen.');return;}
       if(extra.kind==='switch'&&!g.switchOn){say('Diese Abkürzung öffnet sich am Schalter.');return;}
-      extra.open=true;sound('portal');say(extra.kind==='secret'?'Geheimgang entdeckt!':'Abkürzung geöffnet.');
+      extra.open=true;sound('portal');passage=extra.kind==='secret'?'Geheimgang entdeckt!':'Abkürzung geöffnet.';
     }
     if(!connected(g.position,id))return;
     g.previous=g.position;g.position=id;reveal();sound('pass');const room=g.cells[id];
-    if(room.event==='exit'){if(g.keys.length===3){finish(true);return;}say('Das Portal braucht drei Schlüssel. Ihr habt '+g.keys.length+'/3.');}
-    else if(!room.done&&room.event==='treasure'){room.done=true;const found=3+(g.seed+id)%4;earn(found);say('Schatz entdeckt: +'+found+' Coins.');sound('bonus');}
-    else if(!room.done&&room.event==='rest'){room.done=true;g.lives=Math.min(g.maxLives,g.lives+1);g.inventory.hint++;say('Rastplatz: ein Leben erholt und ein Hinweis gefunden.');sound('repair');}
-    else if(!room.done&&room.event==='switch'){room.done=true;g.switchOn=true;g.extras.filter(e=>e.kind==='switch').forEach(e=>e.open=true);say('Schalter aktiviert. Die markierte Abkürzung ist jetzt offen.');sound('repair');}
-    else if(!room.done&&room.event==='sideKey'){room.done=true;g.sideKey=true;say('Blauen Schlüssel gefunden! Er öffnet eine zusätzliche Abkürzung.');sound('bonus');}
+    roomArrival={title:'Erkundete Kammer',detail:'Der Weg ist frei.',kind:'explore'};
+    if(room.event==='exit'){announceRoom('Ausgangsportal',g.keys.length===3?'Das Portal ist geöffnet.':'Schlüssel: '+g.keys.length+'/3','exit');if(g.keys.length===3){finish(true);return;}}
+    else if(!room.done&&room.event==='treasure'){room.done=true;const found=3+(g.seed+id)%4;earn(found);announceRoom('Schatzkammer','+'+found+' Coins gefunden','treasure');sound('bonus');}
+    else if(!room.done&&room.event==='rest'){room.done=true;const healed=g.config.adventure&&g.lives<g.maxLives;g.lives=Math.min(g.maxLives,g.lives+1);g.inventory.hint++;announceRoom('Rastplatz',healed?'+1 Leben · +1 Hinweis':'+1 Hinweis gefunden','rest');sound('repair');}
+    else if(!room.done&&room.event==='switch'){room.done=true;g.switchOn=true;g.extras.filter(e=>e.kind==='switch').forEach(e=>e.open=true);announceRoom('Schalterkammer','Eine Abkürzung wurde geöffnet','switch');sound('repair');}
+    else if(!room.done&&room.event==='sideKey'){room.done=true;g.sideKey=true;announceRoom('Blaue Schlüsseltruhe','Schlüssel für eine Abkürzung gefunden','treasure');sound('bonus');}
     else if(!room.done&&['puzzle','vault','hiddenKey','fragment'].includes(room.event)){openPuzzle();return;}
+    if(roomArrival.kind==='explore')announceRoom(id===0?'Eingang':'Erkundete Kammer',passage||'Der Weg ist frei.','explore');
     save();render();
+  }
+  function announceRoom(title,detail,kind){
+    roomArrival={title,detail,kind};
+    say(title+' · '+detail);
+  }
+  function renderArrival(){
+    const banner=$('mazeArrival');
+    if(!roomArrival||banner.arrival===roomArrival){banner.hidden=!roomArrival;return;}
+    banner.arrival=roomArrival;
+    banner.dataset.kind=roomArrival.kind;
+    banner.replaceChildren(node('strong',roomArrival.title),node('span',roomArrival.detail));
+    banner.hidden=false;
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&banner.animate){
+      banner.getAnimations?.().forEach(animation=>animation.cancel());
+      banner.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],240);
+    }
   }
   function eligible(entry){const word=first(entry.answer),chars=letters(word);if(entry.kind)return entry.kind;if(!chars.length)return'match';const opts=['letters','secret'];if(chars.length<=18)opts.push('hangman');if(/^\p{L}{3,12}$/u.test(word))opts.push('wordle');if(g.learning.remaining.length>=1)opts.push('match');return mix(opts)[0];}
   function openPuzzle(){
-    const entry=draw(preferredKind(g.cells[g.position]));if(!entry){g.panel='learning';g.active=null;render();save();return;}
+    const entry=draw(preferredKind(g.cells[g.position]));if(!entry){g.panel='learning';g.active=null;announceRoom('Rätselkammer','Alle Aufgaben dieses Durchgangs wurden gelöst.','puzzle');render();save();return;}
     const preferred=preferredKind(g.cells[g.position]);let kind=entry.kind||(['order','gap','correct','choice'].includes(preferred)?'letters':preferred);const word=first(entry.answer);
     if(kind==='wordle'&&!/^\p{L}{3,12}$/u.test(word)||kind==='hangman'&&(!letters(word).length||letters(word).length>18))kind='letters';
     const entries=[entry];
@@ -150,7 +170,10 @@ const Maze = (() => {
     g.active={kind,entries,answer,tries:kind==='hangman'||kind==='wordle'?6:3,wrong:0,used:[],guessed:[],guesses:[],tokens,chosen:[],revealed:[],matched:[],left:null,feedback:'',finished:false,outcome:null,hints:0};
     if(kind==='secret'){const indexes=Array.from(answer).map((c,i)=>/\p{L}/u.test(c)?i:-1).filter(i=>i>=0);g.active.revealed=mix(indexes).slice(0,Math.max(1,Math.floor(indexes.length*.2)));}
     if(kind==='match')g.active.rightOrder=mix(entries.map(e=>e.id));
-    g.panel='puzzle';say('');save();render();focusPuzzle();
+    g.panel='puzzle';
+    const chamber={vault:'Schlüsselkammer',hiddenKey:'Versiegelte Kammer',fragment:'Fragmentkammer'}[g.cells[g.position].event]||'Rätselkammer';
+    announceRoom(chamber,types[kind],'puzzle');
+    save();render();focusPuzzle();
   }
   function focusPuzzle(){requestAnimationFrame(()=>{$('mazeAnswer')?.focus({preventScroll:true});});}
   function earn(coins){g.coins+=coins;g.stats.coinsEarned+=coins;}
@@ -206,7 +229,7 @@ const Maze = (() => {
   function pathTo(start,target){const q=[start],prev=new Map([[start,null]]);for(let i=0;i<q.length;i++){const id=q[i];if(id===target)break;for(const n of g.cells[id].edges)if(!prev.has(n)){prev.set(n,id);q.push(n);}}const path=[];let at=target;while(at!=null&&prev.has(at)){path.unshift(at);at=prev.get(at);}return path;}
   function finish(won,learning=false){g.ended=true;g.won=won;g.learningEnd=learning;g.panel='end';g.active=null;save();sound(learning?'bonus':won?'win':'lose');render();}
   function renderHUD(){if(!g)return;const hud=$('mazeHUD');hud.replaceChildren(node('span','Schlüssel '+g.keys.length+'/3'),node('span','Fragmente '+g.fragments+'/3'),node('span',(g.config.adventure?'♥ '+g.lives+'/'+g.maxLives:'Entspannt · ohne Lebensverlust')),node('span','◉ '+g.coins+' Coins'),node('span','Hinweise '+g.inventory.hint+' · Überspringen '+g.inventory.skip));$('mazeTurn').textContent=g.names.length ? g.names[g.person]+' ist dran · '+(g.person+1)+'/'+g.names.length : 'Gemeinsam erkunden';$('mazeSaveStatus').textContent=storageWarning||'Automatisch in diesem Browser gespeichert.';}
-  function render(){if(!g)return;renderHUD();$('mazeNotice').textContent=g.notice||'';drawMap();const panel=$('mazePanel');panel.replaceChildren();if(g.panel==='puzzle')renderPuzzle();else if(g.panel==='learning')renderLearning();else if(g.panel==='end')renderEnd();else renderExplore();}
+  function render(){if(!g)return;renderHUD();renderArrival();$('mazeNotice').textContent=g.notice||'';drawMap();const panel=$('mazePanel');panel.replaceChildren();if(g.panel==='puzzle')renderPuzzle();else if(g.panel==='learning')renderLearning();else if(g.panel==='end')renderEnd();else renderExplore();}
   function renderExplore(){const panel=$('mazePanel');panel.append(node('p','EXPEDITION','mazeEyebrow'),node('h3','Wohin geht es weiter?'),node('p','Klicke einen angrenzenden Raum oder nutze Pfeiltasten und Richtungsknöpfe. Rätselarten sind sichtbar; die Schwierigkeit entdeckt ihr unterwegs.'));
     const moves=node('div',null,'mazeMoves');const pos=g.position,size=g.size;for(const [label,id]of [['↑',pos-size],['←',pos%size?pos-1:-1],['↓',pos+size],['→',pos%size<size-1?pos+1:-1]]){const b=button(label,()=>move(id));b.setAttribute('aria-label',{'↑':'Nach Norden','←':'Nach Westen','↓':'Nach Süden','→':'Nach Osten'}[label]);b.disabled=!g.cells[id]||(!g.cells[pos].edges.includes(id)&&!edge(pos,id));moves.append(b);}panel.append(moves);
     for(const id of g.cells[pos].edges){const room=g.cells[id],kind=room.done?'Erkundeter Raum':roomLabel(room);panel.append(button(kind+' betreten',()=>move(id),'mazePath'));}
@@ -277,10 +300,83 @@ const Maze = (() => {
   function renderEnd(){const p=$('mazePanel'),stars=g.won?Math.max(1,3-Math.floor((g.stats.failed+g.stats.skips+g.stats.hints/3)/4)):0;if(!g.learningEnd){const art=node('div',null,'gameResultArt '+(g.won?'win':'lose'));art.setAttribute('role','img');art.setAttribute('aria-label',g.won?'You Win':'Game Over');p.append(art);}p.append(node('p',g.learningEnd?'LERNDURCHGANG BEENDET':g.won?'YOU WIN':'GAME OVER','mazeEyebrow'),node('h3',g.learningEnd?'Gut geübt!':g.won?'Dem Labyrinth entkommen!':'Die Expedition endet hier.'),node('p','★'.repeat(stars)+'☆'.repeat(3-stars),'mazeStars'),node('p',`${g.stats.puzzles} Rätsel · ${g.stats.failed} gescheitert · ${g.stats.hints} Hilfen · ${g.stats.skips} übersprungen`),node('p',`${g.learning.mastered.length}/${g.learning.items.length} Aufgaben richtig gelöst · ${g.stats.coinsEarned} Coins verdient`));const difficult=node('details');difficult.append(node('summary','Schwierige Wörter und Aufgaben'));for(const id of g.difficult){const e=g.learning.items[id];difficult.append(node('p',e.prompt+' → '+e.answer));}p.append(difficult,button('Mit denselben Einstellungen neu starten',()=>{const vocabulary=g.vocabulary,cfg=g.config;start(vocabulary,cfg);},'mazePrimary'),button('Zur Spielauswahl',back));}
   const mapCell = 64, mapInset = 20;
   const mapArt = {
-    castle: {stone:'#344765', light:'#708aa0', floor:['#394c65','#425772','#4a6079'], trim:'#9daeb5', motif:'torch'},
-    jungle: {stone:'#274b3a', light:'#66865a', floor:['#405341','#4c6145','#56684b'], trim:'#96b367', motif:'vine'},
-    library: {stone:'#423256', light:'#835f8e', floor:['#453658','#533f66','#5d486d'], trim:'#c79bbe', motif:'books'}
+    castle: {stone:'#364762', light:'#8492a2', face:'#525d75', dark:'#202940', floor:['#343d51','#424d62','#4d596b'], trim:'#a7a5a5', motif:'torch'},
+    jungle: {stone:'#34472d', light:'#a0aa65', face:'#667342', dark:'#26372a', floor:['#384938','#455940','#51644a'], trim:'#bdb27a', motif:'vine'},
+    library: {stone:'#4a3257', light:'#ad80a4', face:'#795478', dark:'#2e2546', floor:['#473450','#543b58','#614764'], trim:'#dbb0ac', motif:'books'}
   };
+  function paintRoom(paint,art,room,x,y) {
+    const rect=(color,left,top,width,height)=>paint(color,x+left,y+top,width,height);
+    rect('#060a12',4,7,59,55);
+    rect(art.stone,1,2,60,57);
+    rect(art.dark,5,15,54,40);
+    // The floor sits below the masonry. Offset seams and chips break up the tile grid.
+    for(let row=0;row<4;row++){
+      for(let col=0;col<4;col++){
+        const n=room.id*17+row*11+col*13;
+        const left=7+col*12, top=17+row*9;
+        rect(art.floor[n%3],left,top,11,8);
+        rect(art.floor[(n+1)%3],left+1,top,9,1);
+        rect('#0002',left+2+n%5,top+3+n%3,2,1);
+      }
+    }
+    // Taller rear walls, side piers and angled shadows give each room depth.
+    rect('#0006',5,14,53,8);
+    rect(art.light,2,2,58,2);
+    rect(art.dark,2,4,58,11);
+    for(let row=0;row<2;row++){
+      for(let col=0;col<6;col++){
+        const left=2+col*10+row*5;
+        const width=Math.min(9,60-left);
+        if(width<3) continue;
+        rect(art.face,left,4+row*5,width,4);
+        rect(art.light,left+1,4+row*5,width-1,1);
+        if((col+row+room.id)%3===0)rect(art.stone,left+2,6+row*5,Math.min(width-2,3),1);
+      }
+    }
+    rect(art.stone,2,15,5,39);
+    rect(art.light,2,15,1,37);
+    rect(art.dark,7,20,3,32);
+    rect(art.stone,55,15,5,39);
+    rect(art.light,55,16,1,37);
+    rect(art.face,2,54,58,4);
+    rect(art.light,2,54,58,1);
+    rect(art.dark,2,58,58,2);
+
+    if(art.motif==='torch'){
+      rect('#392537',13,13,7,12);
+      rect('#77443a',14,14,5,7);
+      rect('#d0683c',14,11,5,7);
+      rect('#f6a851',15,10,3,6);
+      rect('#ffe5a0',16,12,2,3);
+      rect('#e7974329',11,17,12,7);
+      rect('#db9d5220',9,24,16,4);
+      rect(art.trim,44,6,5,3);
+      rect(art.light,47,8,1,5);
+    } else if(art.motif==='vine'){
+      rect('#294130',10,4,4,23);
+      rect('#4a633a',11,5,2,21);
+      rect('#839551',13,10,7,3);
+      rect('#586d37',16,12,4,4);
+      rect('#9aa95d',8,17,4,3);
+      rect('#758e4c',13,21,5,4);
+      rect('#e0ba70',45,6,6,6);
+      rect('#62513c',47,8,2,2);
+      rect('#789454',48,49,7,4);
+      rect('#aac37b',50,48,3,3);
+    } else {
+      rect('#271d38',10,5,23,16);
+      rect('#a37174',10,5,23,2);
+      for(let i=0;i<6;i++){
+        const book=['#af696a','#e1bc76','#6fa9a7','#9874ae','#c38f7b','#858fb4'][i];
+        rect(book,12+i*3,9+i%3,2,10-i%3);
+        rect('#ffebbd88',12+i*3,13,2,1);
+      }
+      rect('#bc8683',10,19,23,2);
+      rect('#65426a',41,7,10,10);
+      rect('#c6afeb',44,9,4,6);
+      rect('#e2d4fa',45,8,2,8);
+    }
+  }
   const mapSprites = {
     key: ['.gg...','gyyg..','gyyg..','.ggyyy','...y.y','......'],
     shard: ['..b...','.bwb..','bwwbb.','bbbbb.','.bbb..','..b...'],
@@ -316,16 +412,7 @@ const Maze = (() => {
       const [x,y] = xy(room.id);
       for (let i=0;i<4;i++) paint('#ffffff0d',x+8+(room.id*13+i*19)%48,y+8+(room.id*7+i*23)%48,2,2);
       if (!room.seen) continue;
-      paint('#060a12',x+4,y+8,59,55);
-      paint(art.stone,x+2,y+2,58,57);
-      paint(art.light,x+4,y+4,54,3);
-      for (let row=0;row<4;row++) {
-        for (let col=0;col<4;col++) {
-          const shade=(room.id*7+row*5+col*11)%art.floor.length;
-          paint(art.floor[shade],x+8+col*12,y+10+row*11,11,10);
-        }
-      }
-      paint('#0004',x+8,y+53,47,4);
+      paintRoom(paint,art,room,x,y);
     }
     for (const room of cells) {
       if (!room.seen) continue;
@@ -335,20 +422,10 @@ const Maze = (() => {
         const across = to === room.id+1;
         const cx=x+(across?54:22), cy=y+(across?23:53);
         paint(art.stone,cx,cy,20,across?18:21);
+        paint(art.light,cx,cy,across?20:1,across?1:21);
+        paint(art.dark,cx+(across?0:18),cy+(across?16:0),across?20:2,across?2:21);
         paint(art.floor[1],cx+(across?0:3),cy+(across?3:0),across?20:14,across?12:21);
-      }
-      if (art.motif === 'torch') {
-        paint('#302037',x+12,y+13,8,15);
-        paint('#f49145',x+13,y+11,6,9);
-        paint('#ffe59a',x+15,y+12,2,5);
-      } else if (art.motif === 'vine') {
-        paint('#799853',x+9,y+11,12,3);
-        paint('#538049',x+11,y+14,3,14);
-        paint('#a9bd6a',x+14,y+18,5,3);
-      } else {
-        paint('#2a1e40',x+9,y+10,21,12);
-        for(let i=0;i<5;i++) paint(['#e09a87','#e3c16c','#75b2b2'][i%3],x+11+i*3,y+12+i%2,2,7-i%2);
-        paint('#916979',x+9,y+20,21,2);
+        paint(art.floor[2],cx+(across?8:4),cy+(across?4:9),across?2:12,across?10:2);
       }
       if (!room.visited) paint('#080f1d30',x+8,y+9,47,47);
       if (g.trail?.includes(room.id)) paint('#a7efff',x+29,y+50,6,3);
@@ -408,7 +485,7 @@ const Maze = (() => {
       if(ink[pixel])fill(ink[pixel],52+x*3,36+y*3,3,3);
     }));
   }
-  function fitMap(){const canvas=$('mazeCanvas');if(!canvas||$('mazeGame').hidden)return;if(!window.matchMedia('(min-height:560px)').matches){canvas.style.width='';canvas.style.height='';return;}const box=canvas.parentElement.getBoundingClientRect(),side=Math.floor(Math.min(box.width-20,box.height-40));if(side>0){canvas.style.width=side+'px';canvas.style.height=side+'px';}}
+  function fitMap(){const canvas=$('mazeCanvas');if(!canvas||$('mazeGame').hidden)return;if(!window.matchMedia('(min-height:560px)').matches){canvas.style.width='';canvas.style.height='';return;}const box=canvas.parentElement.getBoundingClientRect(),side=Math.floor(Math.min(box.width-20,box.height-68));if(side>0){canvas.style.width=side+'px';canvas.style.height=side+'px';}}
   function updateSetup(){if(!$('mazeOptions'))return;if($('deckTheme'))$('deckTheme').closest('label').hidden=$('vocabSource').value!=='custom';$('mazeOptions').hidden=$('mode').value!=='maze';const source=$('mazeSource').value;if($('mode').value==='maze'&&['custom','mixed'].includes(source)){const ids=[...document.querySelectorAll('#deckOptions input:checked')].map(n=>Number(n.value)),selection=JSON.stringify([$('vocabSource').value,ids,$('deckTitle').value,$('deckTheme').value]);if(selection!==themeSelection){const themes=$('vocabSource').value==='saved'?ids.map(id=>deckRecords[id]?.theme).filter(t=>typeof t==='string'&&t.trim()):[$('deckTheme').value].filter(Boolean);$('mazeListTheme').value=[...new Set(themes)].join(' / ').slice(0,100);themeSelection=selection;}}if($('mode').value==='maze')$('pairs').required=$('vocabSource').value==='custom'&&!['builtin','grammar'].includes(source);$('mazeBuiltins').hidden=!['builtin','mixed'].includes(source);$('mazeGrammar').hidden=!['grammar','mixed'].includes(source);$('mazeThemeWrap').hidden=!['custom','mixed'].includes(source);const select=$('mazeClass'),old=select.value;select.replaceChildren(new Option('Gemeinsam / Einzelperson',''),...classRecords.map((r,i)=>new Option(r.title,String(i))));select.value=old;$('mazeResume').disabled=!readSave();if($('mode').value==='maze'&&['builtin','grammar'].includes(source)){const count=buildPool({cards:[],direction:$('direction').value},config()).length;$('settingsSummary').textContent=count+' Aufgaben · '+(source==='grammar'?'Grammar':'Eingebaute Sammlungen')+' · '+$('mazeDifficulty').selectedOptions[0].textContent;$('error').hidden=true;}}
   function exportSave(){save();if(!g)return;const link=node('a');const url=URL.createObjectURL(new Blob([JSON.stringify(g)],{type:'application/json'}));link.href=url;link.download='Woerterlabyrinth-Spielstand.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function editVocabulary(){editing=true;$('mazeGame').hidden=true;$('setup').hidden=false;showSetupStep(false);$('chooseGame').hidden=true;$('mazeApplyVocabulary').hidden=false;$('mazeCancelVocabulary').hidden=false;}
@@ -425,7 +502,7 @@ const Maze = (() => {
       <details><summary>Spielregeln · Wörterlabyrinth</summary><p>Findet drei Ausgangsschlüssel: in der Schlüsselkammer, aus drei Fragmenten und hinter einem Rätselzugang. Zusätzliche blaue Schlüssel und Schalter öffnen Abkürzungen. Schimmernde Wände können Geheimgänge sein. Bewegung: Räume anklicken, Richtungsknöpfe oder Pfeiltasten. Kein Zeitlimit.</p><p>Fünf Worträtselarten: Buchstaben zusammensetzen, Hangman, Wordle, Zuordnen und Geheimschrift. Grammar verwendet Satzbau, Lücken, Fehlerkorrektur und Formenauswahl. Für lange Ausdrücke werden passende Bausteine verwendet. Wordle erlaubt alle Buchstabenkombinationen passender Länge.</p><p>Ein gescheitertes Rätsel kostet im Abenteuer ein Leben. Einzelne Fehlversuche verbrauchen zunächst nur Rätselversuche. Im entspannten Modus gibt es keinen Lebensverlust. Bei null Leben endet das Abenteuer. Alle Lösungen werden nach Abschluss gezeigt.</p><p>Gelöste Rätsel bringen 2 Coins, fehlerfrei ohne Hilfe 3. Je drei gelöste Rätsel in Folge bringen 3 zusätzliche Coins und einen zufälligen Hinweis- oder Überspring-Joker. Hinweise kosten 2 Coins, Überspringen 5, Heilung 4 und Kartenhilfen 3. Gefundene Joker werden zuerst verbraucht. Die Lehrkraft kann kostenlos eingreifen.</p><p>Richtig gelöste Aufgaben pausieren bis zum nächsten Lerndurchgang. Erst werden alle Aufgaben gefragt, danach nur noch die nicht gelösten. Wenn alles richtig gelöst ist, entscheidet ihr über Beenden oder Zurücksetzen. Eure Expedition wird automatisch in diesem Browser gespeichert; eine Spielstanddatei dient als zusätzliche Sicherung.</p></details>`;
     $('start').before(options);options.addEventListener('change',updateSetup);$('mazeResume').onclick=resume;
     $('mazeImport').onchange=async ev=>{const input=ev.currentTarget,file=input.files?.[0];if(!file)return;try{if(file.size>3000000)throw Error();const snapshot=JSON.parse(await file.text());if(!validSave(snapshot))throw Error();if(readSave()&&!confirm('Den bisherigen Labyrinth-Spielstand durch die importierte Expedition ersetzen?'))return;g=snapshot;save();if(storageWarning)throw Error();show();render();say('Importierte Expedition fortgesetzt.');}catch{$('mazeResumeStatus').textContent='Die Spielstanddatei konnte nicht importiert werden. Bitte eine gültige Wörterlabyrinth-Sicherung wählen.';}finally{input.value='';}};
-    const section=node('section');section.id='mazeGame';section.hidden=true;section.innerHTML=`<div class="mazeToolbar"><h2 id="mazeTitle">Wörterlabyrinth</h2><button type="button" id="mazeFullscreen" class="secondary">Vollbild</button><button type="button" id="mazeVocabulary" class="secondary">Vokabelauswahl ändern</button><button type="button" id="mazeSave" class="secondary">Speichern</button><button type="button" id="mazeExport" class="secondary">Spielstand exportieren</button><button type="button" id="mazeBack" class="secondary">Spielauswahl</button></div><div id="mazeHUD" aria-label="Vorräte"></div><p id="mazeTurn" class="mazeTurn"></p><div class="mazeLayout"><div class="mazeMap"><canvas id="mazeCanvas" tabindex="0" aria-label="Labyrinthkarte. Bewegung mit Pfeiltasten." aria-describedby="mazeMapDescription"></canvas><p id="mazeMapDescription" class="mazeSmall"></p></div><div id="mazePanel" aria-live="polite"></div></div><p id="mazeNotice" role="status"></p><small id="mazeSaveStatus"></small>`;
+    const section=node('section');section.id='mazeGame';section.hidden=true;section.innerHTML=`<div class="mazeToolbar"><h2 id="mazeTitle">Wörterlabyrinth</h2><button type="button" id="mazeFullscreen" class="secondary">Vollbild</button><button type="button" id="mazeVocabulary" class="secondary">Vokabelauswahl ändern</button><button type="button" id="mazeSave" class="secondary">Speichern</button><button type="button" id="mazeExport" class="secondary">Spielstand exportieren</button><button type="button" id="mazeBack" class="secondary">Spielauswahl</button></div><div id="mazeHUD" aria-label="Vorräte"></div><p id="mazeTurn" class="mazeTurn"></p><div class="mazeLayout"><div class="mazeMap"><canvas id="mazeCanvas" tabindex="0" aria-label="Labyrinthkarte. Bewegung mit Pfeiltasten." aria-describedby="mazeMapDescription"></canvas><div id="mazeArrival" aria-hidden="true" hidden></div><p id="mazeMapDescription" class="mazeSmall"></p></div><div id="mazePanel" aria-live="polite"></div></div><p id="mazeNotice" role="status"></p><small id="mazeSaveStatus"></small>`;
     $('game').after(section);new ResizeObserver(fitMap).observe($('mazeCanvas').parentElement);$('mazeBack').onclick=back;$('mazeSave').onclick=()=>{save();say(storageWarning||'Expedition gespeichert.');};$('mazeExport').onclick=exportSave;$('mazeVocabulary').onclick=editVocabulary;
     $('mazeFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('arenaMain').requestFullscreen();}catch{say('Vollbild ist hier nicht verfügbar.');}};
     $('mazeCanvas').onclick=ev=>{if(!g)return;const box=ev.currentTarget.getBoundingClientRect(),x=(ev.clientX-box.left)*ev.currentTarget.width/box.width,y=(ev.clientY-box.top)*ev.currentTarget.height/box.height;const col=Math.floor((x-mapInset)/mapCell),row=Math.floor((y-mapInset)/mapCell);if(col>=0&&col<g.size&&row>=0&&row<g.size)move(row*g.size+col);};

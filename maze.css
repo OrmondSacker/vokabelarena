@@ -117,3 +117,38 @@
   border-top: 1px solid #9e895c;
   font-family: ui-monospace, monospace;
 }
+
+.mazeMap { position: relative; isolation: isolate; }
+#mazeArrival {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 50%;
+  translate: -50% 0;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100% - 20px);
+  pointer-events: none;
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  padding: 5px 14px 6px;
+  border: 2px solid var(--maze-rim);
+  border-bottom-color: var(--maze-gold);
+  background: var(--maze-ink);
+  box-shadow: 0 3px #0008, inset 0 1px #fff3;
+  color: #fff8e8;
+  font-size: clamp(.66rem,1.45vw,.88rem);
+  line-height: 1.25;
+}
+#mazeArrival[hidden] { display: none; }
+#mazeArrival strong { color: var(--maze-gold); }
+#mazeArrival[data-kind=treasure] { border-bottom-color: #f9c66e; }
+#mazeArrival[data-kind=puzzle] { border-bottom-color: #a8e2ed; }
+@media (min-height:560px) {
+  #mazeCanvas { top: calc(50% + 14px); max-height: calc(100% - 65px); }
+  #mazeArrival[hidden] + #mazeMapDescription { bottom: 7px; }
+}
+@media (max-width:760px) and (min-height:560px) {
+  #mazeCanvas { max-height: calc(100% - 50px); }
+}
