@@ -266,12 +266,16 @@ const Maze = (() => {
     else if(a.kind==='wordle')renderWordle(panel,a);
     else if(a.kind==='match')renderMatch(panel,a);
     else if(a.kind==='choice'){for(const option of e.options.filter(v=>!a.eliminated?.includes(v)))panel.append(button(option,()=>attempt(option),'mazePath'));}
-    else{if(a.kind==='secret')panel.append(node('p',Array.from(a.answer).map((c,i)=>a.revealed.includes(i)||!(/\p{L}/u.test(c))?c:'_').join(' '),'mazeSecret'));answerForm(panel,a.kind==='correct'?'Korrigierten Satz eingeben':'Lösung eingeben');}
+    else{if(a.kind==='secret')panel.append(node('p',Array.from(a.answer).map((c,i)=>a.revealed.includes(i)||!(/\p{L}/u.test(c))?c:'_').join(' '),'mazeSecret'));answerForm(panel,a.kind==='correct'?'Satz direkt im Feld korrigieren':'Lösung eingeben',a.kind==='correct'?a:null);}
     if(a.feedback)panel.append(node('p',a.feedback,'mazeFeedback'));
     const helpers=node('div',null,'mazeHelpers');helpers.append(button('Hinweis',()=>hint()),button('Überspringen',()=>skip()));panel.append(helpers);
     const teacher=node('details');teacher.append(node('summary','Lehrkraft · Eingreifen'));teacher.append(button('Mündliche Lösung bestätigen',()=>resolve(true)),button('Hinweis ohne Kosten',()=>hint(true)),button('Ohne Kosten überspringen',()=>skip(true)));panel.append(teacher);
   }
-  function answerForm(panel,label){const f=node('form');const l=node('label',label);l.htmlFor='mazeAnswer';const input=node('input');input.id='mazeAnswer';input.autocomplete='off';input.spellcheck=false;input.required=true;const send=node('button','Prüfen','mazePrimary');send.type='submit';f.append(l,input,send);f.onsubmit=ev=>{ev.preventDefault();attempt(input.value);};panel.append(f);}
+  function answerForm(panel,label,correction=null){const f=node('form');const l=node('label',label);l.htmlFor='mazeAnswer';const input=node('input');input.id='mazeAnswer';input.autocomplete='off';input.spellcheck=false;input.required=true;if(correction){
+      const prompt=correction.entries[0].prompt;
+      input.value=correction.draft??prompt.slice(prompt.indexOf(':')+1).trim();
+      input.addEventListener('input',()=>{correction.draft=input.value;});
+    }const send=node('button','Prüfen','mazePrimary');send.type='submit';f.append(l,input,send);f.onsubmit=ev=>{ev.preventDefault();attempt(input.value);};panel.append(f);}
   function renderTokens(panel,a){const sentence=a.kind==='order'||(/\s/.test(a.answer)&&letters(a.answer).length>12),sep=sentence?'':'',chosen=node('div',null,'mazeChosen');chosen.setAttribute('aria-label','Zusammengesetzte Lösung');chosen.tabIndex=0;chosen.ondragover=ev=>ev.preventDefault();chosen.ondrop=ev=>{ev.preventDefault();const id=Number(ev.dataTransfer.getData('text/plain'));if(a.tokens.some(t=>t.id===id)&&!a.chosen.includes(id)){a.chosen.push(id);save();renderPuzzle();}};
     for(const id of a.chosen){const token=a.tokens.find(t=>t.id===id);chosen.append(button(token.text===' '?'␣':token.text,()=>{a.chosen=a.chosen.filter(n=>n!==id);save();renderPuzzle();}));}if(!a.chosen.length)chosen.append(node('span','Bausteine hier zusammensetzen'));
     panel.append(chosen);const bank=node('div',null,'mazeTokens');for(const t of a.tokens){const b=button(t.text===' '?'␣':t.text,()=>{a.chosen.push(t.id);save();renderPuzzle();});b.disabled=a.chosen.includes(t.id);b.draggable=!b.disabled;b.ondragstart=ev=>ev.dataTransfer.setData('text/plain',String(t.id));bank.append(b);}panel.append(bank,button('Zurücksetzen',()=>{a.chosen=[];save();renderPuzzle();}),button('Zusammensetzung prüfen',()=>attempt(a.chosen.map(id=>a.tokens.find(t=>t.id===id).text).join(sentence?' ':sep)),'mazePrimary'));}
