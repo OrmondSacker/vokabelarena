@@ -361,129 +361,114 @@ const Maze = (() => {
 
     paintFurnishings(rect,art,room);
   }
+  // Layout coordinates are in the 64-pixel room tile. Door centres stay fixed.
+  const chamberPlans={
+    torch:[
+      [[8,9,21,21,'hearth'],[36,40,16,11,'bench']],
+      [[9,13,13,32,'rack'],[36,10,17,13,'crate']],
+      [[13,11,38,13,'table'],[11,39,11,12,'crate'],[37,39,15,12,'bench']],
+      [[9,10,15,16,'relic'],[40,10,13,16,'relic'],[9,43,13,9,'bench']],
+      [[8,9,15,42,'wall'],[40,39,13,13,'crate']],
+      [[37,9,17,32,'rack'],[9,40,15,12,'table']],
+      [[12,11,40,14,'table'],[10,34,13,18,'bench'],[41,34,13,18,'bench']],
+      [[10,13,15,18,'crate'],[34,8,20,21,'hearth'],[33,40,17,12,'bench']],
+      [[8,12,14,35,'rack'],[39,11,15,36,'wall']]
+    ],
+    vine:[
+      [[9,10,19,28,'water'],[36,39,17,13,'leaves']],
+      [[10,10,14,13,'leaves'],[40,10,14,14,'leaves'],[12,38,37,13,'water']],
+      [[8,11,18,15,'relic'],[39,12,15,18,'leaves'],[9,38,14,13,'relic']],
+      [[10,13,13,36,'leaves'],[24,9,28,12,'wall'],[40,39,14,12,'water']],
+      [[10,12,34,16,'water'],[10,31,14,19,'water'],[39,39,15,12,'leaves']],
+      [[39,10,15,34,'water'],[10,11,17,15,'relic'],[9,39,14,12,'leaves']],
+      [[9,9,14,17,'leaves'],[41,9,13,17,'leaves'],[9,42,14,10,'leaves'],[41,42,13,10,'leaves']],
+      [[9,12,17,13,'wall'],[37,14,17,12,'wall'],[17,39,31,13,'relic']],
+      [[9,9,16,43,'water'],[39,9,15,43,'leaves']]
+    ],
+    books:[
+      [[9,9,13,31,'rack'],[36,39,16,12,'table']],
+      [[9,9,44,13,'rack'],[11,38,14,13,'relic']],
+      [[9,10,14,30,'rack'],[40,10,14,30,'rack']],
+      [[9,10,18,21,'table'],[37,38,16,14,'table']],
+      [[36,9,18,24,'relic'],[9,36,16,16,'bench']],
+      [[9,9,29,14,'rack'],[41,10,13,42,'rack'],[11,38,12,13,'table']],
+      [[10,11,14,17,'relic'],[39,11,14,17,'relic'],[19,40,25,11,'table']],
+      [[9,10,17,15,'bench'],[37,37,17,15,'rack'],[8,36,14,15,'relic']],
+      [[9,9,14,43,'rack'],[28,10,26,12,'table'],[40,40,14,12,'bench']]
+    ]
+  };
   function paintFurnishings(rect,art,room) {
-    const scene={exit:'gate',rest:'rest',treasure:'treasure',sideKey:'treasure',switch:'switch',
-      vault:'altar',hiddenKey:'altar',fragment:'altar'}[room.event]
-      ?? ['study','court','altar'][Math.floor(room.id / 2)%3];
-    const castle=art.motif==='torch', jungle=art.motif==='vine';
-    const brass=jungle?'#d9cc8e':'#eac693';
-    const shadow='#100e20';
-    const cloth=castle?'#804052':jungle?'#507752':'#65518a';
-    const wood=castle?'#7e4f43':jungle?'#746640':'#865b64';
-    const light=castle?'#ffc779':jungle?'#d4ed91':'#b5daf6';
-    const ink=jungle?'#2b4936':'#34243c';
+    const index=room.id%9, band=Math.floor(room.id/9);
+    const jungle=art.motif==='vine', castle=art.motif==='torch';
+    const edge=castle?'#ad7860':jungle?'#9dba70':'#ad8bc3';
+    const wood=castle?'#654339':jungle?'#536342':'#624369';
+    const gold=jungle?'#e8d58a':'#e9bb83';
+    const light=castle?'#ffa65c':jungle?'#c6dc85':'#add8fa';
+    const dark='#191825';
+    const plan=chamberPlans[art.motif][index];
 
-    // A floor runner or patterned paving frames the main furnishing.
-    rect(shadow,20,23,24,29);
-    rect(cloth,21,22,22,29);
-    rect(brass,22,23,20,1);
-    rect(brass,22,49,20,1);
-    rect(ink,23,25,18,22);
-    for(let y=27;y<47;y+=6){
-      rect(cloth,24,y,16,1);
-      rect(brass,26,y+2,2,1);
-      rect(brass,36,y+2,2,1);
-    }
-
-    const lamp=(x,y)=>{
-      rect('#0005',x-2,y+11,10,3);
-      rect(wood,x+2,y+5,3,8);
-      rect(wood,x,y+12,7,2);
-      rect(light+'24',x-3,y-3,13,12);
-      rect(light+'35',x-1,y-1,9,8);
-      rect(light,x+1,y,5,5);
-      rect('#fff2ca',x+3,y-1,2,4);
-    };
-    const shelf=(x,y)=>{
-      rect(shadow,x,y,14,21);
-      rect(wood,x+1,y+1,12,18);
-      rect(ink,x+2,y+3,10,6);
-      rect(ink,x+2,y+11,10,6);
-      for(let i=0;i<4;i++){
-        const color=['#ce756c','#dbb375','#71a9a2','#ae90ce'][i];
-        rect(color,x+2+i*2,y+4-i%2,2,5+i%2);
-        rect(color,x+8-i*2,y+12-i%2,2,5+i%2);
-      }
-      rect(brass,x+1,y+1,12,1);
-      rect(wood,x,y+19,14,2);
-    };
-    const leaves=(x,y)=>{
-      rect('#344936',x+3,y+9,9,6);
-      rect('#789052',x+6,y+2,3,10);
-      rect('#668951',x+1,y+4,7,3);
-      rect('#92ac63',x+9,y+4,5,3);
-      rect('#b0c779',x+7,y+1,2,3);
-      rect('#739451',x+2,y+8,5,3);
-      rect('#a88a53',x+4,y+12,7,3);
-    };
-    const banner=(x,y)=>{
-      rect(shadow,x,y,12,17);
-      rect(brass,x,y,12,2);
-      rect(cloth,x+2,y+2,8,13);
-      rect(cloth,x+4,y+15,4,2);
-      rect(brass,x+5,y+5,2,7);
-      rect(brass,x+3,y+7,6,2);
-    };
-
-    const prop=castle?banner:jungle?leaves:shelf;
-    prop(8,9);
-    if(scene==='court'||scene==='gate')prop(43,9);
-    else lamp(47,10);
-
-    if(scene==='gate'){
-      rect(shadow,21,10,22,25);
-      rect(art.face,24,7,16,4);
-      rect(art.light,27,6,10,2);
-      rect(art.face,22,11,5,22);
-      rect(art.face,37,11,5,22);
-      rect(art.light,23,12,2,20);
-      rect(art.light,38,12,2,20);
-      rect(light+'55',27,12,10,20);
-      for(let y=14;y<31;y+=4)rect(light,28+(y%3),y,6,1);
-      rect(brass,20,33,24,2);
-    }else if(scene==='rest'){
-      rect(shadow,20,17,24,17);
-      rect(art.light,21,17,22,3);
-      rect(art.face,22,20,20,11);
-      rect(ink,25,21,14,9);
-      rect(cloth,26,25,12,4);
-      rect(light,28,22,8,5);
-      rect('#fff2ca',31,20,3,6);
-      rect(art.light,20,31,24,2);
-    }else if(scene==='treasure'){
-      rect(shadow,21,16,22,17);
-      rect(wood,23,17,18,13);
-      rect(brass,23,17,18,2);
-      rect(brass,23,23,18,2);
-      rect(brass,25,18,2,12);
-      rect(brass,37,18,2,12);
-      rect(light,30,22,4,5);
-      rect(shadow,31,24,2,2);
+    // Paving changes direction and width independently of the furniture.
+    const lane=9+band*4;
+    if(index%2===0){
+      rect(wood,lane,16,12,37);
+      rect(edge,lane+1,17,1,35);
+      rect(edge,lane+10,17,1,35);
     }else{
-      rect(shadow,20,17,24,16);
-      rect(wood,22,21,20,9);
-      rect(brass,21,19,22,3);
-      rect(ink,24,23,16,4);
-      if(scene==='switch'){
-        rect(art.light,28,15,12,4);
-        rect(light,35,10,3,8);
-        rect(brass,34,9,5,3);
-      }else if(scene==='altar'){
-        rect(ink,26,10,12,9);
-        rect(light,29,10,6,8);
-        rect('#fff2ca',31,11,2,5);
-      }else if(jungle){
-        rect(art.face,27,10,10,9);
-        rect(brass,27,10,10,2);
-        rect(ink,28,14,2,2);
-        rect(ink,34,14,2,2);
-        rect(light,31,16,2,2);
+      rect(wood,8,lane+8,47,9);
+      rect(edge,9,lane+9,45,1);
+      rect(edge,9,lane+15,45,1);
+    }
+    for(const [left,top,w,h,feature] of plan){
+      const x=band%2===0?left:64-left-w, y=top;
+      rect('#0008',x+2,y+3,w,h);
+      rect(dark,x,y,w,h);
+      rect(feature==='wall'?art.face:wood,x+1,y+1,w-2,h-3);
+      rect(edge,x+2,y+1,w-4,1);
+      if(feature==='rack'){
+        for(let row=3;row<h-4;row+=6){
+          rect(dark,x+2,y+row,w-4,4);
+          for(let col=3;col<w-3;col+=3){
+            const shade=[gold,edge,light][(col+row)%3];
+            rect(shade,x+col,y+row,2,3);
+          }
+        }
+      }else if(feature==='water'){
+        rect('#274e4d',x+2,y+2,w-4,h-4);
+        for(let row=4;row<h-3;row+=4)rect('#689994',x+3+row%3,y+row,w-9,1);
+      }else if(feature==='leaves'){
+        for(let row=3;row<h-4;row+=4){
+          rect(edge,x+2+(row%3),y+row,w-6,2);
+          rect(light,x+4+(row%4),y+row-1,3,1);
+        }
+      }else if(feature==='hearth'||feature==='relic'){
+        rect(dark,x+3,y+4,w-6,h-7);
+        rect(light+'55',x+3,y+4,w-6,h-7);
+        rect(light,x+Math.floor(w/2)-2,y+4,4,h-8);
+        rect(gold,x+Math.floor(w/2)-4,y+h-6,8,2);
       }else{
-        rect('#f5deb0',25,13,14,6);
-        rect('#957661',31,13,2,6);
-        rect(wood,26,15,4,1);
-        rect(wood,34,16,4,1);
+        rect(gold,x+3,y+3,w-6,1);
+        rect(dark,x+3,y+h-5,w-6,1);
       }
+    }
+    // Landmarks are set into the back wall above the walking area.
+    const mark={exit:'gate',treasure:'chest',sideKey:'chest',rest:'fire',switch:'lever',
+      vault:'altar',hiddenKey:'altar',fragment:'altar'}[room.event];
+    if(!mark)return;
+    const x=25,y=6;
+    rect(dark,x,y,14,15);
+    rect(art.light,x+1,y,12,2);
+    if(mark==='gate'){
+      rect(art.face,x,y+2,3,13);
+      rect(art.face,x+11,y+2,3,13);
+      rect(light,x+4,y+3,6,10);
+    }else if(mark==='chest'){
+      rect(wood,x+1,y+5,12,8);
+      rect(gold,x+1,y+5,12,2);
+      rect(gold,x+6,y+8,2,3);
+    }else{
+      rect(art.face,x+1,y+10,12,4);
+      rect(light,x+5,y+5,5,5);
+      rect(gold,x+7,y+3,2,4);
     }
   }
   const mapSprites = {
