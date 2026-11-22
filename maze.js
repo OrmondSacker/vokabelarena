@@ -397,6 +397,45 @@ const Maze = (() => {
       [[9,9,14,43,'rack'],[28,10,26,12,'table'],[40,40,14,12,'bench']]
     ]
   };
+  const chamberObjects={
+    armor:{colors:['#202635','#475a73','#879cad','#dce5da','#bb9465'],rows:[
+      '....111....','...13421...','...14321...','...11121...','..1122211..',
+      '.133434221.','13323432221','12223432221','.112343211.','..1233321..',
+      '..1115111..','..1321321..','..1321321..','..121.121..','..121.121..',
+      '.1331.1331.','11111111111']},
+    bookshelf:{colors:['#291c31','#583748','#a76f58','#d7a96d','#aa5d76','#6baaa5','#8b87ba'],rows:[
+      '.33333333333.','1344444444431','1311111111131','1355167144131',
+      '1354667144131','1355667744131','1333333333331','1311111111131',
+      '1377446155131','1377446655131','1373446655131','1333333333331',
+      '1311111111131','1344556177131','1344556677131','1343556677131',
+      '1333333333331','1222222222221','.11.......11.']},
+    chest:{colors:['#231c20','#50342c','#85513a','#b17b4d','#798070','#bbba92','#dbc684'],rows:[
+      '...1111111...','..133434341..','.13454435441.',
+      '1354544354341','1353335353341','1565555555651',
+      '1233327623331','1234327524331','1233322223331',
+      '1252333332531','1222322322221','.11111111111.']},
+    fern:{colors:['#203628','#3c623e','#6c9a50','#a4bf60','#9d7954'],rows:[
+      '.....4.....','....34.....','.3..33..4..','..3333.43..',
+      '...233433..','.4..2332.3.','..4333233..','....232....',
+      '...15551...','....555....','....111....']},
+    flame:{colors:['#2b222b','#8a4a38','#cb6a39','#ffc263','#fff0ae'],rows:[
+      '.....4.....','....43.....','....443....','...3443....','..334443...',
+      '..3445433..','.334455443.','.344455443.','..3444443..',
+      '11111111111','.222222222.','..1111111..']}
+  };
+  function paintChamberObject(rect,name,x,y,width,height){
+    const {colors,rows}=chamberObjects[name];
+    const scale=Math.min(width/rows[0].length,height/rows.length);
+    const left=x+Math.round((width-rows[0].length*scale)/2);
+    const top=y+Math.round(height-rows.length*scale);
+    rows.forEach((row,iy)=>Array.from(row).forEach((shade,ix)=>{
+      if(shade==='.')return;
+      const px=left+Math.round(ix*scale), py=top+Math.round(iy*scale);
+      const w=left+Math.round((ix+1)*scale)-px;
+      const h=top+Math.round((iy+1)*scale)-py;
+      if(w&&h)rect(colors[Number(shade)-1],px,py,w,h);
+    }));
+  }
   function paintFurnishings(rect,art,room) {
     const index=room.id%9, band=Math.floor(room.id/9);
     const jungle=art.motif==='vine', castle=art.motif==='torch';
@@ -420,27 +459,20 @@ const Maze = (() => {
     }
     for(const [left,top,w,h,feature] of plan){
       const x=band%2===0?left:64-left-w, y=top;
+      const object={rack:castle?'armor':'bookshelf',crate:'chest',leaves:'fern',hearth:'flame'}[feature];
+      if(object){
+        rect('#0007',x+2,y+h-2,w-4,3);
+        paintChamberObject(rect,object,x,y,w,h);
+        continue;
+      }
       rect('#0008',x+2,y+3,w,h);
       rect(dark,x,y,w,h);
       rect(feature==='wall'?art.face:wood,x+1,y+1,w-2,h-3);
       rect(edge,x+2,y+1,w-4,1);
-      if(feature==='rack'){
-        for(let row=3;row<h-4;row+=6){
-          rect(dark,x+2,y+row,w-4,4);
-          for(let col=3;col<w-3;col+=3){
-            const shade=[gold,edge,light][(col+row)%3];
-            rect(shade,x+col,y+row,2,3);
-          }
-        }
-      }else if(feature==='water'){
+      if(feature==='water'){
         rect('#274e4d',x+2,y+2,w-4,h-4);
         for(let row=4;row<h-3;row+=4)rect('#689994',x+3+row%3,y+row,w-9,1);
-      }else if(feature==='leaves'){
-        for(let row=3;row<h-4;row+=4){
-          rect(edge,x+2+(row%3),y+row,w-6,2);
-          rect(light,x+4+(row%4),y+row-1,3,1);
-        }
-      }else if(feature==='hearth'||feature==='relic'){
+      }else if(feature==='relic'){
         rect(dark,x+3,y+4,w-6,h-7);
         rect(light+'55',x+3,y+4,w-6,h-7);
         rect(light,x+Math.floor(w/2)-2,y+4,4,h-8);
@@ -455,16 +487,16 @@ const Maze = (() => {
       vault:'altar',hiddenKey:'altar',fragment:'altar'}[room.event];
     if(!mark)return;
     const x=25,y=6;
+    if(mark==='chest'||mark==='fire'){
+      paintChamberObject(rect,mark==='chest'?'chest':'flame',22,6,20,18);
+      return;
+    }
     rect(dark,x,y,14,15);
     rect(art.light,x+1,y,12,2);
     if(mark==='gate'){
       rect(art.face,x,y+2,3,13);
       rect(art.face,x+11,y+2,3,13);
       rect(light,x+4,y+3,6,10);
-    }else if(mark==='chest'){
-      rect(wood,x+1,y+5,12,8);
-      rect(gold,x+1,y+5,12,2);
-      rect(gold,x+6,y+8,2,3);
     }else{
       rect(art.face,x+1,y+10,12,4);
       rect(light,x+5,y+5,5,5);
