@@ -108,15 +108,9 @@
 #mazePanel .mazeLetter.score1 { background: #785322; border-color: #f2c474; }
 #mazePanel .mazeLetter.score2 { background: #24614f; border-color: #95e0bc; }
 
-.mazeCover::before { content: none; }
-.mazeCoverScene { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-.mazeCover::after {
-  bottom: 0;
-  padding: 7px 2px;
-  background: #101829df;
-  border-top: 1px solid #9e895c;
-  font-family: ui-monospace, monospace;
-}
+.mazeCover::before, .mazeCover::after { content: none; }
+.gameCover.mazeCover { background: #141c2d !important; }
+.mazeCoverScene { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
 .mazeMap { position: relative; isolation: isolate; }
 #mazeArrival {

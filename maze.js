@@ -581,37 +581,6 @@ const Maze = (() => {
     $('mazeMapDescription').textContent = 'Position: Zeile '+(Math.floor(position/size)+1)+', Spalte '+(position%size+1)+'. '+cells[position].edges.map(id=>roomLabel(cells[id])).join(', ')+'.';
     fitMap();
   }
-  function drawCover(canvas) {
-    const ctx=canvas.getContext('2d');
-    if (!ctx) return;
-    const fill=(color,x,y,w,h)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
-    fill('#141c2d',0,0,128,72);
-    for(let row=0;row<8;row++) {
-      for(let col=-1;col<9;col++) {
-        const x=col*16+row%2*8, y=row*8;
-        const tone=['#26324b','#2e3e57','#344762'][(row*7+col+12)%3];
-        fill(tone,x,y,15,7);
-        fill('#4b5e78',x,y,15,1);
-      }
-    }
-    fill('#111929',42,23,44,49);
-    fill('#111929',49,14,30,13);
-    fill('#111929',56,9,16,8);
-    fill('#204553',49,25,30,40);
-    fill('#276976',54,23,20,39);
-    fill('#70b3ae',60,28,8,26);
-    for(const x of [28,96]) {
-      fill('#684036',x,30,4,13);
-      fill('#fa9a52',x-2,23,8,10);
-      fill('#ffe99a',x,21,4,9);
-    }
-    fill('#566b82',0,58,128,2);
-    fill('#26334c',0,60,128,12);
-    const ink={g:'#84573c',w:'#ffdfaf',b:'#65c3c8',r:'#e56c77'};
-    mapSprites.hero.forEach((row,y)=>[...row].forEach((pixel,x)=>{
-      if(ink[pixel])fill(ink[pixel],52+x*3,36+y*3,3,3);
-    }));
-  }
   function fitMap(){const canvas=$('mazeCanvas');if(!canvas||$('mazeGame').hidden)return;if(!window.matchMedia('(min-height:560px)').matches){canvas.style.width='';canvas.style.height='';return;}const box=canvas.parentElement.getBoundingClientRect(),side=Math.floor(Math.min(box.width-20,box.height-68));if(side>0){canvas.style.width=side+'px';canvas.style.height=side+'px';}}
   function updateSetup(){if(!$('mazeOptions'))return;if($('deckTheme'))$('deckTheme').closest('label').hidden=$('vocabSource').value!=='custom';$('mazeOptions').hidden=$('mode').value!=='maze';const source=$('mazeSource').value;if($('mode').value==='maze'&&['custom','mixed'].includes(source)){const ids=[...document.querySelectorAll('#deckOptions input:checked')].map(n=>Number(n.value)),selection=JSON.stringify([$('vocabSource').value,ids,$('deckTitle').value,$('deckTheme').value]);if(selection!==themeSelection){const themes=$('vocabSource').value==='saved'?ids.map(id=>deckRecords[id]?.theme).filter(t=>typeof t==='string'&&t.trim()):[$('deckTheme').value].filter(Boolean);$('mazeListTheme').value=[...new Set(themes)].join(' / ').slice(0,100);themeSelection=selection;}}if($('mode').value==='maze')$('pairs').required=$('vocabSource').value==='custom'&&!['builtin','grammar'].includes(source);$('mazeBuiltins').hidden=!['builtin','mixed'].includes(source);$('mazeGrammar').hidden=!['grammar','mixed'].includes(source);$('mazeThemeWrap').hidden=!['custom','mixed'].includes(source);const select=$('mazeClass'),old=select.value;select.replaceChildren(new Option('Gemeinsam / Einzelperson',''),...classRecords.map((r,i)=>new Option(r.title,String(i))));select.value=old;$('mazeResume').disabled=!readSave();if($('mode').value==='maze'&&['builtin','grammar'].includes(source)){const count=buildPool({cards:[],direction:$('direction').value},config()).length;$('settingsSummary').textContent=count+' Aufgaben · '+(source==='grammar'?'Grammar':'Eingebaute Sammlungen')+' · '+$('mazeDifficulty').selectedOptions[0].textContent;$('error').hidden=true;}}
   function exportSave(){save();if(!g)return;const link=node('a');const url=URL.createObjectURL(new Blob([JSON.stringify(g)],{type:'application/json'}));link.href=url;link.download='Woerterlabyrinth-Spielstand.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -663,12 +632,12 @@ const Maze = (() => {
     const tile=gameTiles[gameCatalog.findIndex(c=>c.id==='maze')];
     const cover=tile.querySelector('.gameCover');
     cover.className='gameCover mazeCover';
-    const scene=node('canvas',null,'mazeCoverScene');
-    scene.width=128;
-    scene.height=72;
-    scene.setAttribute('aria-hidden','true');
+    const scene=node('img',null,'mazeCoverScene');
+    scene.alt='';
+    scene.width=640;
+    scene.height=360;
+    scene.src='maze-cover.jpg';
     cover.replaceChildren(scene);
-    drawCover(scene);
     updateSetup();
   }
   return{bind,setup:updateSetup};
