@@ -128,3 +128,40 @@ aside,.controls{border-color:#816448;background:linear-gradient(#202b45,#131b35)
   border-radius:50% 50% 0 0;border:2px solid #352d36;border-bottom:0;
 }
 @media(max-width:700px){#track::after{top:5px;left:8px}}
+
+
+/* The board image and tile centers share the same coordinate system. */
+#track{
+  display:block;height:auto;min-height:0;aspect-ratio:3 / 2;padding:0;
+  background:#284344 url('race-board.png') center / 100% 100% no-repeat;
+}
+#track::after{display:none}
+#track .cell{
+  position:absolute;transform:translate(-50%,-50%);width:8.9%;height:8.1%;
+  background:none;border:0;border-radius:0;box-shadow:none;
+  color:#231d27;padding:2px 4px;
+}
+#track .cell[data-direction=down]{width:6%}
+#track .cell.active{
+  outline:2px solid #fff1a0;border-radius:5px;
+  box-shadow:inset 0 0 0 2px #856029,0 0 12px #ffdd70;
+}
+#track .cell::before{
+  content:'';position:absolute;inset:0 0 0 auto;
+  border-right:1px solid #70442666;pointer-events:none;
+}
+#track .cell[data-direction=down]::before,
+#track .cell[data-corner]::before,
+#track .cell[data-kind=finish]::before{display:none}
+#track .field-number{margin:0;color:#301d1b;text-shadow:0 1px #ffd99e;font-size:clamp(.55rem,1.2vw,.86rem)}
+#track .cell[data-kind=finish] .field-number{background:#fff0cc}
+#track .cell[data-kind=card] .field-sign{width:39%;height:61%}
+#track .cell[data-kind=shop] .field-sign{width:48%;height:60%}
+#track .wagons{inset:11% 0 0}
+#track .wagon{max-width:none;width:88%}
+#track .wagons.many .wagon{width:32%}
+@media(max-width:700px){
+  #track .cell{padding:1px 2px}
+  #track .field-sign{font-size:clamp(.5rem,2vw,.86rem)}
+  #track .cell[data-kind=card] .field-sign{border-width:1px}
+}

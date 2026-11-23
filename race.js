@@ -43,11 +43,20 @@ let players, current, oil, deck, phase, spent, roll, source, generation=0;
 const active=()=>players[current];
 const d6=()=>1+Math.floor(Math.random()*6);
 const track=$('track');
+// Tile centers measured on the 1536 × 1024 artwork, in racing order.
+const roadRows = [
+  { y: 274, xs: [243, 383, 524, 665, 805, 946, 1086, 1230], bend: [1350, 359] },
+  { y: 441, xs: [1230, 1090, 950, 810, 670, 530, 390, 250], bend: [170, 525] },
+  { y: 608, xs: [250, 391, 532, 673, 814, 955, 1096, 1240], bend: [1363, 699] },
+  { y: 783, xs: [1250, 1100, 950, 800, 650, 500, 350, 198] }
+];
 const cellNodes=Array.from({length:end+1},(_,pos)=>{
   const e=document.createElement('div');
   const rung=Math.floor(pos/9), step=pos%9;
-  e.style.gridColumn=step===8?(rung%2?1:8):(rung%2?8-step:1+step);
-  e.style.gridRow=rung*2+(step===8?2:1);
+  const row=roadRows[rung];
+  const [x,y]=step===8?row.bend:[row.xs[step],row.y];
+  e.style.left=(x/15.36)+'%';
+  e.style.top=(y/10.24)+'%';
   e.className='cell';
   const [kind,label]=fields[pos]??['normal',''];
   e.dataset.kind=kind;
@@ -59,10 +68,6 @@ const cellNodes=Array.from({length:end+1},(_,pos)=>{
   track.append(e);
   return e;
 });
-const forest = raceForest();
-forest.className = 'forest';
-forest.setAttribute('aria-hidden', 'true');
-track.prepend(forest);
 const sprites=vehicles.map((_,index)=>raceSprite(index,colors[index]));
 function names(){
   const values=[...$('names').querySelectorAll('input')].map(e=>e.value);
