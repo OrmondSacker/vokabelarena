@@ -52,6 +52,29 @@ const roadRows = [
   { y: 608, xs: [245,345,445,545,645,745,845,945,1045,1145,1245], bend: [1363,699] },
   { y: 783, xs: [1245,1141,1036,932,827,723,618,514,409,305,199] }
 ];
+// The stone joints follow the inner and outer edges of the painted road.
+const curveJoints=[
+  'M 1195 232 L 1246 232 C 1330 232 1398 287 1398 354 C 1398 431 1342 484 1254 484 L 1195 484 L 1195 402 L 1250 402 C 1283 402 1303 383 1303 356 C 1303 333 1283 317 1247 317 L 1195 317 Z M 1339 255 L 1280 324 M 1345 452 L 1281 395',
+  'M 294 401 L 250 401 C 173 401 124 450 124 522 C 124 596 179 652 252 652 L 294 652 L 294 568 L 251 568 C 229 568 217 548 217 525 C 217 502 235 483 259 483 L 294 483 Z M 164 438 L 232 495 M 165 616 L 230 557',
+  'M 1195 568 L 1254 568 C 1340 568 1415 624 1415 699 C 1415 773 1343 828 1252 828 L 1195 828 L 1195 742 L 1253 742 C 1288 742 1315 725 1315 698 C 1315 672 1288 653 1254 653 L 1195 653 Z M 1351 598 L 1291 661 M 1358 798 L 1293 733'
+];
+const joints=document.createElement('canvas');
+joints.className='curve-joints';
+joints.width=1536;
+joints.height=1024;
+joints.setAttribute('aria-hidden','true');
+const jointContext=joints.getContext('2d');
+for(const outline of curveJoints){
+  const path=new Path2D(outline);
+  jointContext.lineJoin='round';
+  jointContext.strokeStyle='#ffe3aa9e';
+  jointContext.lineWidth=8;
+  jointContext.stroke(path);
+  jointContext.strokeStyle='#573219d9';
+  jointContext.lineWidth=4;
+  jointContext.stroke(path);
+}
+track.append(joints);
 const cellNodes=Array.from({length:end+1},(_,pos)=>{
   const e=document.createElement('div');
   const rung=Math.floor(pos/12), step=pos%12;
