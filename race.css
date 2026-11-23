@@ -165,3 +165,70 @@ aside,.controls{border-color:#816448;background:linear-gradient(#202b45,#131b35)
   #track .field-sign{font-size:clamp(.5rem,2vw,.86rem)}
   #track .cell[data-kind=card] .field-sign{border-width:1px}
 }
+
+
+/* Dense numbered tiles keep their artwork visible underneath. */
+#track .cell{width:6.45%;padding:2px 3px}
+#track .cell[data-direction=down]{width:5.9%}
+#track .cell::before{border-right-color:#603619a8;box-shadow:1px 0 #ffe1aa66}
+#track .field-number{font-weight:900;z-index:1}
+#track .field-sign{font-family:ui-monospace,monospace;font-weight:950}
+#track .cell[data-kind=card] .field-sign{width:52%;height:59%;box-shadow:-3px 2px #7694c7,2px 3px #232138}
+#track .cell[data-kind=shop] .field-sign{width:59%;height:59%;background:#623528}
+#track .cell[data-kind=skip] .field-sign{
+  width:50%;height:auto;aspect-ratio:1;border-radius:0;background:#b13c32;color:#ffebad;
+  clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
+  text-align:center;line-height:1.2;box-shadow:none;
+}
+#track .cell[data-kind=boost] .field-sign,#track .cell[data-kind=shortcut] .field-sign{
+  color:#1c5936;text-shadow:1px 1px #fcdf91;
+}
+#track .cell[data-kind=back] .field-sign{color:#822e31;text-shadow:1px 1px #fcdf91}
+#track .field-sign{font-size:clamp(.55rem,1.9vw,1.25rem)}
+#track .wagons{inset:-8% -14% 0}
+#track .wagon{width:84%;max-height:105%;image-rendering:auto}
+#track .wagons.many{inset:8% -18% 0}
+#track .wagons.many .wagon{width:32%;max-height:49%}
+aside li img{width:39px;image-rendering:auto}
+.controls{border:3px solid #b48b56;box-shadow:inset 0 0 0 2px #353750,0 4px #090d18}
+#choices button,#restart,#setup button{
+  border-radius:5px;border-width:2px;font-weight:800;
+  box-shadow:inset 0 2px #fff3b94d,inset 0 -3px #13101c4d,0 3px #0d1120;
+}
+#choices .primary,#setup button{
+  background:linear-gradient(#ffe17a,#ffc64b 45%,#e8a027);
+  border-color:#fff0a0 #e6af45 #97601d;color:#382019;
+  text-shadow:0 1px #ffeb9f;
+}
+.roll-button::before{
+  content:'';display:inline-block;width:1.05em;height:1.05em;margin-right:.55em;vertical-align:-.15em;
+  border-radius:3px;border:1px solid #513c32;
+  background:radial-gradient(circle at 26% 26%,#332634 0 10%,transparent 12%),
+  radial-gradient(circle at 74% 26%,#332634 0 10%,transparent 12%),
+  radial-gradient(circle at 26% 74%,#332634 0 10%,transparent 12%),
+  radial-gradient(circle at 74% 74%,#332634 0 10%,transparent 12%),#fff0cd;
+  box-shadow:0 2px #8b6745;
+}
+#hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,112px),1fr));align-items:stretch}
+#hand button{
+  background:#f4dcb0;border:3px double #80634d;color:#2d2231;
+  box-shadow:0 3px #101323,inset 0 0 0 2px #fff0d2;border-radius:6px;
+  padding:5px;font-weight:900;line-height:1.15;
+}
+#hand button:disabled{opacity:.72}
+#hand button small{margin:4px auto 0;font-weight:600}
+.card-art{
+  display:grid;place-items:center;height:38px;margin:0 0 4px;
+  background:repeating-linear-gradient(135deg,#090b1916 0 3px,transparent 3px 8px),#65398c;
+  border:2px solid #fff1cd;border-radius:3px;color:#fff1ba;
+  font:950 1.48rem ui-monospace,monospace;text-shadow:2px 2px #212034;
+}
+.card-art[data-theme=workshop]{background-color:#865534}
+.card-art[data-theme=boost]{background-color:#286e55}
+.card-art[data-theme=guard]{background-color:#32577d}
+.card-art[data-theme=hazard]{background-color:#903f3f}
+@media(max-width:700px){
+  #track .cell{padding:1px}
+  #track .field-number{font-size:clamp(.45rem,1.5vw,.68rem)}
+  #track .field-sign{font-size:clamp(.5rem,2.1vw,.8rem)}
+}

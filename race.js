@@ -1,13 +1,15 @@
 "use strict";
 const $ = id => document.getElementById(id);
-const end = 34;
+const end = 46;
 const fields = {
-  0:['start','Start'],3:['card','🃏'],6:['boost','+3',3],8:['skip','❗'],
-  9:['card','🃏'],10:['shop','🔧'],12:['shortcut','↗ 16',16],15:['back','−2',-2],
-  17:['card','🃏'],19:['skip','❗'],21:['boost','+2',2],22:['shop','🔧'],
-  24:['card','🃏'],26:['shortcut','↗ 30',30],28:['back','−3',-3],
-  29:['card','🃏'],31:['skip','❗'],33:['card','🃏'],34:['finish','Ziel']
+  0:['start','Start'], 3:['card','Aktionskarte'], 6:['boost','+3',3], 8:['shop','Werkstatt'],
+  10:['card','Aktionskarte'], 12:['skip','Panne'], 14:['shortcut','↗ 19',19], 16:['back','−2',-2],
+  19:['card','Aktionskarte'], 21:['boost','+2',2], 23:['skip','Panne'], 25:['card','Aktionskarte'],
+  27:['shop','Werkstatt'], 29:['back','−3',-3], 31:['card','Aktionskarte'], 33:['shortcut','↗ 38',38],
+  35:['skip','Panne'], 38:['card','Aktionskarte'], 40:['shop','Werkstatt'], 42:['boost','+2',2],
+  44:['card','Aktionskarte'], 46:['finish','Ziel']
 };
+const shops = Object.keys(fields).map(Number).filter(pos=>fields[pos][0]==='shop');
 const upgrades = {
   motor:['Sportmotor','+1 auf deine Würfelbewegung.'],
   double:['Doppelzündung','Zwei Würfel, der höhere zählt.'],
@@ -45,23 +47,23 @@ const d6=()=>1+Math.floor(Math.random()*6);
 const track=$('track');
 // Tile centers measured on the 1536 × 1024 artwork, in racing order.
 const roadRows = [
-  { y: 274, xs: [243, 383, 524, 665, 805, 946, 1086, 1230], bend: [1350, 359] },
-  { y: 441, xs: [1230, 1090, 950, 810, 670, 530, 390, 250], bend: [170, 525] },
-  { y: 608, xs: [250, 391, 532, 673, 814, 955, 1096, 1240], bend: [1363, 699] },
-  { y: 783, xs: [1250, 1100, 950, 800, 650, 500, 350, 198] }
+  { y: 274, xs: [245,345,445,545,645,745,845,945,1045,1145,1245], bend: [1350,359] },
+  { y: 441, xs: [1245,1145,1045,945,845,745,645,545,445,345,245], bend: [170,525] },
+  { y: 608, xs: [245,345,445,545,645,745,845,945,1045,1145,1245], bend: [1363,699] },
+  { y: 783, xs: [1245,1141,1036,932,827,723,618,514,409,305,199] }
 ];
 const cellNodes=Array.from({length:end+1},(_,pos)=>{
   const e=document.createElement('div');
-  const rung=Math.floor(pos/9), step=pos%9;
+  const rung=Math.floor(pos/12), step=pos%12;
   const row=roadRows[rung];
-  const [x,y]=step===8?row.bend:[row.xs[step],row.y];
+  const [x,y]=step===11?row.bend:[row.xs[step],row.y];
   e.style.left=(x/15.36)+'%';
   e.style.top=(y/10.24)+'%';
   e.className='cell';
   const [kind,label]=fields[pos]??['normal',''];
   e.dataset.kind=kind;
-  e.dataset.direction=step===8?'down':rung%2?'left':'right';
-  if (step===7 && rung<3) e.dataset.corner=rung%2?'outer-tl':'outer-tr';
+  e.dataset.direction=step===11?'down':rung%2?'left':'right';
+  if (step===10 && rung<3) e.dataset.corner=rung%2?'outer-tl':'outer-tr';
   if (step===0 && rung>0) e.dataset.corner=rung%2?'outer-br':'outer-bl';
   e.title=[String(pos),specialNames[kind],label].filter(Boolean).join(' · ');
   e.setAttribute('aria-label',e.title);
@@ -69,6 +71,28 @@ const cellNodes=Array.from({length:end+1},(_,pos)=>{
   return e;
 });
 const sprites=vehicles.map((_,index)=>raceSprite(index,colors[index]));
+const atlas=new Image();
+atlas.onload=()=>{
+  const cellWidth=atlas.naturalWidth/3;
+  const cellHeight=atlas.naturalHeight/2;
+  // Keep the full vehicle inside its atlas cell and crop the empty margins.
+  const bounds=[[26,79,453,375],[43,75,442,379],[20,44,469,413],
+    [24,97,452,357],[2,105,491,349],[8,48,477,405]];
+  bounds.forEach(([x,y,w,h],index)=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.round(w/4);canvas.height=Math.round(h/4);
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(atlas,(index%3+x/512)*cellWidth,(Math.floor(index/3)+y/512)*cellHeight,
+      w*cellWidth/512,h*cellHeight/512,0,0,canvas.width,canvas.height);
+    const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+    for(let i=3;i<pixels.data.length;i+=4)if(pixels.data[i]<96)pixels.data[i]=0;
+    ctx.putImageData(pixels,0,0);
+    sprites[index]=canvas.toDataURL();
+  });
+  if(!$('race').hidden)render($('status').textContent);
+};
+atlas.src='race-vehicles.png';
 function names(){
   const values=[...$('names').querySelectorAll('input')].map(e=>e.value);
   $('names').replaceChildren(...vehicles.slice(0,Number($('count').value)).map((name,i)=>{
@@ -120,7 +144,7 @@ function render(message){
     number.className='field-number';number.textContent=pos;
     const sign=document.createElement('span');
     sign.className='field-sign';
-    sign.textContent=['card','shop','skip','start','finish'].includes(el.dataset.kind)?'':label;
+    sign.textContent=['card','shop','start','finish'].includes(el.dataset.kind)?'':el.dataset.kind==='skip'?'!':label;
     sign.setAttribute('aria-hidden','true');
     const slick=document.createElement('span');
     slick.className='slick';slick.hidden=!oil.has(pos);
@@ -132,9 +156,25 @@ function render(message){
     el.append(group);
   }
 }
-function control(parent,label,fn,description='',primary=false){
+const cardArt={
+  turbo:['↠','boost'],extra:['⚄','workshop'],gas:['↑','boost'],
+  skip:['!','hazard'],shell:['●','hazard'],teleport:['◎','warp'],drift:['⇄','warp'],
+  pit:['⚒','workshop'],wrench:['⚒','workshop'],grab:['⌁','warp'],
+  armor:['◆','guard'],chain:['∞','guard'],spill:['●','hazard'],desperate:['×3','hazard']
+};
+function control(parent,label,fn,description='',primary=false,cardId){
   const b=document.createElement('button');b.type='button';b.textContent=label;
   if(primary)b.className='primary';
+  if(cardId){
+    const [symbol,theme]=cardArt[cardId]??['!','hazard'];
+    const illustration=document.createElement('span');
+    illustration.className='card-art';
+    illustration.dataset.theme=theme;
+    illustration.textContent=symbol;
+    illustration.setAttribute('aria-hidden','true');
+    b.prepend(illustration);
+  }
+  if(label==='Würfeln')b.classList.add('roll-button');
   if(description){const small=document.createElement('small');small.textContent=description;b.append(small)}
   if(fn)b.onclick=fn;else b.disabled=true;
   $(parent).append(b);
@@ -148,7 +188,7 @@ function screen(message,choices){
     const allowed=!spent&&((phase==='before'&&before.includes(id)&&targets(id).length)||
       (phase==='rolled'&&after.includes(id)&&(id!=='desperate'||players.every(p=>p.pos>=active().pos)))||
       (phase==='parked'&&id==='spill'&&targets(id).length));
-    control('hand',cards[id][0],allowed?()=>play(id,i):null,cards[id][1]);
+    control('hand',cards[id][0],allowed?()=>play(id,i):null,cards[id][1],false,id);
   });
 }
 function choose(message,options){
@@ -202,7 +242,7 @@ function targets(id){
   if(id==='teleport')return rivals.filter(q=>q.pos!==p.pos&&!players.some(r=>r.pos===q.pos&&r.mods.has('bumper')));
   if(id==='wrench')return rivals.flatMap(q=>[...q.mods].map(mod=>({q,mod})));
   if(id==='grab')return rivals.filter(q=>q.hand.length);
-  if(id==='pit')return [10,22].filter(pos=>pos>p.pos&&!p.shops.has(pos)&&!players.some(q=>q.pos===pos&&q.mods.has('bumper'))).slice(0,1);
+  if(id==='pit')return shops.filter(pos=>pos>p.pos&&!p.shops.has(pos)&&!players.some(q=>q.pos===pos&&q.mods.has('bumper'))).slice(0,1);
   if(id==='spill')return [1,2,3].map(n=>p.pos-n).filter(pos=>pos>0&&!oil.has(pos)&&!players.some(q=>q.pos===pos));
   return rivals;
 }
@@ -250,7 +290,7 @@ async function garage(p,pos){
   p.shops.add(pos);
   const available=Object.entries(upgrades).filter(([id])=>!p.mods.has(id));
   if(!available.length)return;
-  const offset=pos===10?0:3;
+  const offset=(shops.indexOf(pos)*3)%available.length;
   const offered=[...available.slice(offset),...available.slice(0,offset)].slice(0,3);
   p.mods.add(await choose(p.name+' wählt ein Upgrade.',offered.map(([id,[name,desc]])=>[id,name,desc])));
 }
@@ -269,7 +309,7 @@ async function move(pos,continuous,seen){
       const use=await choose(rival.name+': Überholalarm einsetzen?',[[true,'Auslösen'],[false,'Aufheben']]);
       if(use){rival.alarm=true;await pause(p,'Überholalarm')}
     }
-    for(const shop of [10,22])if(shop>from&&shop<p.pos)await garage(p,shop);
+    for(const shop of shops)if(shop>from&&shop<p.pos)await garage(p,shop);
   }
   if(p.pos===from||seen.has(p.pos))return;
   seen.add(p.pos);
