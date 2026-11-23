@@ -235,3 +235,34 @@ aside li img{width:39px;image-rendering:auto}
 
 /* The painted bends use the same board coordinates as the numbered tiles. */
 #track .curve-joints{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+
+#choices .race-card,#hand .race-card{
+  width:min(100%,11rem);padding:5px;border:3px double #80634d;border-radius:6px;
+  color:#2d2231;background:#f4dcb0;font-weight:900;
+  box-shadow:0 3px #101323,inset 0 0 0 2px #fff0d2;
+}
+#hand .race-card{width:100%}
+.race-card:not(:disabled):is(:hover,:focus-visible){transform:translateY(-3px)}
+#choices .race-card small{display:block;margin-top:5px;font-weight:600}
+#card-reveal{background:none;color:#fff2d3;border:0;padding:10px;width:min(92vw,24rem);max-height:95dvh}
+#card-reveal::backdrop{background:#0d1020c7}
+#card-reveal .reveal-layout{padding:0;background:none;border:0;max-width:none;text-align:center}
+#reveal-caption{margin:0 0 .8rem;font-weight:800;text-wrap:balance}
+.reveal-card{
+  width:min(100%,18rem);margin:0 auto 16px;padding:.7rem;
+  color:#2d2231;background:#f4dcb0;border:5px double #80634d;border-radius:10px;
+  box-shadow:0 8px #191023,0 15px 30px #0b0922a0,inset 0 0 0 2px #fff0d2;
+}
+#reveal-name{margin:0 0 .55rem;font-size:clamp(1rem,5vw,1.5rem);line-height:1.1}
+#reveal-description{margin:.55rem 0 .1rem;font-weight:650}
+#reveal-icon .card-art{height:clamp(65px,22vh,150px);font-size:clamp(2.2rem,9vh,5rem)}
+#card-reveal[open] .reveal-card{animation:race-card-reveal 420ms cubic-bezier(.18,.88,.36,1.18) both}
+@keyframes race-card-reveal{
+  from{opacity:0;transform:perspective(700px) translateY(32px) rotateY(-75deg) scale(.72)}
+  to{opacity:1;transform:perspective(700px) translateY(0) rotateY(0) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+  #card-reveal[open] .reveal-card{animation:none}
+  .race-card:not(:disabled):is(:hover,:focus-visible){transform:none}
+}

@@ -197,19 +197,40 @@ const cardArt={
   turbo:['↠','boost'],extra:['⚄','workshop'],gas:['↑','boost'],
   skip:['!','hazard'],shell:['●','hazard'],teleport:['◎','warp'],drift:['⇄','warp'],
   pit:['⚒','workshop'],wrench:['⚒','workshop'],grab:['⌁','warp'],
-  armor:['◆','guard'],chain:['∞','guard'],spill:['●','hazard'],desperate:['×3','hazard']
+  armor:['◆','guard'],chain:['∞','guard'],spill:['●','hazard'],desperate:['×3','hazard'],failure:['✕','hazard'],
+  'upgrade:motor':['↟','workshop'],'upgrade:double':['⚄','workshop'],
+  'upgrade:cruise':['➜','workshop'],'upgrade:oil':['●','workshop'],
+  'upgrade:alarm':['!','workshop'],'upgrade:bumper':['◆','workshop'],'upgrade:bag':['▤','workshop']
 };
+function cardIllustration(id){
+  const [symbol,theme]=cardArt[id];
+  const illustration=document.createElement('span');
+  illustration.className='card-art';
+  illustration.dataset.theme=theme;
+  illustration.textContent=symbol;
+  illustration.setAttribute('aria-hidden','true');
+  return illustration;
+}
+function revealCard(id,caption,buttonLabel='Weiter'){
+  const dialog=$('card-reveal');
+  const [label,description]=id.startsWith('upgrade:')?upgrades[id.slice(8)]:cards[id];
+  render(caption);
+  $('reveal-caption').textContent=caption;
+  $('reveal-name').textContent=label;
+  $('reveal-description').textContent=description;
+  $('reveal-icon').replaceChildren(cardIllustration(id));
+  $('reveal-continue').textContent=buttonLabel;
+  return new Promise(resolve=>{
+    dialog.addEventListener('close',resolve,{once:true});
+    dialog.showModal();
+  });
+}
 function control(parent,label,fn,description='',primary=false,cardId){
   const b=document.createElement('button');b.type='button';b.textContent=label;
   if(primary)b.className='primary';
   if(cardId){
-    const [symbol,theme]=cardArt[cardId]??['!','hazard'];
-    const illustration=document.createElement('span');
-    illustration.className='card-art';
-    illustration.dataset.theme=theme;
-    illustration.textContent=symbol;
-    illustration.setAttribute('aria-hidden','true');
-    b.prepend(illustration);
+    b.classList.add('race-card');
+    b.prepend(cardIllustration(cardId));
   }
   if(label==='Würfeln')b.classList.add('roll-button');
   if(description){const small=document.createElement('small');small.textContent=description;b.append(small)}
@@ -220,7 +241,7 @@ function screen(message,choices){
   render(message);
   $('choices').replaceChildren();
   $('hand').replaceChildren();
-  for(const [label,fn,description,primary] of choices)control('choices',label,fn,description,primary);
+  for(const [label,fn,description,primary,cardId] of choices)control('choices',label,fn,description,primary,cardId);
   active().hand.forEach((id,i)=>{
     const allowed=!spent&&((phase==='before'&&before.includes(id)&&targets(id).length)||
       (phase==='rolled'&&after.includes(id)&&(id!=='desperate'||players.every(p=>p.pos>=active().pos)))||
@@ -231,10 +252,10 @@ function screen(message,choices){
 function choose(message,options){
   phase='prompt';
   const token=generation;
-  return new Promise(resolve=>screen(message,options.map(([key,label,description])=>[label,()=>{
+  return new Promise(resolve=>screen(message,options.map(([key,label,description,cardId])=>[label,()=>{
     if(token!==generation||phase!=='prompt')return;
     phase='busy';$('choices').replaceChildren();resolve(key);
-  },description])));
+  },description,false,cardId])));
 }
 function begin(){
   spent=false;roll=0;source=active().pos;
@@ -254,16 +275,17 @@ function next(){current=(current+1)%players.length;begin()}
 const limit=p=>p.mods.has('bag')?3:2;
 async function trim(p){
   while(p.hand.length>limit(p)){
-    const i=await choose(p.name+' wirft eine Karte ab.',p.hand.map((k,i)=>[i,cards[k][0],cards[k][1]]));
+    const i=await choose(p.name+' wirft eine Karte ab.',p.hand.map((k,i)=>[i,cards[k][0],cards[k][1],k]));
     p.hand.splice(i,1);
   }
 }
 async function shield(p,message,kind){
-  const options=p.hand.flatMap((id,i)=>id==='armor'||(kind==='oil'&&id==='chain')?[[i,cards[id][0],cards[id][1]]]:[]);
+  const options=p.hand.flatMap((id,i)=>id==='armor'||(kind==='oil'&&id==='chain')?[[i,cards[id][0],cards[id][1],id]]:[]);
   if(!options.length)return false;
   const answer=await choose(p.name+': '+message,[...options,[-1,'Hinnehmen']]);
   if(answer<0)return false;
-  p.hand.splice(answer,1);return true;
+  const [id]=p.hand.splice(answer,1);
+  await revealCard(id,p.name+' wehrt den Effekt ab.');return true;
 }
 async function pause(p,message){
   if(!p.skip&&!(await shield(p,message)))p.skip=true;
@@ -295,6 +317,9 @@ async function play(id,i){
   }
   if(token!==generation)return;
   p.hand.splice(i,1);spent=true;phase='busy';
+  $('choices').replaceChildren();$('hand').replaceChildren();
+  await revealCard(id,p.name+' spielt eine Karte.','Karte ausführen');
+  if(token!==generation)return;
   const q=options[target];
   if(id==='turbo')return drive(roll+2);
   if(id==='extra')return drive(roll+d6());
@@ -312,6 +337,7 @@ async function play(id,i){
   if(id==='wrench'&&!(await shield(q.q,'Schraubenschlüssel'))){q.q.mods.delete(q.mod);await trim(q.q)}
   if(id==='grab'&&!(await shield(q,'Greifarm'))){
     const stolen=q.hand.splice(Math.floor(Math.random()*q.hand.length),1)[0];
+    await revealCard(stolen,p.name+' übernimmt eine Karte.');
     p.hand.push(stolen);await trim(p);
   }
   beginBefore(cards[id][0]+' gespielt.');
@@ -329,7 +355,7 @@ async function garage(p,pos){
   if(!available.length)return;
   const offset=(shops.indexOf(pos)*3)%available.length;
   const offered=[...available.slice(offset),...available.slice(0,offset)].slice(0,3);
-  p.mods.add(await choose(p.name+' wählt ein Upgrade.',offered.map(([id,[name,desc]])=>[id,name,desc])));
+  p.mods.add(await choose(p.name+' wählt ein Upgrade.',offered.map(([id,[name,desc]])=>[id,name,desc,'upgrade:'+id])));
 }
 function landing(p,pos,from){
   const direction=Math.sign(pos-from);
@@ -362,19 +388,20 @@ async function move(pos,continuous,seen){
   if(kind==='shortcut'&&await choose('Abkürzung zu Feld '+value+' nehmen?',[[true,'Abkürzung'],[false,'Hier bleiben']]))return move(value,false,seen);
   if(kind==='card'){
     const card=draw();
+    await revealCard(card,p.name+' zieht eine Karte.',card==='failure'?'Effekt auflösen':'Weiter');
     if(card==='failure'){
       if(!(await shield(p,'Kolbenfresser: drei Felder zurück')))return move(p.pos-3,true,seen);
     }else if(card.startsWith('upgrade:')){
       const mod=card.slice(8);
       if(!p.mods.has(mod)){
-        p.mods.add(mod);await choose(p.name+' erhält '+upgrades[mod][0]+'.',[[true,'Weiter',upgrades[mod][1]]]);
+        p.mods.add(mod);
       }else{
+        await revealCard('turbo',p.name+' hat das Upgrade schon und erhält einen Turbo.');
         p.hand.push('turbo');await trim(p);
-        await choose(p.name+' hat das Upgrade schon und erhält einen Turbo.',[[true,'Weiter']]);
       }
     }else{
       p.hand.push(card);await trim(p);
-      await choose(p.name+' zieht '+cards[card][0]+'.',[[true,'Weiter',cards[card][1]]]);
+
     }
   }
 }
