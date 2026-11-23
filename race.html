@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kurvenchaos · Vokabelarena</title>
+<link rel="stylesheet" href="race.css">
+<main>
+<header><a href="./">← Vokabelarena</a><h1>Kurvenchaos</h1><button id="restart" hidden>Neues Rennen</button></header>
+<form id="setup"><label>Anzahl der Wagen <select id="count"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label><div id="names"></div><button>Rennen starten</button></form>
+<section id="race" hidden>
+<div class="layout"><div id="track" aria-label="Rennstrecke vom Start bis zum Ziel"></div><aside><h2>Rangliste</h2><ol id="standings"></ol><details><summary>Streckenfelder</summary><p>🃏 Karte · 🔧 Werkstatt · ❗ Panne · ↗ Abkürzung · + / − Zusatzbewegung</p><p>Werkstätten zählen auch beim Vorbeifahren. Abkürzungen beginnen auf dem markierten Feld.</p></details></aside></div>
+<div class="controls"><div><strong id="turn"></strong><p id="status" role="status"></p></div><div id="choices"></div><div id="hand" aria-label="Aktionskarten"></div></div>
+</section>
+</main>
+<script src="race.js"></script>
+</html>

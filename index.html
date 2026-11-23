@@ -702,7 +702,7 @@ sich erinnern;remember</textarea></label>
 <p id="phrasalStatus" role="status"></p><div id="phrasalOptions"></div>
 </fieldset><label>Abfragerichtung <select id="direction"><option value="0">Links → rechts</option><option value="1">Rechts → links</option><option value="mix">Gemischt (beide Richtungen)</option></select></label>
 <div class="stepActions">
-<button type="button" id="chooseGame">Weiter zur Spielauswahl</button>
+<button type="button" id="chooseGame">Weiter zur Spielauswahl</button> <a href="race.html">Kurvenchaos direkt starten</a>
 <button type="button" id="applyVocabulary" hidden>Übernehmen und weiterspielen</button>
 <button type="button" id="cancelVocabulary" class="secondary" hidden>Zurück zur Partie</button>
 </div></div>
@@ -1699,7 +1699,8 @@ const gameCatalog = [
   {id:"catapult", title:"Katapultduell", description:"Steine sammeln und Burgen verteidigen.", position:"100% 100%"},
   {id:"fleet", title:"Schiffe versenken", description:"Zwei Flotten, Hinweise und Salven auf 10 × 10 Feldern."},
   {id:"golf", title:"Minigolf", description:"Vokabelserien bestimmen deinen Schlag.", position:"50% 50%"},
-  {id:"maze", title:"Wörterlabyrinth", description:"Drei Schlüssel, fünf Worträtsel und verborgene Wege."}
+  {id:"maze", title:"Wörterlabyrinth", description:"Drei Schlüssel, fünf Worträtsel und verborgene Wege."},
+  {id:"race", title:"Kurvenchaos", description:"Würfelrennen mit Aktionskarten und Werkstätten.", href:"race.html"}
 ];
 
 let editingVocabulary = false;
@@ -1712,7 +1713,8 @@ const gameTiles = gameCatalog.map(game => {
   cover.setAttribute("aria-hidden","true");
   if (game.id==="football") cover.classList.add("footballCover");
   if (game.id==="golf") cover.classList.add("golfCover");
-  if (game.position) cover.style.setProperty("--cover-position",game.position);
+  if (game.href) cover.style.cssText = "background: center / cover no-repeat url(race-cover.jpg)";
+  else if (game.position) cover.style.setProperty("--cover-position",game.position);
   else {
     cover.classList.add("fleetCover");
     const ship = document.createElement("span");
@@ -1725,6 +1727,7 @@ const gameTiles = gameCatalog.map(game => {
   description.textContent = game.description;
   tile.append(cover,title,description);
   tile.onclick = () => {
+    if (game.href) { location.assign(game.href); return; }
     el("mode").value = game.id;
     setupMode();
     showGameSettings();
