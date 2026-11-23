@@ -44,6 +44,33 @@ function raceForest() {
     block('#6b7370',x,y-2,4,3);
     block('#91918a',x,y-2,2,1);
   }
+  // A pond, reflected sunset and reeds break up the trees at the edge of the clearing.
+  const water = ['#243653','#314c68','#3a5a74','#526984'];
+  for (let row=0;row<41;row++) {
+    const width=Math.floor(63*Math.sqrt(1-((row-21)/23)**2));
+    block('#544d49',400-width-3,219+row,width+3,1);
+    block(water[row%4],400-width,220+row,width,1);
+    if (row%3===0) block(row%2?'#b37b6b':'#e7ab73',379+random()*13,220+row,5+Math.floor(random()*10),1);
+  }
+  for (let i=0;i<25;i++) {
+    const x=360+random()*40;
+    const y=230+random()*30;
+    block('#354852',x,y,5,2);
+    block('#8a9260',x,y,4,1);
+  }
+  // Warm light from a small cabin overlooking the upper straight.
+  block('#1b2531',290,21,34,5);
+  block('#704936',294,9,27,13);
+  block('#573a35',315,9,6,13);
+  for (let y=5;y<21;y+=3) block('#a16b47',294,y,21,1);
+  for (let y=0;y<10;y++) {
+    block('#3c3035',305-y*1.5,y,8+y*2.8,1);
+    block('#a16949',305-y*1.5,y,6+y*2,1);
+  }
+  block('#2d2832',298,12,7,7);
+  block('#ffce76',299,13,5,5);
+  block('#aa603f',301,13,1,5);
+  block('#3d3035',309,13,5,9);
   return canvas;
 }
 

@@ -52,7 +52,10 @@ const cellNodes=Array.from({length:end+1},(_,pos)=>{
   const [kind,label]=fields[pos]??['normal',''];
   e.dataset.kind=kind;
   e.dataset.direction=step===8?'down':rung%2?'left':'right';
-  e.title=[pos,specialNames[kind],label].filter(Boolean).join(' · ');
+  if (step===7 && rung<3) e.dataset.corner=rung%2?'outer-tl':'outer-tr';
+  if (step===0 && rung>0) e.dataset.corner=rung%2?'outer-br':'outer-bl';
+  e.title=[String(pos),specialNames[kind],label].filter(Boolean).join(' · ');
+  e.setAttribute('aria-label',e.title);
   track.append(e);
   return e;
 });
@@ -111,7 +114,9 @@ function render(message){
     const number=document.createElement('span');
     number.className='field-number';number.textContent=pos;
     const sign=document.createElement('span');
-    sign.className='field-sign';sign.textContent=label||'';
+    sign.className='field-sign';
+    sign.textContent=['card','shop','skip','start','finish'].includes(el.dataset.kind)?'':label;
+    sign.setAttribute('aria-hidden','true');
     const slick=document.createElement('span');
     slick.className='slick';slick.hidden=!oil.has(pos);
     slick.title='Ölfleck';
