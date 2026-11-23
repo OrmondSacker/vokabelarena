@@ -71,6 +71,19 @@ const cellNodes=Array.from({length:end+1},(_,pos)=>{
   return e;
 });
 const sprites=vehicles.map((_,index)=>raceSprite(index,colors[index]));
+let robotSprite;
+function loadSprite(image,x,y,width,height){
+  const canvas=document.createElement('canvas');
+  canvas.width=128;
+  canvas.height=Math.round(128*height/width);
+  const ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(image,x,y,width,height,0,0,canvas.width,canvas.height);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+  for(let i=3;i<pixels.data.length;i+=4)if(pixels.data[i]<96)pixels.data[i]=0;
+  ctx.putImageData(pixels,0,0);
+  return canvas.toDataURL();
+}
 const atlas=new Image();
 atlas.onload=()=>{
   const cellWidth=atlas.naturalWidth/3;
@@ -79,20 +92,21 @@ atlas.onload=()=>{
   const bounds=[[26,79,453,375],[43,75,442,379],[20,44,469,413],
     [24,97,452,357],[2,105,491,349],[8,48,477,405]];
   bounds.forEach(([x,y,w,h],index)=>{
-    const canvas=document.createElement('canvas');
-    canvas.width=Math.round(w/4);canvas.height=Math.round(h/4);
-    const ctx=canvas.getContext('2d');
-    ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(atlas,(index%3+x/512)*cellWidth,(Math.floor(index/3)+y/512)*cellHeight,
-      w*cellWidth/512,h*cellHeight/512,0,0,canvas.width,canvas.height);
-    const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
-    for(let i=3;i<pixels.data.length;i+=4)if(pixels.data[i]<96)pixels.data[i]=0;
-    ctx.putImageData(pixels,0,0);
-    sprites[index]=canvas.toDataURL();
+    if(index===1&&robotSprite)return;
+    sprites[index]=loadSprite(atlas,(index%3+x/512)*cellWidth,(Math.floor(index/3)+y/512)*cellHeight,
+      w*cellWidth/512,h*cellHeight/512);
   });
   if(!$('race').hidden)render($('status').textContent);
 };
 atlas.src='race-vehicles.png';
+const robot=new Image();
+robot.onload=()=>{
+  const margin=Math.round(robot.naturalWidth*.085);
+  robotSprite=loadSprite(robot,margin,0,robot.naturalWidth-margin*2,robot.naturalHeight);
+  sprites[1]=robotSprite;
+  if(!$('race').hidden)render($('status').textContent);
+};
+robot.src='race-robot.png';
 function names(){
   const values=[...$('names').querySelectorAll('input')].map(e=>e.value);
   $('names').replaceChildren(...vehicles.slice(0,Number($('count').value)).map((name,i)=>{
@@ -151,7 +165,7 @@ function render(message){
     slick.title='Ölfleck';
     el.replaceChildren(number,sign,slick);
     for(const player of present){
-      const img=new Image();img.className='wagon';img.src=sprites[player.id];img.alt=player.name;img.title=player.name;img.classList.toggle('driver-turn',player===active());group.append(img);
+      const img=new Image();img.className='wagon';img.src=sprites[player.id];img.alt=player.id===1?player.name+' mit Roboter am Steuer':player.name;img.title=img.alt;img.classList.toggle('driver-turn',player===active());group.append(img);
     }
     el.append(group);
   }
