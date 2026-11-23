@@ -181,7 +181,14 @@ function render(message){
     number.className='field-number';number.textContent=pos;
     const sign=document.createElement('span');
     sign.className='field-sign';
-    sign.textContent=['card','shop','start','finish'].includes(el.dataset.kind)?'':el.dataset.kind==='skip'?'!':label;
+    const kind=el.dataset.kind;
+    if(fieldMotifs[kind]){
+      const icon=document.createElement('span');
+      icon.className='field-motif';
+      icon.style.backgroundImage='url('+motifImage(fieldMotifs[kind])+')';
+      sign.append(icon);
+    }
+    if(['boost','back','shortcut'].includes(kind))sign.append(label);
     sign.setAttribute('aria-hidden','true');
     const slick=document.createElement('span');
     slick.className='slick';slick.hidden=!oil.has(pos);
@@ -194,28 +201,62 @@ function render(message){
   }
 }
 const cardArt={
-  turbo:['↠','boost'],extra:['⚄','workshop'],gas:['↑','boost'],
-  skip:['!','hazard'],shell:['●','hazard'],teleport:['◎','warp'],drift:['⇄','warp'],
-  pit:['⚒','workshop'],wrench:['⚒','workshop'],grab:['⌁','warp'],
-  armor:['◆','guard'],chain:['∞','guard'],spill:['●','hazard'],desperate:['×3','hazard'],failure:['✕','hazard'],
-  'upgrade:motor':['↟','workshop'],'upgrade:double':['⚄','workshop'],
-  'upgrade:cruise':['➜','workshop'],'upgrade:oil':['●','workshop'],
-  'upgrade:alarm':['!','workshop'],'upgrade:bumper':['◆','workshop'],'upgrade:bag':['▤','workshop']
+  turbo:['rocket','boost'],extra:['dice','workshop'],gas:['flame','boost'],
+  skip:['stop','hazard'],shell:['shell','hazard'],teleport:['portal','warp'],drift:['swap','warp'],
+  pit:['wrench','workshop'],wrench:['wrench','workshop'],grab:['claw','warp'],
+  armor:['shield','guard'],chain:['chain','guard'],spill:['oil','hazard'],desperate:['flame','hazard'],
+  failure:['stop','hazard'],'upgrade:motor':['rocket','workshop'],'upgrade:double':['dice','workshop'],
+  'upgrade:cruise':['arrow','workshop'],'upgrade:oil':['oil','workshop'],'upgrade:alarm':['stop','workshop'],
+  'upgrade:bumper':['shield','workshop'],'upgrade:bag':['deck','workshop']
 };
+// Eight-pixel silhouettes share an outline and two highlight shades.
+const motifs={
+  rocket:['.....11.','....1331','...13331','..13321.','.13321..','11321...','.1211...','21......'],
+  dice:['.111111.','13333331','13233321','13333331','13323331','13233321','12222221','.111111.'],
+  flame:['...1....','..131.1.','..133131','.1333331','13322331','13222231','.122221.','..1111..'],
+  stop:['..1111..','.133331.','13322331','13322331','13322331','13333331','.132231.','..1111..'],
+  shell:['...11...','..1331..','.132231.','13322331','13222231','12322321','.133331.','..1111..'],
+  portal:['..1111..','.133331.','13211231','13133131','13123131','13211331','.133231.','..1111..'],
+  swap:['....1...','.11131..','1333331.','.11131..','..13111.','.1333331','..13111.','...1....'],
+  wrench:['.1....1.','131..131','13311331','.133331.','..1331..','..1331..','..1221..','...11...'],
+  claw:['...11...','..1331..','..1331..','.132231.','131..131','13....31','131..131','.11..11.'],
+  shield:['.111111.','13323331','13323331','13323331','13222331','.132231.','..1331..','...11...'],
+  chain:['..111...','.13331..','1321131.','1311331.','.1331131','.1311231','..13331.','...111..'],
+  oil:['..111...','.13321..','132221..','.122221.','13222221','12222221','.122221.','..1111..'],
+  arrow:['....1...','....31..','.111331.','13333331','12222221','.111221.','....21..','....1...'],
+  deck:['..1111..','.133331.','.132331.','1133331.','1313331.','1311111.','.13331..','..111...']
+};
+const motifImages={};
+function motifImage(id){
+  if(motifImages[id])return motifImages[id];
+  const tile=document.createElement('canvas');
+  tile.width=tile.height=8;
+  const ctx=tile.getContext('2d'),ink=['','#2c2339','#d48d56','#fff0b1'];
+  motifs[id].forEach((row,y)=>Array.from(row).forEach((pixel,x)=>{
+    if(pixel==='.')return;
+    ctx.fillStyle=ink[Number(pixel)];
+    ctx.fillRect(x,y,1,1);
+  }));
+  return motifImages[id]=tile.toDataURL();
+}
+const fieldMotifs={card:'deck',shop:'wrench',skip:'stop',boost:'arrow',back:'arrow',shortcut:'swap',start:'arrow'};
+const revealLabels={draw:'Karte gezogen',play:'Karte ausgespielt',guard:'Abwehrkarte ausgespielt',receive:'Karte erhalten'};
 function cardIllustration(id){
   const [symbol,theme]=cardArt[id];
   const illustration=document.createElement('span');
   illustration.className='card-art';
   illustration.dataset.theme=theme;
-  illustration.textContent=symbol;
+  illustration.style.backgroundImage='url('+motifImage(symbol)+')';
   illustration.setAttribute('aria-hidden','true');
   return illustration;
 }
-function revealCard(id,caption,buttonLabel='Weiter'){
+function revealCard(id,mode,caption,buttonLabel='Weiter'){
   const dialog=$('card-reveal');
   const [label,description]=id.startsWith('upgrade:')?upgrades[id.slice(8)]:cards[id];
   render(caption);
   $('reveal-caption').textContent=caption;
+  $('reveal-mode').textContent=revealLabels[mode];
+  dialog.dataset.mode=mode;
   $('reveal-name').textContent=label;
   $('reveal-description').textContent=description;
   $('reveal-icon').replaceChildren(cardIllustration(id));
@@ -247,6 +288,11 @@ function screen(message,choices){
       (phase==='rolled'&&after.includes(id)&&(id!=='desperate'||players.every(p=>p.pos>=active().pos)))||
       (phase==='parked'&&id==='spill'&&targets(id).length));
     control('hand',cards[id][0],allowed?()=>play(id,i):null,cards[id][1],false,id);
+    const card=$('hand').lastElementChild;
+    const state=document.createElement('span');
+    state.className='hand-state';
+    state.textContent=allowed?'Jetzt ausspielen':'Derzeit nicht spielbar';
+    card.append(state);
   });
 }
 function choose(message,options){
@@ -285,7 +331,7 @@ async function shield(p,message,kind){
   const answer=await choose(p.name+': '+message,[...options,[-1,'Hinnehmen']]);
   if(answer<0)return false;
   const [id]=p.hand.splice(answer,1);
-  await revealCard(id,p.name+' wehrt den Effekt ab.');return true;
+  await revealCard(id,'guard',p.name+' wehrt den Effekt ab.');return true;
 }
 async function pause(p,message){
   if(!p.skip&&!(await shield(p,message)))p.skip=true;
@@ -318,7 +364,7 @@ async function play(id,i){
   if(token!==generation)return;
   p.hand.splice(i,1);spent=true;phase='busy';
   $('choices').replaceChildren();$('hand').replaceChildren();
-  await revealCard(id,p.name+' spielt eine Karte.','Karte ausführen');
+  await revealCard(id,'play',p.name+' spielt eine Karte.','Karte ausführen');
   if(token!==generation)return;
   const q=options[target];
   if(id==='turbo')return drive(roll+2);
@@ -337,7 +383,7 @@ async function play(id,i){
   if(id==='wrench'&&!(await shield(q.q,'Schraubenschlüssel'))){q.q.mods.delete(q.mod);await trim(q.q)}
   if(id==='grab'&&!(await shield(q,'Greifarm'))){
     const stolen=q.hand.splice(Math.floor(Math.random()*q.hand.length),1)[0];
-    await revealCard(stolen,p.name+' übernimmt eine Karte.');
+    await revealCard(stolen,'receive',p.name+' übernimmt eine Karte.');
     p.hand.push(stolen);await trim(p);
   }
   beginBefore(cards[id][0]+' gespielt.');
@@ -388,7 +434,7 @@ async function move(pos,continuous,seen){
   if(kind==='shortcut'&&await choose('Abkürzung zu Feld '+value+' nehmen?',[[true,'Abkürzung'],[false,'Hier bleiben']]))return move(value,false,seen);
   if(kind==='card'){
     const card=draw();
-    await revealCard(card,p.name+' zieht eine Karte.',card==='failure'?'Effekt auflösen':'Weiter');
+    await revealCard(card,'draw',p.name+' zieht eine Karte.',card==='failure'?'Effekt auflösen':'Weiter');
     if(card==='failure'){
       if(!(await shield(p,'Kolbenfresser: drei Felder zurück')))return move(p.pos-3,true,seen);
     }else if(card.startsWith('upgrade:')){
@@ -396,7 +442,7 @@ async function move(pos,continuous,seen){
       if(!p.mods.has(mod)){
         p.mods.add(mod);
       }else{
-        await revealCard('turbo',p.name+' hat das Upgrade schon und erhält einen Turbo.');
+        await revealCard('turbo','receive',p.name+' hat das Upgrade schon und erhält einen Turbo.');
         p.hand.push('turbo');await trim(p);
       }
     }else{

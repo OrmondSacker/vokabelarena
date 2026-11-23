@@ -266,3 +266,52 @@ aside li img{width:39px;image-rendering:auto}
   #card-reveal[open] .reveal-card{animation:none}
   .race-card:not(:disabled):is(:hover,:focus-visible){transform:none}
 }
+
+
+/* Painted field markers share the card illustrations' pixel palette. */
+#track .cell .field-sign{display:none}
+#track .cell:is([data-kind=card],[data-kind=shop],[data-kind=skip],[data-kind=boost],[data-kind=back],[data-kind=shortcut],[data-kind=start]) .field-sign{
+  --tile-ink:#375579;
+  display:flex;align-items:center;justify-content:center;gap:2px;
+  width:max-content;min-width:44%;max-width:100%;height:53%;
+  padding:0 3px;border:1px solid #f4cd86;border-radius:3px;clip-path:none;
+  transform:translate(-50%,-50%);background:var(--tile-ink);color:#fff2c8;
+  text-shadow:0 1px #231c2e;box-shadow:0 2px #503224,inset 0 1px #ffffff32;
+  font-size:clamp(.48rem,1.15vw,.85rem);white-space:nowrap;
+}
+#track .cell .field-sign::after{display:none}
+#track .cell[data-kind=shop] .field-sign{--tile-ink:#87502b}
+#track .cell:is([data-kind=skip],[data-kind=back]) .field-sign{--tile-ink:#8d3934}
+#track .cell:is([data-kind=boost],[data-kind=start]) .field-sign{--tile-ink:#33583e}
+#track .cell[data-kind=shortcut] .field-sign{--tile-ink:#644578}
+#track .field-motif{width:clamp(6px,1.2vw,17px);aspect-ratio:1;background-size:contain;image-rendering:pixelated}
+#track .cell[data-kind=back] .field-motif{transform:scaleX(-1)}
+#track .field-number{
+  align-self:flex-start;padding:1px 2px;background:#fbe0abdc;color:#4a2b22;
+  text-shadow:none;line-height:1;border-radius:2px;
+}
+#track .cell::before{border-right-color:#453021b0;box-shadow:1px 0 #ffe8b786}
+.hand-panel h2{margin:0 0 .4rem;font-size:.9rem;color:#ffdfac}
+.hand-state{display:block;margin-top:.45rem;padding:.25rem;background:#28563f;color:#fff4d5;border-radius:3px;font-size:.73rem}
+.race-card:disabled .hand-state{background:#564a58;color:#fff1d9}
+#hand .race-card:disabled{opacity:.8}
+#hand .race-card,#choices .race-card,.reveal-card{
+  background:linear-gradient(145deg,#fff2ce,#ddae78);border-color:#8c5e40;
+}
+.card-art{
+  background-position:center;background-repeat:no-repeat;background-size:auto 78%;
+  image-rendering:pixelated;border-color:#9e784c;
+  box-shadow:inset 0 0 0 2px #ffe1a338,inset 0 0 20px #16102675;
+}
+#reveal-icon .card-art{background-size:auto 73%}
+#reveal-mode{
+  display:inline-block;margin:0 0 .45rem;padding:.35rem .75rem;
+  border:2px solid #edcf8e;border-radius:4px;background:#294f75;
+  color:#fff3d5;font-weight:900;text-transform:uppercase;letter-spacing:.055em;
+}
+#card-reveal[data-mode=receive] #reveal-mode{background:#326347}
+#card-reveal:is([data-mode=play],[data-mode=guard]) #reveal-mode{background:#87472f}
+@media(max-width:700px){
+  #track .cell .field-sign{gap:1px;padding:0 1px}
+  #track .cell[data-kind=shortcut] .field-motif{display:none}
+}
