@@ -315,3 +315,24 @@ aside li img{width:39px;image-rendering:auto}
   #track .cell .field-sign{gap:1px;padding:0 1px}
   #track .cell[data-kind=shortcut] .field-motif{display:none}
 }
+
+
+#dice-tray{display:flex;gap:10px;align-items:center;margin-block:8px 4px;min-height:46px}
+.race-die{
+  display:grid;grid-template:repeat(3,1fr) / repeat(3,1fr);place-items:center;
+  width:42px;aspect-ratio:1;padding:5px;border:2px solid #f7d796;border-radius:7px;
+  background:linear-gradient(150deg,#fff4d7,#e7bc83);
+  box-shadow:0 4px #7d573c,0 5px #171322,inset 0 2px #fff9e1;
+}
+.race-die i{width:65%;aspect-ratio:1;border-radius:50%;background:#392637;box-shadow:inset 0 1px #181322}
+.is-rolling .race-die{animation:dice-tumble 165ms ease-in-out infinite alternate}
+.is-rolling .race-die:nth-child(2){animation-direction:alternate-reverse}
+@keyframes dice-tumble{from{transform:translateY(-4px) rotate(-15deg)}to{transform:translateY(1px) rotate(12deg)}}
+#track .driver-turn.turn-pulse{animation:current-wagon-pulse 560ms ease-in-out 3;z-index:2}
+@keyframes current-wagon-pulse{
+  0%,100%{scale:1}
+  50%{scale:1.28;filter:drop-shadow(0 0 6px #ffeb88) drop-shadow(0 2px #22182a)}
+}
+@media(prefers-reduced-motion:reduce){
+  .is-rolling .race-die,#track .driver-turn.turn-pulse{animation:none}
+}

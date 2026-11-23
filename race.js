@@ -305,17 +305,56 @@ function choose(message,options){
 }
 function begin(){
   spent=false;roll=0;source=active().pos;
+  $('dice-tray').classList.remove('is-rolling');
+  $('dice-tray').hidden=true;
+  $('dice-tray').replaceChildren();
   if(active().skip){
     active().skip=false;phase='skip';
-    screen('Dieser Wagen setzt einen Zug aus.',[['Weiter',next,'',true]]);return;
-  }
-  beginBefore();
+    screen('Dieser Wagen setzt einen Zug aus.',[['Weiter',next,'',true]]);
+  }else beginBefore();
+  cellNodes[active().pos].querySelector('.driver-turn')?.classList.add('turn-pulse');
 }
-function throwDice(){
+const pipLayouts=[[],[5],[1,9],[1,5,9],[1,3,7,9],[1,3,5,7,9],[1,3,4,6,7,9]];
+function showDice(faces){
+  const tray=$('dice-tray');
+  tray.hidden=false;
+  tray.replaceChildren(...faces.map(face=>{
+    const die=document.createElement('span');
+    die.className='race-die';
+    die.setAttribute('aria-hidden','true');
+    for(const index of pipLayouts[face]){
+      const pip=document.createElement('i');
+      pip.style.gridArea=Math.ceil(index/3)+' / '+((index-1)%3+1);
+      die.append(pip);
+    }
+    return die;
+  }));
+}
+async function animateDice(values){
+  phase='rolling';
+  $('choices').replaceChildren();$('hand').replaceChildren();
+  const token=generation,tray=$('dice-tray');
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    tray.classList.add('is-rolling');
+    for(let frame=0;frame<7;frame++){
+      showDice(values.map((value,index)=>(value+frame*2+index)%6+1));
+      await new Promise(resolve=>setTimeout(resolve,55+frame*6));
+      if(token!==generation)return false;
+    }
+  }
+  tray.classList.remove('is-rolling');
+  showDice(values);
+  return true;
+}
+async function throwDice(){
+  if(phase!=='before')return;
   const values=[d6()];
   if(active().mods.has('double'))values.push(d6());
-  roll=Math.max(...values)+Number(active().mods.has('motor'));
-  phase='rolled';screen('🎲 '+values.join(' / ')+(active().mods.has('motor')?' · Sportmotor +1':'')+' → '+roll+' Felder',[['Fahren · '+roll,()=>drive(roll),'',true]]);
+  if(!(await animateDice(values)))return;
+  const bonus=Number(active().mods.has('motor'));
+  roll=Math.max(...values)+bonus;
+  phase='rolled';
+  screen('Gewürfelt: '+values.join(' / ')+(bonus?' · Sportmotor +1':'')+' → '+roll+' Felder',[['Fahren · '+roll,()=>drive(roll),'',true]]);
 }
 function next(){current=(current+1)%players.length;begin()}
 const limit=p=>p.mods.has('bag')?3:2;
@@ -368,7 +407,11 @@ async function play(id,i){
   if(token!==generation)return;
   const q=options[target];
   if(id==='turbo')return drive(roll+2);
-  if(id==='extra')return drive(roll+d6());
+  if(id==='extra'){
+    const bonus=d6();
+    if(!(await animateDice([bonus])))return;
+    return drive(roll+bonus);
+  }
   if(id==='gas')return drive(roll*2);
   if(id==='desperate'){p.skip=true;return drive(roll*3)}
   if(id==='teleport')return driveTo(q.pos,false);
