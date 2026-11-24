@@ -1205,12 +1205,20 @@ function normalizeAnswer(value, punctuationSpace = " ") {
     .replace(/['’‘]/gu, "").replace(/\p{P}/gu, punctuationSpace).trim().replace(/\s+/gu, " ");
 }
 
+function withoutParentheses(value) {
+  while (/\([^()]*\)/u.test(value)) {
+    value = value.replace(/\([^()]*\)/gu, "");
+  }
+  return value;
+}
+
 function answerMatches(input, solution) {
   const variants = value => [" ", ""].map(separator => normalizeAnswer(value,separator));
-  const actual = variants(input);
+  const actual = variants(withoutParentheses(input));
   if (!actual[0]) return false;
-  const alternatives = solution.split(/[;/|,](?![^()]*\))/u);
-  return [solution, ...alternatives].some(form =>
+  const expectedSolution = withoutParentheses(solution);
+  const alternatives = expectedSolution.split(/[;/|,]/u);
+  return [expectedSolution, ...alternatives].some(form =>
     variants(form).some(expected => actual.some(typed =>
       expected === typed || expected.replace(/^(?:to|der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines)\s+/u,"") === typed ||
       expected === typed.replace(/^(?:to|der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines)\s+/u,""))));
