@@ -14,7 +14,7 @@ const upgrades = {
   motor:['Sportmotor','+1 auf deine Würfelbewegung.'],
   double:['Doppelzündung','Zwei Würfel, der höhere zählt.'],
   cruise:['Tempomat','Alternativ zum Würfeln vier Felder fahren.'],
-  oil:['Ölspender','Nach deinem Zug eine Ölfalle am Ausgangsfeld legen.'],
+  oil:['Ölspender','Öl auf deinem aktuellen Feld ausbringen. Die Falle wird scharf, sobald du das Feld verlässt.'],
   alarm:['Überholalarm','Einmal je Rennen einen überholenden Wagen aussetzen lassen.'],
   bumper:['Abstandshalter','Andere Wagen dürfen nicht auf deinem Feld landen.'],
   bag:['Extratasche','Drei statt zwei Aktionskarten halten.']
@@ -41,7 +41,7 @@ const colors=['#31b8ad','#e55255','#f6be4d','#ae8bea','#78b854','#639bea'];
 const specialNames={card:'Kartenfeld',shop:'Werkstatt',skip:'Panne',back:'Zurück',boost:'Vorwärts',shortcut:'Abkürzung',start:'Start',finish:'Ziel'};
 const before=['skip','shell','teleport','drift','pit','wrench','grab'];
 const after=['turbo','extra','gas','desperate'];
-let players, current, oil, deck, phase, spent, roll, source, generation=0;
+let players, current, oil, deck, phase, spent, roll, generation=0;
 const active=()=>players[current];
 const d6=()=>1+Math.floor(Math.random()*6);
 const track=$('track');
@@ -191,8 +191,10 @@ function render(message){
     if(['boost','back','shortcut'].includes(kind))sign.append(label);
     sign.setAttribute('aria-hidden','true');
     const slick=document.createElement('span');
-    slick.className='slick';slick.hidden=!oil.has(pos);
-    slick.title='Ölfleck';
+    const oilPending=present.some(player=>player.pendingOil===pos);
+    slick.className='slick';slick.hidden=!oil.has(pos)&&!oilPending;
+    slick.style.opacity=oilPending&&!oil.has(pos)?'.45':'';
+    slick.title=oilPending&&!oil.has(pos)?'Öl vorbereitet · wird nach der Abfahrt aktiv':'Ölfleck';
     el.replaceChildren(number,sign,slick);
     for(const player of present){
       const img=new Image();img.className='wagon';img.dataset.player=player.id;img.src=sprites[player.id];img.alt=player.id===1?player.name+' mit Roboter am Steuer':player.name;img.title=img.alt;img.classList.toggle('driver-turn',player===active());group.append(img);
@@ -369,16 +371,20 @@ function screen(message,choices){
     card.append(state);
   });
 }
-function choose(message,options){
+function choose(message,options,workshop=false){
   phase='prompt';
   const token=generation;
-  return new Promise(resolve=>screen(message,options.map(([key,label,description,cardId])=>[label,()=>{
+  return new Promise(resolve=>{
+    $('choices').dataset.workshop=String(workshop);
+    screen(message,options.map(([key,label,description,cardId])=>[label,()=>{
     if(token!==generation||phase!=='prompt')return;
     phase='busy';$('dice-actions').replaceChildren();$('choices').replaceChildren();resolve(key);
-  },description,false,cardId])));
+    },description,false,cardId]));
+    if(workshop)$('choices').querySelector('button')?.focus();
+  });
 }
 function begin(){
-  spent=false;roll=0;source=active().pos;
+  spent=false;roll=0;
   $('dice-tray').classList.remove('is-rolling');
   $('dice-tray').hidden=true;
   $('dice-result').textContent='';
@@ -469,6 +475,20 @@ function targets(id){
   if(id==='spill')return [1,2,3].map(n=>p.pos-n).filter(pos=>pos>0&&!oil.has(pos)&&!players.some(q=>q.pos===pos));
   return rivals;
 }
+function armOil(resume,options){
+  const p=active(),pos=p.pos;
+  if(p.mods.has('oil')&&p.pendingOil!==pos&&!oil.has(pos)){
+    options.unshift(['Ölspender nutzen',()=>{
+      p.pendingOil=pos;
+      resume('Öl auf Feld '+pos+' vorbereitet. Die Falle wird bei der Abfahrt aktiv.');
+    }]);
+  }
+}
+function activateOil(p,to){
+  if(to===p.pos||p.pendingOil!==p.pos)return;
+  delete p.pendingOil;
+  if(p.mods.has('oil')&&!oil.has(p.pos))putOil(p,p.pos);
+}
 function putOil(p,pos){for(const [key,owner] of oil)if(owner===p.id)oil.delete(key);oil.set(pos,p.id)}
 async function play(id,i){
   const token=generation,p=active(),oldPhase=phase;
@@ -502,6 +522,7 @@ async function play(id,i){
       if(token!==generation)return;
       await Promise.all([animateTravel(p,q.pos,false),animateTravel(q,p.pos,false)]);
       if(token!==generation)return;
+      activateOil(p,q.pos);activateOil(q,p.pos);
       [p.pos,q.pos]=[q.pos,p.pos];
     }
     return park('Drift ausgeführt.');
@@ -509,7 +530,7 @@ async function play(id,i){
   if(id==='spill'){putOil(p,q);return park('Ölfleck auf Feld '+q+' gelegt.')}
   if(id==='skip')await pause(q,'Zwangspause');
   if(id==='shell')for(const rival of options)await pause(rival,'Roter Schildkrötenpanzer');
-  if(id==='wrench'&&!(await shield(q.q,'Schraubenschlüssel'))){q.q.mods.delete(q.mod);await trim(q.q)}
+  if(id==='wrench'&&!(await shield(q.q,'Schraubenschlüssel'))){q.q.mods.delete(q.mod);if(q.mod==='oil')delete q.q.pendingOil;await trim(q.q)}
   if(id==='grab'&&!(await shield(q,'Greifarm'))){
     const stolen=q.hand.splice(Math.floor(Math.random()*q.hand.length),1)[0];
     await revealCard(stolen,'receive',p.name+' übernimmt eine Karte.');
@@ -522,6 +543,7 @@ function beginBefore(message='Würfle oder spiele eine verfügbare Karte.'){
   phase='before';
   const options=[['Würfeln',throwDice,'',true]];
   if(active().mods.has('cruise'))options.push(['Tempomat · 4 Felder',()=>drive(4)]);
+  armOil(beginBefore,options);
   screen(message,options);
 }
 async function garage(p,pos){
@@ -535,7 +557,7 @@ async function garage(p,pos){
     [available[i],available[pick]]=[available[pick],available[i]];
   }
   const offered=available.slice(0,count);
-  p.mods.add(await choose(p.name+' wählt ein Upgrade.',offered.map(([id,[name,desc]])=>[id,name,desc,'upgrade:'+id])));
+  p.mods.add(await choose(p.name+' wählt ein Upgrade.',offered.map(([id,[name,desc]])=>[id,name,desc,'upgrade:'+id]),true));
 }
 function landing(p,pos,from){
   const direction=Math.sign(pos-from);
@@ -581,6 +603,7 @@ async function move(pos,continuous,seen){
   const destination=landing(p,Math.max(0,Math.min(end,pos)),from);
   await animateTravel(p,destination,continuous);
   if(token!==generation)return;
+  activateOil(p,destination);
   p.pos=destination;
   render('Feld '+p.pos+' erreicht.');
   if(p.pos===end)return;
@@ -634,10 +657,8 @@ async function driveTo(pos,continuous){
 }
 function park(message='Fahrt beendet.'){
   phase='parked';
-  const p=active(),options=[['Zug beenden',next,'',true]];
-  if(p.mods.has('oil')&&source>0&&source!==p.pos&&!oil.has(source)&&!players.some(q=>q.pos===source)){
-    options.unshift(['Ölspender nutzen',()=>{putOil(p,source);park('Ölfleck auf Feld '+source+' gelegt.')}]);
-  }
+  const options=[['Zug beenden',next,'',true]];
+  armOil(park,options);
   screen(message,options);
 }
 
@@ -645,12 +666,30 @@ function park(message='Fahrt beendet.'){
 function raceContinuation(){
   if($('race').hidden)return null;
   if($('card-reveal').open)return $('reveal-continue');
+  if(phase==='before')return $('dice-actions').querySelector('.roll-button:not(:disabled)');
   return $('choices').querySelector('[data-race-continue]:not(:disabled)');
 }
 const raceInteractive='button, a, input, select, textarea, label, summary, [contenteditable], [role="button"]';
 document.addEventListener('keydown',event=>{
-  if(event.key!=='Enter'||event.defaultPrevented||event.isComposing||
+  if(event.defaultPrevented||event.isComposing||
     event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+  if(!$('race').hidden&&phase==='prompt'&&$('choices').dataset.workshop==='true'){
+    const buttons=Array.from($('choices').querySelectorAll('button:not(:disabled)'));
+    if(!buttons.length)return;
+    const index=buttons.indexOf(document.activeElement);
+    if(['ArrowLeft','ArrowUp','ArrowRight','ArrowDown'].includes(event.key)){
+      event.preventDefault();
+      const direction=['ArrowLeft','ArrowUp'].includes(event.key)?-1:1;
+      buttons[index<0?(direction>0?0:buttons.length-1):(index+direction+buttons.length)%buttons.length].focus();
+      return;
+    }
+    if(event.key==='Enter'&&(index>=0||!event.target.closest?.(raceInteractive))){
+      event.preventDefault();
+      if(!event.repeat)buttons[Math.max(0,index)].click();
+      return;
+    }
+  }
+  if(event.key!=='Enter')return;
   const button=raceContinuation();
   if(!button)return;
   if(event.repeat){event.preventDefault();return;}
