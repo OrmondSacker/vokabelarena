@@ -380,3 +380,22 @@ aside li img{width:39px;image-rendering:auto}
   width:100%;margin-top:6px;background:linear-gradient(#ffe47e,#edac39);
   color:#302018;border-color:#fff0a0 #e6af45 #97601d;
 }
+
+
+#track .travel-wagon{
+  position:absolute;z-index:3;translate:-50% -56%;width:5.8%;height:8.4%;
+  object-fit:contain;pointer-events:none;
+  filter:drop-shadow(0 2px #342130) drop-shadow(0 0 3px #ffde81);
+}
+@media(min-width:701px){
+  .layout{align-items:start}
+  #track{grid-column:1;grid-row:1}
+  .layout>.controls{grid-column:1;grid-row:2;margin-top:0;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr)}
+  .race-sidebar{
+    grid-column:2;grid-row:1 / span 2;
+    position:sticky;top:12px;max-height:calc(100dvh - 24px);
+    overflow:auto;padding-bottom:5px;
+  }
+}
+@media(max-width:700px){.layout>.controls{margin-top:0}}
+@media(min-width:701px){.race-sidebar .dice-panel{position:sticky;top:0;z-index:1}}

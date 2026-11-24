@@ -195,7 +195,7 @@ function render(message){
     slick.title='Ölfleck';
     el.replaceChildren(number,sign,slick);
     for(const player of present){
-      const img=new Image();img.className='wagon';img.src=sprites[player.id];img.alt=player.id===1?player.name+' mit Roboter am Steuer':player.name;img.title=img.alt;img.classList.toggle('driver-turn',player===active());group.append(img);
+      const img=new Image();img.className='wagon';img.dataset.player=player.id;img.src=sprites[player.id];img.alt=player.id===1?player.name+' mit Roboter am Steuer':player.name;img.title=img.alt;img.classList.toggle('driver-turn',player===active());group.append(img);
     }
     el.append(group);
   }
@@ -497,7 +497,12 @@ async function play(id,i){
   if(id==='teleport')return driveTo(q.pos,false);
   if(id==='pit')return driveTo(options[0],false);
   if(id==='drift'){
-    if(!(await shield(q,'Platztausch durch Drift')))[p.pos,q.pos]=[q.pos,p.pos];
+    if(!(await shield(q,'Platztausch durch Drift'))){
+      if(token!==generation)return;
+      await Promise.all([animateTravel(p,q.pos,false),animateTravel(q,p.pos,false)]);
+      if(token!==generation)return;
+      [p.pos,q.pos]=[q.pos,p.pos];
+    }
     return park('Drift ausgeführt.');
   }
   if(id==='spill'){putOil(p,q);return park('Ölfleck auf Feld '+q+' gelegt.')}
@@ -536,9 +541,47 @@ function landing(p,pos,from){
   while(pos!==from&&players.some(q=>q!==p&&q.pos===pos&&q.mods.has('bumper')))pos-=direction;
   return pos;
 }
+function travelFrames(from,to,continuous){
+  const distance=Math.abs(to-from);
+  const route=continuous?Array.from({length:distance+1},(_,i)=>from+Math.sign(to-from)*i):[from,to];
+  const position=pos=>({left:cellNodes[pos].style.left,top:cellNodes[pos].style.top});
+  if(continuous)return route.map(position);
+  return [
+    {...position(from),opacity:1,offset:0},
+    {...position(from),opacity:0,offset:.45},
+    {...position(to),opacity:0,offset:.55},
+    {...position(to),opacity:1,offset:1}
+  ];
+}
+async function animateTravel(p,to,continuous){
+  const from=p.pos;
+  if(from===to||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const original=cellNodes[from].querySelector('[data-player="'+p.id+'"]');
+  const sprite=new Image();
+  sprite.className='travel-wagon';
+  sprite.alt='';
+  sprite.src=sprites[p.id];
+  track.append(sprite);
+  const frames=travelFrames(from,to,continuous);
+  if(!sprite.animate){sprite.remove();return;}
+  if(original)original.style.visibility='hidden';
+  const duration=continuous?Math.min(1350,Math.max(240,Math.abs(to-from)*135)):430;
+  const direction=continuous&&parseFloat(frames[1].left)<parseFloat(frames[0].left)?-1:1;
+  sprite.style.scale=direction+' 1';
+  try{
+    await sprite.animate(frames,{duration,fill:'both'}).finished;
+  }finally{
+    sprite.remove();
+    if(original)original.style.visibility='';
+  }
+}
 async function move(pos,continuous,seen){
-  const p=active(),from=p.pos;
-  p.pos=landing(p,Math.max(0,Math.min(end,pos)),from);
+  const p=active(),from=p.pos,token=generation;
+  const destination=landing(p,Math.max(0,Math.min(end,pos)),from);
+  await animateTravel(p,destination,continuous);
+  if(token!==generation)return;
+  p.pos=destination;
+  render('Feld '+p.pos+' erreicht.');
   if(p.pos===end)return;
   if(continuous&&p.pos>from){
     for(const rival of players.filter(q=>q!==p&&q.pos>=from&&q.pos<p.pos&&q.mods.has('alarm')&&!q.alarm)){
