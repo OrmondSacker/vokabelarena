@@ -677,7 +677,7 @@ button.gameTile .fleetCover{
 <p id="deckStatus" role="status"></p>
 </div>
 <div id="customVocabulary">
-<label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon · Alternativen mit /, | oder Semikolon</small>
+<label>Vokabelpaare <small>· eine Zeile pro Paar, getrennt durch Tab oder Semikolon · Alternativen mit Komma, /, | oder Semikolon · eine passende Übersetzung genügt</small>
 <textarea id="pairs" required spellcheck="false">entscheiden;decide
 anbieten;offer
 erklären;explain
@@ -1209,7 +1209,8 @@ function answerMatches(input, solution) {
   const variants = value => [" ", ""].map(separator => normalizeAnswer(value,separator));
   const actual = variants(input);
   if (!actual[0]) return false;
-  return [solution, ...solution.split(/[;/|]/u)].some(form =>
+  const alternatives = solution.split(/[;/|,](?![^()]*\))/u);
+  return [solution, ...alternatives].some(form =>
     variants(form).some(expected => actual.some(typed =>
       expected === typed || expected.replace(/^(?:to|der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines)\s+/u,"") === typed ||
       expected === typed.replace(/^(?:to|der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines)\s+/u,""))));
