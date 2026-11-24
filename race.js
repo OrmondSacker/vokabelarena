@@ -319,6 +319,7 @@ function cardKind(id){
 function control(parent,label,fn,description='',primary=false,cardId){
   const b=document.createElement('button');b.type='button';b.textContent=label;
   if(primary)b.className='primary';
+  if(fn&&(label==='Weiter'||label==='Zug beenden'))b.dataset.raceContinue='';
   if(cardId){
     b.classList.add('race-card');
     b.dataset.kind=cardKind(cardId);
@@ -639,3 +640,26 @@ function park(message='Fahrt beendet.'){
   }
   screen(message,options);
 }
+
+
+function raceContinuation(){
+  if($('race').hidden)return null;
+  if($('card-reveal').open)return $('reveal-continue');
+  return $('choices').querySelector('[data-race-continue]:not(:disabled)');
+}
+const raceInteractive='button, a, input, select, textarea, label, summary, [contenteditable], [role="button"]';
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Enter'||event.defaultPrevented||event.isComposing||
+    event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+  const button=raceContinuation();
+  if(!button)return;
+  if(event.repeat){event.preventDefault();return;}
+  if(event.target.closest?.(raceInteractive))return;
+  event.preventDefault();
+  button.click();
+});
+document.addEventListener('click',event=>{
+  if(event.defaultPrevented||event.button!==0||event.target.closest?.(raceInteractive)||
+    window.getSelection()?.type==='Range')return;
+  raceContinuation()?.click();
+});
