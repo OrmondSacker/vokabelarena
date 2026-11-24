@@ -352,7 +352,11 @@ function screen(message,choices){
   render(message);
   $('choices').replaceChildren();
   $('hand').replaceChildren();
-  for(const [label,fn,description,primary,cardId] of choices)control('choices',label,fn,description,primary,cardId);
+  $('dice-actions').replaceChildren();
+  for(const [label,fn,description,primary,cardId] of choices){
+    const diceAction=fn===throwDice||(phase==='rolled'&&primary);
+    control(diceAction?'dice-actions':'choices',label,fn,description,primary,cardId);
+  }
   active().hand.forEach((id,i)=>{
     const reason=cardAvailability(id);
     const allowed=reason==='';
@@ -369,13 +373,14 @@ function choose(message,options){
   const token=generation;
   return new Promise(resolve=>screen(message,options.map(([key,label,description,cardId])=>[label,()=>{
     if(token!==generation||phase!=='prompt')return;
-    phase='busy';$('choices').replaceChildren();resolve(key);
+    phase='busy';$('dice-actions').replaceChildren();$('choices').replaceChildren();resolve(key);
   },description,false,cardId])));
 }
 function begin(){
   spent=false;roll=0;source=active().pos;
   $('dice-tray').classList.remove('is-rolling');
   $('dice-tray').hidden=true;
+  $('dice-result').textContent='';
   $('dice-tray').replaceChildren();
   if(active().skip){
     active().skip=false;phase='skip';
@@ -401,6 +406,8 @@ function showDice(faces){
 }
 async function animateDice(values){
   phase='rolling';
+  $('dice-actions').replaceChildren();
+  $('dice-result').textContent='Würfelt …';
   $('choices').replaceChildren();$('hand').replaceChildren();
   const token=generation,tray=$('dice-tray');
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
@@ -413,6 +420,7 @@ async function animateDice(values){
   }
   tray.classList.remove('is-rolling');
   showDice(values);
+  $('dice-result').textContent=values.length===1?'Augenzahl: '+values[0]:'Höherer Würfel: '+Math.max(...values);
   return true;
 }
 async function throwDice(){
@@ -422,6 +430,7 @@ async function throwDice(){
   if(!(await animateDice(values)))return;
   const bonus=Number(active().mods.has('motor'));
   roll=Math.max(...values)+bonus;
+  if(bonus)$('dice-result').textContent+=' · Sportmotor +1';
   phase='rolled';
   screen('Gewürfelt: '+values.join(' / ')+(bonus?' · Sportmotor +1':'')+' → '+roll+' Felder',[['Fahren · '+roll,()=>drive(roll),'',true]]);
 }
@@ -471,6 +480,7 @@ async function play(id,i){
   }
   if(token!==generation)return;
   p.hand.splice(i,1);spent=true;phase='busy';
+  $('dice-actions').replaceChildren();
   $('choices').replaceChildren();$('hand').replaceChildren();
   await revealCard(id,'play',p.name+' spielt eine Karte.','Karte ausführen');
   if(token!==generation)return;
@@ -479,6 +489,7 @@ async function play(id,i){
   if(id==='extra'){
     const bonus=d6();
     if(!(await animateDice([bonus])))return;
+    $('dice-result').textContent='Extrawürfel: '+bonus+' · '+(roll+bonus)+' Felder';
     return drive(roll+bonus);
   }
   if(id==='gas')return drive(roll*2);
@@ -570,7 +581,7 @@ async function move(pos,continuous,seen){
 }
 function drive(distance){return driveTo(active().pos+distance,true)}
 async function driveTo(pos,continuous){
-  phase='busy';$('choices').replaceChildren();$('hand').replaceChildren();
+  phase='busy';$('dice-actions').replaceChildren();$('choices').replaceChildren();$('hand').replaceChildren();
   const token=generation;
   await move(pos,continuous,new Set());
   if(token!==generation)return;
