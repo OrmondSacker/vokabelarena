@@ -336,3 +336,29 @@ aside li img{width:39px;image-rendering:auto}
 @media(prefers-reduced-motion:reduce){
   .is-rolling .race-die,#track .driver-turn.turn-pulse{animation:none}
 }
+
+
+#hand .race-card,#choices .race-card,.reveal-card{
+  --card-paper:#f8dfad;--card-border:#875332;--card-ink:#43282c;
+  color:var(--card-ink);border-color:var(--card-border);
+  background:linear-gradient(155deg,#fff8df,var(--card-paper) 52%,#bc855840);
+}
+#choices .race-card[data-kind="Dauerupgrade"],.reveal-card[data-kind="Dauerupgrade"]{
+  --card-paper:#9bcab4;--card-border:#b59555;--card-ink:#123c33;
+  background:linear-gradient(145deg,#e3f4d9,#a7d0b2 60%,#7cb1a2);
+}
+#hand .race-card[data-kind="Abwehrkarte"],#choices .race-card[data-kind="Abwehrkarte"],.reveal-card[data-kind="Abwehrkarte"]{
+  --card-paper:#b6cbed;--card-border:#545b8b;--card-ink:#253356;
+}
+.reveal-card[data-kind="Soforteffekt"]{--card-paper:#e9a08d;--card-border:#9c4436}
+.card-kind{
+  display:block;padding:.22em .5em;margin:0 0 .3em;background:var(--card-ink,#43282c);
+  color:#fff6df;font-size:.68rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;
+}
+.card-art,#reveal-icon .card-art{background-size:cover}
+.card-art{height:clamp(48px,7vw,80px);border:2px solid var(--card-border,#875332)}
+#reveal-icon .card-art{
+  height:auto;aspect-ratio:8 / 5;
+  outline:1px solid #fff1c899;outline-offset:-4px;
+}
+#reveal-name{padding-top:.22rem}

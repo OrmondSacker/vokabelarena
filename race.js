@@ -241,12 +241,54 @@ function motifImage(id){
 }
 const fieldMotifs={card:'deck',shop:'wrench',skip:'stop',boost:'arrow',back:'arrow',shortcut:'swap',start:'arrow'};
 const revealLabels={draw:'Karte gezogen',play:'Karte ausgespielt',guard:'Abwehrkarte ausgespielt',receive:'Karte erhalten'};
+// Each card pairs its own colors with a foreground object and a smaller effect or tool.
+const cardScenes={
+  turbo:['#164746','#60dcb1','flame'],extra:['#27486a','#a3e4ff','dice'],
+  gas:['#632b25','#ff9d50','arrow'],skip:['#593649','#ff88a0','shield'],
+  shell:['#69242e','#ff6956','arrow'],teleport:['#34205e','#cf9bff','portal'],
+  drift:['#27365f','#83b6ff','arrow'],pit:['#704021','#ffd68a','deck'],
+  wrench:['#443648','#f4ad91','stop'],grab:['#28465a','#a4e4de','deck'],
+  armor:['#233d70','#b9dcff','shield'],chain:['#374558','#9baccb','oil'],
+  spill:['#3a273e','#d5a3e5','oil'],desperate:['#5e223f','#ff9d80','rocket'],
+  failure:['#462329','#ffb16c','flame'],
+  'upgrade:motor':['#20594b','#f3c66c','wrench'],'upgrade:double':['#1d4750','#8ae2bd','dice'],
+  'upgrade:cruise':['#245345','#c9ea8f','shield'],'upgrade:oil':['#214841','#b5d393','deck'],
+  'upgrade:alarm':['#27534c','#ffa866','arrow'],'upgrade:bumper':['#215c56','#d0ece3','wrench'],
+  'upgrade:bag':['#314e3d','#f6cc8b','deck']
+};
+const sceneImages={};
+function cardScene(id,symbol){
+  if(sceneImages[id])return sceneImages[id];
+  const [base,highlight,detail]=cardScenes[id];
+  const canvas=document.createElement('canvas');
+  canvas.width=48;canvas.height=30;
+  const ctx=canvas.getContext('2d');
+  const block=(color,x,y,w,h)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h)};
+  block(base,0,0,48,30);
+  block('#171729',0,23,48,7);
+  for(let inset=0;inset<5;inset++){
+    block('#ffffff0a',5+inset*2,2+inset,38-inset*4,24-inset*2);
+  }
+  for(const [x,y] of [[5,5],[36,4],[40,13],[9,17],[31,24],[4,25]]){
+    block(highlight,x,y,3,1);block(highlight,x+1,y-1,1,3);
+  }
+  block('#151324',13,25,24,2);
+  function paint(key,left,top,scale){
+    const ink=['','#161527',highlight,'#fff0c4'];
+    motifs[key].forEach((row,y)=>Array.from(row).forEach((pixel,x)=>{
+      if(pixel!=='.')block(ink[Number(pixel)],left+x*scale,top+y*scale,scale,scale);
+    }));
+  }
+  paint(detail,33,18,1);
+  paint(symbol,12,2,3);
+  return sceneImages[id]=canvas.toDataURL();
+}
 function cardIllustration(id){
   const [symbol,theme]=cardArt[id];
   const illustration=document.createElement('span');
   illustration.className='card-art';
   illustration.dataset.theme=theme;
-  illustration.style.backgroundImage='url('+motifImage(symbol)+')';
+  illustration.style.backgroundImage='url('+cardScene(id,symbol)+')';
   illustration.setAttribute('aria-hidden','true');
   return illustration;
 }
@@ -257,6 +299,8 @@ function revealCard(id,mode,caption,buttonLabel='Weiter'){
   $('reveal-caption').textContent=caption;
   $('reveal-mode').textContent=revealLabels[mode];
   dialog.dataset.mode=mode;
+  $('reveal-kind').textContent=cardKind(id);
+  $('reveal-kind').parentElement.dataset.kind=cardKind(id);
   $('reveal-name').textContent=label;
   $('reveal-description').textContent=description;
   $('reveal-icon').replaceChildren(cardIllustration(id));
@@ -266,17 +310,43 @@ function revealCard(id,mode,caption,buttonLabel='Weiter'){
     dialog.showModal();
   });
 }
+function cardKind(id){
+  if(id.startsWith('upgrade:'))return 'Dauerupgrade';
+  if(id==='failure')return 'Soforteffekt';
+  if(id==='armor'||id==='chain')return 'Abwehrkarte';
+  return 'Aktionskarte';
+}
 function control(parent,label,fn,description='',primary=false,cardId){
   const b=document.createElement('button');b.type='button';b.textContent=label;
   if(primary)b.className='primary';
   if(cardId){
     b.classList.add('race-card');
-    b.prepend(cardIllustration(cardId));
+    b.dataset.kind=cardKind(cardId);
+    const kind=document.createElement('span');
+    kind.className='card-kind';kind.textContent=b.dataset.kind;
+    b.prepend(kind,cardIllustration(cardId));
   }
   if(label==='Würfeln')b.classList.add('roll-button');
   if(description){const small=document.createElement('small');small.textContent=description;b.append(small)}
   if(fn)b.onclick=fn;else b.disabled=true;
   $(parent).append(b);
+}
+const parkedActions=['skip','shell','wrench','grab','spill'];
+function cardAvailability(id){
+  if(id==='armor')return 'Reaktion auf einen negativen Effekt';
+  if(id==='chain')return 'Reaktion auf einen Ölfleck';
+  if(spent)return 'In diesem Zug wurde schon eine Aktion gespielt';
+  if(phase==='rolled'&&after.includes(id)){
+    if(id==='desperate'&&players.some(p=>p.pos<active().pos))return 'Nur auf dem letzten Platz';
+    return '';
+  }
+  if((phase==='before'&&before.includes(id))||(phase==='parked'&&parkedActions.includes(id))){
+    return targets(id).length?'':'Kein gültiges Ziel';
+  }
+  if(after.includes(id))return phase==='before'?'Nach dem Würfeln spielbar':'Beim nächsten Wurf spielbar';
+  if(id==='spill')return 'Nach deiner Fahrt spielbar';
+  if(['teleport','drift','pit'].includes(id))return 'Vor der Fahrt · ersetzt den Zug';
+  return 'Vor oder nach deiner Fahrt spielbar';
 }
 function screen(message,choices){
   render(message);
@@ -284,14 +354,13 @@ function screen(message,choices){
   $('hand').replaceChildren();
   for(const [label,fn,description,primary,cardId] of choices)control('choices',label,fn,description,primary,cardId);
   active().hand.forEach((id,i)=>{
-    const allowed=!spent&&((phase==='before'&&before.includes(id)&&targets(id).length)||
-      (phase==='rolled'&&after.includes(id)&&(id!=='desperate'||players.every(p=>p.pos>=active().pos)))||
-      (phase==='parked'&&id==='spill'&&targets(id).length));
+    const reason=cardAvailability(id);
+    const allowed=reason==='';
     control('hand',cards[id][0],allowed?()=>play(id,i):null,cards[id][1],false,id);
     const card=$('hand').lastElementChild;
     const state=document.createElement('span');
     state.className='hand-state';
-    state.textContent=allowed?'Jetzt ausspielen':'Derzeit nicht spielbar';
+    state.textContent=allowed?'Jetzt ausspielen':reason;
     card.append(state);
   });
 }
@@ -429,6 +498,7 @@ async function play(id,i){
     await revealCard(stolen,'receive',p.name+' übernimmt eine Karte.');
     p.hand.push(stolen);await trim(p);
   }
+  if(oldPhase==='parked')return park(cards[id][0]+' gespielt.');
   beginBefore(cards[id][0]+' gespielt.');
 }
 function beginBefore(message='Würfle oder spiele eine verfügbare Karte.'){
@@ -442,8 +512,12 @@ async function garage(p,pos){
   p.shops.add(pos);
   const available=Object.entries(upgrades).filter(([id])=>!p.mods.has(id));
   if(!available.length)return;
-  const offset=(shops.indexOf(pos)*3)%available.length;
-  const offered=[...available.slice(offset),...available.slice(0,offset)].slice(0,3);
+  const count=Math.min(3,available.length);
+  for(let i=0;i<count;i++){
+    const pick=i+Math.floor(Math.random()*(available.length-i));
+    [available[i],available[pick]]=[available[pick],available[i]];
+  }
+  const offered=available.slice(0,count);
   p.mods.add(await choose(p.name+' wählt ein Upgrade.',offered.map(([id,[name,desc]])=>[id,name,desc,'upgrade:'+id])));
 }
 function landing(p,pos,from){

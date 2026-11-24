@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kurvenchaos · Vokabelarena</title>
-<link rel="stylesheet" href="race.css?v=wald10">
+<link rel="stylesheet" href="race.css?v=wald11">
 <main>
 <header><a href="./">← Vokabelarena</a><h1>Kurvenchaos</h1><button id="restart" hidden>Neues Rennen</button></header>
 <form id="setup"><label>Anzahl der Wagen <select id="count"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label><div id="names"></div><button>Rennen starten</button></form>
@@ -15,6 +15,7 @@
     <p id="reveal-mode"></p>
     <p id="reveal-caption"></p>
     <article class="reveal-card">
+      <span id="reveal-kind" class="card-kind"></span>
       <h2 id="reveal-name"></h2>
       <div id="reveal-icon"></div>
       <p id="reveal-description"></p>
@@ -25,5 +26,5 @@
 </section>
 </main>
 <script src="race-art.js?v=wald5"></script>
-<script src="race.js?v=wald10"></script>
+<script src="race.js?v=wald11"></script>
 </html>
